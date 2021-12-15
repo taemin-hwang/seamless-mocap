@@ -1,3 +1,0 @@
-/home/user/Workspace/git/seamless-mocap/body_tracking/cpp/build/CMakeFiles/rebuild_cache.dir
-/home/user/Workspace/git/seamless-mocap/body_tracking/cpp/build/CMakeFiles/ZED_Body_Tracking_Viewer.dir
-/home/user/Workspace/git/seamless-mocap/body_tracking/cpp/build/CMakeFiles/edit_cache.dir
