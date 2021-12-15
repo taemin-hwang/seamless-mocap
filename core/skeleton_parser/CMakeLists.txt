@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.4)
-PROJECT(ZED_Body_Tracking_Viewer)
+PROJECT(skeleton_parser)
 
 option(LINK_SHARED_ZED "Link with the ZED SDK shared executable" ON)
 
