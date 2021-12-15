@@ -27,8 +27,8 @@
 #include <sl/Camera.hpp>
 
 // Sample includes
-#include "GLViewer.hpp"
-#include "TrackingViewer.hpp"
+#include "GLViewer.h"
+#include "TrackingViewer.h"
 
 // Using std and sl namespaces
 using namespace std;

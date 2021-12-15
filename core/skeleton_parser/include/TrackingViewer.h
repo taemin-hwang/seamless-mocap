@@ -8,7 +8,7 @@
 #include <sl/Camera.hpp>
 #include <opencv2/opencv.hpp>
 
-#include "GLViewer.hpp"
+#include "GLViewer.h"
 
 // -------------------------------------------------
 //            2D LEFT VIEW

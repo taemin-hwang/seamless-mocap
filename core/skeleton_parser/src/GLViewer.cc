@@ -1,4 +1,4 @@
-#include "GLViewer.hpp"
+#include "GLViewer.h"
 #include <random>
 
 #if defined(_DEBUG) && defined(_WIN32)
