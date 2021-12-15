@@ -51,14 +51,14 @@ inline cv::Mat slMat2cvMat(sl::Mat& input) {
 
 
 float const id_colors[8][3] = {
-	{ 232.0f, 176.0f ,59.0f },
-	{ 175.0f, 208.0f ,25.0f },
-	{ 102.0f, 205.0f ,105.0f},
-	{ 185.0f, 0.0f   ,255.0f},
-	{ 99.0f, 107.0f  ,252.0f},
-	{252.0f, 225.0f, 8.0f},
-	{167.0f, 130.0f, 141.0f},
-	{194.0f, 72.0f, 113.0f}
+    { 232.0f, 176.0f ,59.0f },
+    { 175.0f, 208.0f ,25.0f },
+    { 102.0f, 205.0f ,105.0f},
+    { 185.0f, 0.0f   ,255.0f},
+    { 99.0f, 107.0f  ,252.0f},
+    {252.0f, 225.0f, 8.0f},
+    {167.0f, 130.0f, 141.0f},
+    {194.0f, 72.0f, 113.0f}
 };
 
 inline cv::Scalar generateColorID_u(int idx) {
@@ -73,10 +73,10 @@ inline sl::float4 generateColorID_f(int idx) {
 }
 
 inline bool renderObject(const sl::ObjectData& i, const bool isTrackingON) {
-	if (isTrackingON)
-		return (i.tracking_state == sl::OBJECT_TRACKING_STATE::OK);
-	else
-		return (i.tracking_state == sl::OBJECT_TRACKING_STATE::OK || i.tracking_state == sl::OBJECT_TRACKING_STATE::OFF);
+    if (isTrackingON)
+        return (i.tracking_state == sl::OBJECT_TRACKING_STATE::OK);
+    else
+        return (i.tracking_state == sl::OBJECT_TRACKING_STATE::OK || i.tracking_state == sl::OBJECT_TRACKING_STATE::OFF);
 }
 
 float const class_colors[6][3] = {
