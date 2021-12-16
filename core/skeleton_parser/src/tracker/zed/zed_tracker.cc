@@ -42,7 +42,7 @@ ZedTracker::ZedTracker() {
 }
 
 void ZedTracker::Initialize() {
-    std::cout << __func__ << std::endl;
+    logDebug << __func__;
     if (OpenCamera() == EXIT_FAILURE) {
         return;
     }
@@ -55,6 +55,7 @@ void ZedTracker::Initialize() {
 }
 
 void ZedTracker::Run() {
+    logDebug << __func__;
     // Create ZED Objects filled in the main loop
     Objects bodies;
     // grab runtime parameters
@@ -85,7 +86,7 @@ void ZedTracker::Run() {
                             for (auto &kp : obj.keypoint_2d)
                             {
                                 cv::Point2f cv_kp = cvt(kp, img_scale);
-                                std::cout << "[" << idx << "] [" << joint_num << "] : " << cv_kp.x << ", " << cv_kp.y << std::endl;
+                                logDebug << "[" << idx << "] [" << joint_num << "] : " << cv_kp.x << ", " << cv_kp.y;
                                 joint_num++;
                             }
                         }
@@ -96,12 +97,12 @@ void ZedTracker::Run() {
                             for (auto &kp : obj.keypoint_2d)
                             {
                                 cv::Point2f cv_kp = cvt(kp, img_scale);
-                                std::cout << "[" << idx << "] [" << joint_num << "] : " << cv_kp.x << ", " << cv_kp.y << std::endl;
+                                logDebug << "[" << idx << "] [" << joint_num << "] : " << cv_kp.x << ", " << cv_kp.y;
                                 joint_num++;
                             }
                         }
                     } else {
-                        std::cout << "Keypoint size is lower than 1" << std::endl;
+                        logError << __func__ << " Keypoint size is lower than 1";
                     }
                 }
                 idx++;
@@ -112,12 +113,14 @@ void ZedTracker::Run() {
 }
 
 void ZedTracker::Shutdown() {
+    logDebug << __func__;
     zed_.disableObjectDetection();
     zed_.disablePositionalTracking();
     zed_.close();
 }
 
 int ZedTracker::OpenCamera() {
+    logDebug << __func__;
     InitParameters init_parameters;
     init_parameters.camera_resolution = RESOLUTION::HD1080;
     // On Jetson the object detection combined with an heavy depth mode could reduce the frame rate too much
@@ -133,6 +136,7 @@ int ZedTracker::OpenCamera() {
 }
 
 int ZedTracker::EnablePositionalTracking() {
+    logDebug << __func__;
     // Enable Positional tracking (mandatory for object detection)
     //If the camera is static, uncomment the following line to have better performances and boxes sticked to the ground.
     auto returned_state = zed_.enablePositionalTracking(positional_tracking_parameters_);
@@ -144,6 +148,7 @@ int ZedTracker::EnablePositionalTracking() {
 }
 
 int ZedTracker::EnableBodyTracking() {
+    logDebug << __func__;
     // Set initialization parameters
     object_detection_parameters_.enable_tracking = true; // Objects will keep the same ID between frames
     object_detection_parameters_.detection_model = isJetson ? DETECTION_MODEL::HUMAN_BODY_FAST : DETECTION_MODEL::HUMAN_BODY_ACCURATE;
@@ -162,6 +167,7 @@ int ZedTracker::EnableBodyTracking() {
 }
 
 sl::float2 ZedTracker::GetImageScale() {
+    logDebug << __func__;
     // For 2D GUI
     auto camera_config = zed_.getCameraInformation().camera_configuration;
     Resolution display_resolution(min((int)camera_config.resolution.width, 1280), min((int)camera_config.resolution.height, 720));

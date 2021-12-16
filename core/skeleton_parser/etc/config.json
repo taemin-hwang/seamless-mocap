@@ -1,6 +1,5 @@
 {
     "addr"    : "192.168.1.2",
     "port"    : 13400,
-    "viewer"  : "on",
-    "logger"  : "debug"
+    "viewer"  : "on"
 }

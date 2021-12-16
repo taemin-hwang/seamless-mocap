@@ -1,4 +1,5 @@
 #include "skeleton_parser.h"
+#include "system/logger/logger.h"
 
 SkeletonParser::SkeletonParser() {
     body_tracker_ = std::make_unique<TrackerManager>(BodyFormat::kPose34, DetectionModel::kFast);
@@ -7,16 +8,20 @@ SkeletonParser::SkeletonParser() {
 }
 
 void SkeletonParser::Initialize() {
-    std::cout << __func__ << std::endl;
+    logDebug << __func__;
+    logInfo << "[Server Addr  ] : " << config_parser_->GetAddress();
+    logInfo << "[Port Number  ] : " << config_parser_->GetPort();
+    logInfo << "[Viewer Status] : " << (config_parser_->IsViewerOn() ? "ON" : "OFF");
+
     body_tracker_->Initialize();
 }
 
 void SkeletonParser::Run() {
-    std::cout << __func__ << std::endl;
+    logDebug << __func__;
     body_tracker_->Run();
 }
 
 void SkeletonParser::Shutdown() {
-    std::cout << __func__ << std::endl;
+    logDebug << __func__;
     body_tracker_->Shutdown();
 }

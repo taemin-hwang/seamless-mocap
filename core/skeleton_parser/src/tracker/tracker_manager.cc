@@ -12,17 +12,20 @@ TrackerManager::~TrackerManager() {
 }
 
 void TrackerManager::Initialize() {
+    logDebug << __func__;
     zed_tracker_->Initialize();
 }
 
 void TrackerManager::Run(){
+    logDebug << __func__;
     zed_tracker_->Run();
 }
 
 void TrackerManager::Shutdown() {
+    logDebug << __func__;
     zed_tracker_->Shutdown();
 }
 
 void TrackerManager::GetHumanKeypoints() {
-    std::cout << __func__ << std::endl;
+    logDebug << __func__;
 }

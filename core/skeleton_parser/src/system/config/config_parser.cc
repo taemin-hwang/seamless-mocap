@@ -1,11 +1,14 @@
 #include <cstdio>
 #include <iostream>
 
-#include "config/config_parser.h"
+#include "system/config/config_parser.h"
+#include "system/logger/logger.h"
 
 using namespace rapidjson;
 
 ConfigParser::ConfigParser(std::string path) {
+    logDebug << __func__;
+
     FILE* fp = fopen(path.c_str(), "rb");
     if(fp == 0) {
         std::cout << "file not exist : default param will be used" << std::endl;
@@ -26,9 +29,9 @@ ConfigParser::ConfigParser(std::string path) {
     if(document.HasMember("viewer") && document["viewer"].IsString()) {
         is_enable_viewer_ = document["viewer"].GetString();
     }
-    if(document.HasMember("logger") && document["logger"].IsString()) {
-        log_level_ = document["logger"].GetString();
-    }
+    // if(document.HasMember("logger") && document["logger"].IsString()) {
+    //     log_level_ = document["logger"].GetString();
+    // }
 
     fclose(fp);
 }

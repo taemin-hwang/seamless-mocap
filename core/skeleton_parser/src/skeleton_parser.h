@@ -6,7 +6,7 @@
 
 #include "tracker/tracker_manager.h"
 #include "transfer/transfer_manager.h"
-#include "config/config_parser.h"
+#include "system/config/config_parser.h"
 
 class SkeletonParser {
  public:

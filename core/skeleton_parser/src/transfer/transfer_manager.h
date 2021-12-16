@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "transfer/transfer_interface.h"
+#include "system/logger/logger.h"
 
 class TransferManager : public TransferInterface {
  public:

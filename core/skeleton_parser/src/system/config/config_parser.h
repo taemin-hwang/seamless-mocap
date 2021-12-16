@@ -17,7 +17,7 @@ class ConfigParser {
     inline std::string GetAddress() { return ip_addr_; }
     inline int GetPort() { return port_; }
     inline bool IsViewerOn() { return is_enable_viewer_ == "on" || is_enable_viewer_ == "ON" || is_enable_viewer_ == "On"; }
-    inline std::string GetLogLevel() { return log_level_; }
+   //  inline std::string GetLogLevel() { return log_level_; }
 
  private:
     std::string ip_addr_ = "";

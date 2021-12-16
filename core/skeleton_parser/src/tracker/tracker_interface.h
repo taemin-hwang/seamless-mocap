@@ -1,6 +1,8 @@
 #ifndef _TRACKER_INTERFACE_H_
 #define _TRACKER_INTERFACE_H_
 
+#include "system/logger/logger.h"
+
 enum class BodyFormat { kPose18, kPose34 };
 enum class DetectionModel { kFast, kMedium, kAccurate};
 
