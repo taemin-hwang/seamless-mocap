@@ -4,5 +4,5 @@ mkdir -p build
 
 pushd build
   cmake ..
-  make
+  make -j2
 popd
