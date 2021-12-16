@@ -1,9 +1,11 @@
 #include <iostream>
 #include <memory>
 
-#include "body_tracker.h"
+#include "skeleton_parser.h"
 
 int main(int argc, char **argv) {
-    std::unique_ptr<BodyTracker> body_tracker = std::make_unique<BodyTracker>();
-    body_tracker->run(argc, argv);
+    std::unique_ptr<SkeletonParser> skeleton_parser = std::make_unique<SkeletonParser>();
+    skeleton_parser->Initialize();
+    skeleton_parser->Run();
+    skeleton_parser->Shutdown();
 }

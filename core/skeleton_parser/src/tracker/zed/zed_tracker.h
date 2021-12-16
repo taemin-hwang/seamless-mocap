@@ -23,7 +23,12 @@
  **         with the ZED SDK and display the result in an OpenGL window.                **
  *****************************************************************************************/
 
+#ifndef _ZED_TRACKER_H_
+#define _ZED_TRACKET_H_
+
 #include <string>
+
+#include <opencv2/opencv.hpp>
 
 // ZED includes
 #include <sl/Camera.hpp>
@@ -32,12 +37,34 @@
 #include "viewer/gl_viewer.h"
 #include "viewer/tracking_viewer.h"
 
-class BodyTracker {
- public:
-    int run(int argc, char **argv);
-    void parseArgs(int argc, char **argv, InitParameters& param);
-    void print(std::string msg_prefix, ERROR_CODE err_code, std::string msg_suffix);
+#include "tracker/tracker_interface.h"
 
+class ZedTracker {
+ public:
+    ZedTracker();
+    virtual ~ZedTracker() = default;
+
+    void Initialize();
+    void Run();
+    void Shutdown();
+
+ public:
+    int OpenCamera();
+    int EnablePositionalTracking();
+    int EnableBodyTracking();
+    sl::float2 GetImageScale();
+    void Print(std::string msg_prefix, ERROR_CODE err_code, std::string msg_suffix);
+    template<typename T>
+    inline cv::Point2f cvt(T pt, sl::float2 scale) {
+       return cv::Point2f(pt.x * scale.x, pt.y * scale.y);
+    }
  private:
-    bool is_playback = false;
+    Camera zed_;
+    PositionalTrackingParameters positional_tracking_parameters_;
+    ObjectDetectionParameters object_detection_parameters_;
+    ObjectDetectionRuntimeParameters object_detection_runtime_parameters_;
+
+    bool is_playback_ = false;
 };
+
+#endif
