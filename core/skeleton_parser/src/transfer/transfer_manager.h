@@ -11,7 +11,7 @@ class TransferManager : public TransferInterface {
     TransferManager() = default;
     virtual ~TransferManager() = default;
 
-    void SendHumanKeypoints(HumanKeypoints human_keypoints);
+    void SendPeopleKeypoints(const PeopleKeypoints& people_keypoints);
 };
 
 #endif

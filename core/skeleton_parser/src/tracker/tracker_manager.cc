@@ -14,6 +14,8 @@ TrackerManager::~TrackerManager() {
 void TrackerManager::Initialize() {
     logDebug << __func__;
     zed_tracker_->Initialize();
+    if( viewer_handler != nullptr) { zed_tracker_->SetViewerHandler(viewer_handler); }
+    if( transfer_handler != nullptr) { zed_tracker_->SetTransferHandler(transfer_handler); }
 }
 
 void TrackerManager::Run(){
@@ -24,8 +26,4 @@ void TrackerManager::Run(){
 void TrackerManager::Shutdown() {
     logDebug << __func__;
     zed_tracker_->Shutdown();
-}
-
-void TrackerManager::GetHumanKeypoints() {
-    logDebug << __func__;
 }

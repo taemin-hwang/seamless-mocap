@@ -58,13 +58,18 @@ class ZedTracker {
     inline cv::Point2f cvt(T pt, sl::float2 scale) {
        return cv::Point2f(pt.x * scale.x, pt.y * scale.y);
     }
+    virtual void SetViewerHandler(std::function<void(const PeopleKeypoints&)> f) { viewer_handler = f; };
+    virtual void SetTransferHandler(std::function<void(const PeopleKeypoints&)> f) { transfer_handler = f; };
+
  private:
     Camera zed_;
     PositionalTrackingParameters positional_tracking_parameters_;
     ObjectDetectionParameters object_detection_parameters_;
     ObjectDetectionRuntimeParameters object_detection_runtime_parameters_;
-
     bool is_playback_ = false;
+
+   std::function<void(const PeopleKeypoints&)> viewer_handler = nullptr;
+   std::function<void(const PeopleKeypoints&)> transfer_handler = nullptr;
 };
 
 #endif

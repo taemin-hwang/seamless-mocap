@@ -70,43 +70,40 @@ void ZedTracker::Run() {
     bool is_tracking_on = object_detection_parameters_.enable_tracking;
     sl::BODY_FORMAT body_format = object_detection_parameters_.body_format;
 
+    PersonKeypoints person_keypoints;
+    PeopleKeypoints people_keypoints;
+
+    if(body_format == sl::BODY_FORMAT::POSE_18) {
+        person_keypoints.resize(18);
+    } else {
+        person_keypoints.resize(34);
+    }
+
     while(!quit && key != 'q') {
         if (zed_.grab() == ERROR_CODE::SUCCESS) {
             zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
 
-            int idx = 0;
+            int person_id = 0;
+            people_keypoints.resize(bodies.object_list.size());
             for (auto i = bodies.object_list.rbegin(); i != bodies.object_list.rend(); ++i) {
                 sl::ObjectData& obj = (*i);
                 if (renderObject(obj, is_tracking_on)) {
-                    if (obj.keypoint_2d.size()) {
-                        if (body_format == sl::BODY_FORMAT::POSE_18)
-                        {
-                            // skeleton joints
-                            int joint_num = 0;
-                            for (auto &kp : obj.keypoint_2d)
-                            {
-                                cv::Point2f cv_kp = cvt(kp, img_scale);
-                                logDebug << "[" << idx << "] [" << joint_num << "] : " << cv_kp.x << ", " << cv_kp.y;
-                                joint_num++;
-                            }
-                        }
-                        else if (body_format == sl::BODY_FORMAT::POSE_34)
-                        {
-                            // skeleton joints
-                            int joint_num = 0;
-                            for (auto &kp : obj.keypoint_2d)
-                            {
-                                cv::Point2f cv_kp = cvt(kp, img_scale);
-                                logDebug << "[" << idx << "] [" << joint_num << "] : " << cv_kp.x << ", " << cv_kp.y;
-                                joint_num++;
-                            }
-                        }
-                    } else {
-                        logError << __func__ << " Keypoint size is lower than 1";
+                    // skeleton joints
+                    int joint_id = 0;
+                    for (auto &kp : obj.keypoint_2d)
+                    {
+                        cv::Point2f cv_kp = cvt(kp, img_scale);
+                        // logDebug << "[" << person_id << "] [" << joint_id << "] : " << cv_kp.x << ", " << cv_kp.y;
+                        person_keypoints[joint_id] = {cv_kp.x, cv_kp.y};
+                        joint_id++;
                     }
                 }
-                idx++;
+                people_keypoints[person_id] = person_keypoints;
+                person_id++;
             }
+
+            if (viewer_handler != nullptr) viewer_handler(people_keypoints);
+            if (transfer_handler != nullptr) transfer_handler(people_keypoints);
         }
     }
     bodies.object_list.clear();

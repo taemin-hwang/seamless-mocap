@@ -14,7 +14,6 @@ class TrackerManager : public TrackerInterface {
     void Initialize() override;
     void Run() override;
     void Shutdown() override;
-    void GetHumanKeypoints() override;
 
  private:
     std::unique_ptr<ZedTracker> zed_tracker_;

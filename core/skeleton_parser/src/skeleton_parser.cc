@@ -13,6 +13,7 @@ void SkeletonParser::Initialize() {
     logInfo << "[Port Number  ] : " << config_parser_->GetPort();
     logInfo << "[Viewer Status] : " << (config_parser_->IsViewerOn() ? "ON" : "OFF");
 
+    body_tracker_->SetTransferHandler([=](PeopleKeypoints people_keypoints){ body_transfer_->SendPeopleKeypoints(people_keypoints); });
     body_tracker_->Initialize();
 }
 
