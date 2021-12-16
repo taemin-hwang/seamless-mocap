@@ -1,4 +1,4 @@
-#include "TrackingViewer.h"
+#include "viewer/tracking_viewer.h"
 
 // -------------------------------------------------
 //            2D LEFT VIEW
