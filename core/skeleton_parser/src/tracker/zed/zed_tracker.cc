@@ -24,6 +24,9 @@
  *****************************************************************************************/
 
 #include <iostream>
+#include <utility>
+
+#include <opencv2/cvconfig.h>
 
 #include "tracker/zed/zed_tracker.h"
 
@@ -62,9 +65,17 @@ void ZedTracker::Run() {
     RuntimeParameters runtime_parameters;
     runtime_parameters.measure3D_reference_frame = sl::REFERENCE_FRAME::WORLD;
 
-    auto image_configuration = GetImageConfiguration();
-    auto image = std::get<0>(image_configuration);
-    auto image_scale = std::get<1>(image_configuration);
+    // auto image_configuration = GetImageConfiguration();
+    // auto image = std::get<0>(image_configuration);
+    // auto image_scale = std::get<1>(image_configuration);
+
+    auto camera_config = zed_.getCameraInformation().camera_configuration;
+    Resolution display_resolution(min((int)camera_config.resolution.width, 1280), min((int)camera_config.resolution.height, 720));
+    cv::Mat image_ocv(display_resolution.height, display_resolution.width, CV_8UC4, 1);
+    sl::Mat image_zed(display_resolution, MAT_TYPE::U8_C4, image_ocv.data, image_ocv.step);
+    // sl::Mat image_zed(display_resolution, MAT_TYPE::U8_C4);
+    // cv::Mat image_ocv = slMat2cvMat(image_zed);
+    sl::float2 image_scale(display_resolution.width / (float)camera_config.resolution.width, display_resolution.height / (float) camera_config.resolution.height);
 
     bool quit = false;
     char key = ' ';
@@ -83,6 +94,7 @@ void ZedTracker::Run() {
 
     while(!quit && key != 'q') {
         if (zed_.grab() == ERROR_CODE::SUCCESS) {
+            zed_.retrieveImage(image_zed, sl::VIEW::LEFT, sl::MEM::CPU, display_resolution);
             zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
 
             int person_id = 0;
@@ -105,9 +117,11 @@ void ZedTracker::Run() {
                 person_id++;
             }
 
-            if (viewer_handler != nullptr) viewer_handler(image, people_keypoints);
+            if (viewer_handler != nullptr) viewer_handler(image_ocv, people_keypoints);
             if (transfer_handler != nullptr) transfer_handler(people_keypoints);
         }
+        // cv::imshow("hello", image_ocv);
+        // key = cv::waitKey(10);
     }
     bodies.object_list.clear();
 }
@@ -169,12 +183,7 @@ int ZedTracker::EnableBodyTracking() {
 std::tuple<cv::Mat, sl::float2> ZedTracker::GetImageConfiguration() {
     logDebug << __func__;
     // For 2D GUI
-    auto camera_config = zed_.getCameraInformation().camera_configuration;
-    Resolution display_resolution(min((int)camera_config.resolution.width, 1280), min((int)camera_config.resolution.height, 720));
-    cv::Mat image_left_ocv(display_resolution.height, display_resolution.width, CV_8UC4, 1);
-    Mat image_left(display_resolution, MAT_TYPE::U8_C4, image_left_ocv.data, image_left_ocv.step);
-    sl::float2 image_scale(display_resolution.width / (float)camera_config.resolution.width, display_resolution.height / (float) camera_config.resolution.height);
-    return {image_left_ocv, image_scale};
+
 }
 
 void ZedTracker::Print(std::string msg_prefix, ERROR_CODE err_code, std::string msg_suffix) {
