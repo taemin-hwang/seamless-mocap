@@ -1,7 +1,14 @@
 #ifndef _GUI_2D_VIEWER_H_
 #define _GUI_2D_VIEWER_H_
 
+#include <GL/glew.h>
+#include <GL/freeglut.h>
+
 #include <cuda.h>
+#include <cuda_gl_interop.h>
+#include <vector_types.h> // float4
+#include <vector_functions.h> // make_float4
+
 #include <opencv2/opencv.hpp>
 
 #include "system/logger/logger.h"
@@ -15,7 +22,13 @@ class Gui2DViewer {
 
 
  private:
-    //float4 generateColorID(int idx);
+    float4 generateColorID(int idx);
+
+    inline cv::Scalar generateColorID_u(int idx) {
+        if (idx < 0) return cv::Scalar(236, 184, 36, 255);
+        int color_idx = idx % 8;
+        return cv::Scalar(id_colors[color_idx][0], id_colors[color_idx][1], id_colors[color_idx][2], 255);
+    }
 
     float const id_colors[8][3] = {
         { 232.0f, 176.0f ,59.0f },

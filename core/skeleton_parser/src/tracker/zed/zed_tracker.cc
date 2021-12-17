@@ -86,7 +86,7 @@ void ZedTracker::Run() {
             zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
 
             int person_id = 0;
-            people_keypoints.second.resize(bodies.object_list.size());
+            people_keypoints.resize(bodies.object_list.size());
             for (auto i = bodies.object_list.rbegin(); i != bodies.object_list.rend(); ++i) {
                 sl::ObjectData& obj = (*i);
                 if (renderObject(obj, is_tracking_on)) {
@@ -100,8 +100,8 @@ void ZedTracker::Run() {
                         joint_id++;
                     }
                 }
-                people_keypoints.first = obj.id;
-                people_keypoints.second[person_id] = person_keypoints;
+                people_keypoints[person_id].first = obj.id;
+                people_keypoints[person_id].second = person_keypoints;
                 person_id++;
             }
 
