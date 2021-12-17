@@ -10,26 +10,32 @@ SkeletonParser::SkeletonParser() {
 }
 
 // Initialize TrackerManager, TransferManger
-//
 void SkeletonParser::Initialize() {
     logDebug << __func__;
     logInfo << "[Server Addr  ] : " << config_parser_->GetAddress();
     logInfo << "[Port Number  ] : " << config_parser_->GetPort();
     logInfo << "[Viewer Status] : " << (config_parser_->IsViewerOn() ? "ON" : "OFF");
+    if(config_parser_->IsViewerOn()) {
+        enable_viewer_ = true;
+    }
 
     body_tracker_->SetTransferHandler([=](seamless::PeopleKeypoints people_keypoints){ body_transfer_->SendPeopleKeypoints(people_keypoints); });
+    if(enable_viewer_) {
+        body_tracker_->SetViewerHandler([=](const cv::Mat& image, seamless::PeopleKeypoints people_keypoints){ viewer_manager_->DisplayPeopleKeypoints(image, people_keypoints); });
+    }
+
     body_tracker_->Initialize();
-    viewer_manager_->Initialize();
+    if(enable_viewer_) viewer_manager_->Initialize();
 }
 
 void SkeletonParser::Run() {
     logDebug << __func__;
     body_tracker_->Run();
-    viewer_manager_->Run();
+    if(enable_viewer_) viewer_manager_->Run();
 }
 
 void SkeletonParser::Shutdown() {
     logDebug << __func__;
     body_tracker_->Shutdown();
-    viewer_manager_->Shutdown();
+    if(enable_viewer_) viewer_manager_->Shutdown();
 }

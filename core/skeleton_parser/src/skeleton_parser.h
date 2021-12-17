@@ -19,11 +19,13 @@ class SkeletonParser {
     void Initialize();
     void Run();
     void Shutdown();
+
  private:
     std::unique_ptr<TrackerInterface> body_tracker_;
     std::unique_ptr<TransferInterface> body_transfer_;
     std::unique_ptr<ConfigParser> config_parser_;
     std::unique_ptr<ViewerManager> viewer_manager_;
+    bool enable_viewer_ = false;
 };
 
 #endif

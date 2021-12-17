@@ -7,6 +7,17 @@ Gui2DViewer::Gui2DViewer()
 
 void Gui2DViewer::Display2DViewer(const cv::Mat &display, const seamless::PeopleKeypoints &people_keypoints)
 {
+    int person_id = 0;
+    for (auto& person_keypoints : people_keypoints.second) {
+        int joint_id = 0;
+        for (auto& keypoints : person_keypoints){
+            logDebug << "[" << person_id << "] [" << joint_id << "] : " << keypoints.first << ", " << keypoints.second;
+            joint_id++;
+        }
+        person_id++;
+    }
+
+
     // cv::Rect roi_render(0, 0, display.size().width, display.size().height);
 
     // for (unsigned int i = 0; i < people_keypoints.size(); i++) {

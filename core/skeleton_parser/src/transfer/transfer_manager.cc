@@ -5,7 +5,7 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleKeypoints& peopl
     for (auto& person_keypoints : people_keypoints.second) {
         int joint_id = 0;
         for (auto& keypoints : person_keypoints){
-            logDebug << "[" << person_id << "] [" << joint_id << "] : " << keypoints.first << ", " << keypoints.second;
+            //logDebug << "[" << person_id << "] [" << joint_id << "] : " << keypoints.first << ", " << keypoints.second;
             joint_id++;
         }
         person_id++;

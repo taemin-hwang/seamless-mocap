@@ -1,7 +1,7 @@
 #include "viewer/viewer_manager.h"
 
 ViewerManager::ViewerManager() {
-    // gui_2d_viewer_ = make_unique<Gui2DViewer>();
+    gui_2d_viewer_ = std::make_unique<Gui2DViewer>();
 }
 
 void ViewerManager::Initialize(){
@@ -31,24 +31,6 @@ void ViewerManager::Shutdown(){
     logDebug << __func__;
 }
 
-void ViewerManager::DisplayPeopleKeypoints(const cv::Mat&, const seamless::PeopleKeypoints& people_keypoints) {
-    // logDebug << __func__;
-    // if (need_floor_plane) {
-    //     if (zed.findFloorPlane(floor_plane, reset_from_floor_plane) == ERROR_CODE::SUCCESS) {
-    //         need_floor_plane = false;
-    //         viewer.setFloorPlaneEquation(floor_plane.getPlaneEquation());
-    //     }
-    // }
-    // string window_name = "ZED| 2D View";
-
-    // //Update GL View
-    // viewer.updateData(point_cloud, bodies.object_list, cam_pose.pose_data);
-
-    // gl_viewer_available = viewer.isAvailable();
-    // if (is_playback && zed.getSVOPosition() == zed.getSVONumberOfFrames()) {
-    //     quit = true;
-    // }
-    // render_2D(image_left_ocv, img_scale, bodies.object_list, obj_det_params.enable_tracking, obj_det_params.body_format);
-    // cv::imshow(window_name, image_left_ocv);
-    // key = cv::waitKey(10);
+void ViewerManager::DisplayPeopleKeypoints(const cv::Mat& image, const seamless::PeopleKeypoints& people_keypoints) {
+    gui_2d_viewer_->Display2DViewer(image, people_keypoints);
 }
