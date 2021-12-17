@@ -62,7 +62,9 @@ void ZedTracker::Run() {
     RuntimeParameters runtime_parameters;
     runtime_parameters.measure3D_reference_frame = sl::REFERENCE_FRAME::WORLD;
 
-    sl::float2 img_scale = GetImageScale();
+    auto image_configuration = GetImageConfiguration();
+    auto image = std::get<0>(image_configuration);
+    auto image_scale = std::get<1>(image_configuration);
 
     bool quit = false;
     char key = ' ';
@@ -70,8 +72,8 @@ void ZedTracker::Run() {
     bool is_tracking_on = object_detection_parameters_.enable_tracking;
     sl::BODY_FORMAT body_format = object_detection_parameters_.body_format;
 
-    PersonKeypoints person_keypoints;
-    PeopleKeypoints people_keypoints;
+    seamless::PersonKeypoints person_keypoints;
+    seamless::PeopleKeypoints people_keypoints;
 
     if(body_format == sl::BODY_FORMAT::POSE_18) {
         person_keypoints.resize(18);
@@ -84,7 +86,7 @@ void ZedTracker::Run() {
             zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
 
             int person_id = 0;
-            people_keypoints.resize(bodies.object_list.size());
+            people_keypoints.second.resize(bodies.object_list.size());
             for (auto i = bodies.object_list.rbegin(); i != bodies.object_list.rend(); ++i) {
                 sl::ObjectData& obj = (*i);
                 if (renderObject(obj, is_tracking_on)) {
@@ -92,17 +94,18 @@ void ZedTracker::Run() {
                     int joint_id = 0;
                     for (auto &kp : obj.keypoint_2d)
                     {
-                        cv::Point2f cv_kp = cvt(kp, img_scale);
+                        cv::Point2f cv_kp = cvt(kp, image_scale);
                         // logDebug << "[" << person_id << "] [" << joint_id << "] : " << cv_kp.x << ", " << cv_kp.y;
                         person_keypoints[joint_id] = {cv_kp.x, cv_kp.y};
                         joint_id++;
                     }
                 }
-                people_keypoints[person_id] = person_keypoints;
+                people_keypoints.first = obj.id;
+                people_keypoints.second[person_id] = person_keypoints;
                 person_id++;
             }
 
-            if (viewer_handler != nullptr) viewer_handler(people_keypoints);
+            if (viewer_handler != nullptr) viewer_handler(image, people_keypoints);
             if (transfer_handler != nullptr) transfer_handler(people_keypoints);
         }
     }
@@ -163,15 +166,15 @@ int ZedTracker::EnableBodyTracking() {
     }
 }
 
-sl::float2 ZedTracker::GetImageScale() {
+std::tuple<cv::Mat, sl::float2> ZedTracker::GetImageConfiguration() {
     logDebug << __func__;
     // For 2D GUI
     auto camera_config = zed_.getCameraInformation().camera_configuration;
     Resolution display_resolution(min((int)camera_config.resolution.width, 1280), min((int)camera_config.resolution.height, 720));
     cv::Mat image_left_ocv(display_resolution.height, display_resolution.width, CV_8UC4, 1);
     Mat image_left(display_resolution, MAT_TYPE::U8_C4, image_left_ocv.data, image_left_ocv.step);
-    sl::float2 img_scale(display_resolution.width / (float)camera_config.resolution.width, display_resolution.height / (float) camera_config.resolution.height);
-    return img_scale;
+    sl::float2 image_scale(display_resolution.width / (float)camera_config.resolution.width, display_resolution.height / (float) camera_config.resolution.height);
+    return {image_left_ocv, image_scale};
 }
 
 void ZedTracker::Print(std::string msg_prefix, ERROR_CODE err_code, std::string msg_suffix) {

@@ -27,6 +27,10 @@
 #define _ZED_TRACKET_H_
 
 #include <string>
+#include <tuple>
+#include <iostream>
+#include <deque>
+#include <math.h>
 
 #include <opencv2/opencv.hpp>
 
@@ -34,9 +38,6 @@
 #include <sl/Camera.hpp>
 
 // Sample includes
-#include "viewer/gl_viewer.h"
-#include "viewer/tracking_viewer.h"
-
 #include "tracker/tracker_interface.h"
 
 class ZedTracker {
@@ -48,28 +49,35 @@ class ZedTracker {
     void Run();
     void Shutdown();
 
- public:
+    virtual void SetViewerHandler(std::function<void(const cv::Mat&, const seamless::PeopleKeypoints&)> f) { viewer_handler = f; };
+    virtual void SetTransferHandler(std::function<void(const seamless::PeopleKeypoints&)> f) { transfer_handler = f; };
+
+ private:
     int OpenCamera();
     int EnablePositionalTracking();
     int EnableBodyTracking();
-    sl::float2 GetImageScale();
-    void Print(std::string msg_prefix, ERROR_CODE err_code, std::string msg_suffix);
+    std::tuple<cv::Mat, sl::float2> GetImageConfiguration();
+    void Print(std::string msg_prefix, sl::ERROR_CODE err_code, std::string msg_suffix);
     template<typename T>
     inline cv::Point2f cvt(T pt, sl::float2 scale) {
        return cv::Point2f(pt.x * scale.x, pt.y * scale.y);
     }
-    virtual void SetViewerHandler(std::function<void(const PeopleKeypoints&)> f) { viewer_handler = f; };
-    virtual void SetTransferHandler(std::function<void(const PeopleKeypoints&)> f) { transfer_handler = f; };
+    inline bool renderObject(const sl::ObjectData& i, const bool isTrackingON) {
+        if (isTrackingON)
+            return (i.tracking_state == sl::OBJECT_TRACKING_STATE::OK);
+        else
+            return (i.tracking_state == sl::OBJECT_TRACKING_STATE::OK || i.tracking_state == sl::OBJECT_TRACKING_STATE::OFF);
+    }
 
  private:
-    Camera zed_;
-    PositionalTrackingParameters positional_tracking_parameters_;
-    ObjectDetectionParameters object_detection_parameters_;
-    ObjectDetectionRuntimeParameters object_detection_runtime_parameters_;
+    sl::Camera zed_;
+    sl::PositionalTrackingParameters positional_tracking_parameters_;
+    sl::ObjectDetectionParameters object_detection_parameters_;
+    sl::ObjectDetectionRuntimeParameters object_detection_runtime_parameters_;
     bool is_playback_ = false;
 
-   std::function<void(const PeopleKeypoints&)> viewer_handler = nullptr;
-   std::function<void(const PeopleKeypoints&)> transfer_handler = nullptr;
+   std::function<void(const cv::Mat&, const seamless::PeopleKeypoints&)> viewer_handler = nullptr;
+   std::function<void(const seamless::PeopleKeypoints&)> transfer_handler = nullptr;
 };
 
 #endif

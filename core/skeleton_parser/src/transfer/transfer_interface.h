@@ -4,17 +4,14 @@
 #include <vector>
 
 #include "system/logger/logger.h"
-
-using XYCoordinate = std::pair<float, float>;
-using PersonKeypoints = std::vector<XYCoordinate>;
-using PeopleKeypoints = std::vector<PersonKeypoints>;
+#include "system/types.h"
 
 class TransferInterface {
  public:
     TransferInterface() = default;
     virtual ~TransferInterface() = default;
 
-    virtual void SendPeopleKeypoints(const PeopleKeypoints& people_keypoints) = 0;
+    virtual void SendPeopleKeypoints(const seamless::PeopleKeypoints& people_keypoints) = 0;
 };
 
 #endif

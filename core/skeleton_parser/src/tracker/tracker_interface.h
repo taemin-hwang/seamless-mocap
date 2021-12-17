@@ -4,14 +4,13 @@
 #include <vector>
 #include <functional>
 
+#include <opencv2/opencv.hpp>
+
 #include "system/logger/logger.h"
+#include "system/types.h"
 
 enum class BodyFormat { kPose18, kPose34 };
 enum class DetectionModel { kFast, kMedium, kAccurate};
-
-using XYCoordinate = std::pair<float, float>;
-using PersonKeypoints = std::vector<XYCoordinate>;
-using PeopleKeypoints = std::vector<PersonKeypoints>;
 
 class TrackerInterface {
  public:
@@ -24,15 +23,15 @@ class TrackerInterface {
     virtual void Initialize() = 0;
     virtual void Run() = 0;
     virtual void Shutdown() = 0;
-    virtual void SetViewerHandler(std::function<void(const PeopleKeypoints&)> f) { viewer_handler = f; };
-    virtual void SetTransferHandler(std::function<void(const PeopleKeypoints&)> f) { transfer_handler = f; };
+    virtual void SetViewerHandler(std::function<void(const cv::Mat&, const seamless::PeopleKeypoints&)> f) { viewer_handler = f; };
+    virtual void SetTransferHandler(std::function<void(const seamless::PeopleKeypoints&)> f) { transfer_handler = f; };
 
  protected:
     BodyFormat body_format_;
     DetectionModel detection_model_;
 
-   std::function<void(const PeopleKeypoints&)> viewer_handler = nullptr;
-   std::function<void(const PeopleKeypoints&)> transfer_handler = nullptr;
+   std::function<void(const cv::Mat&, const seamless::PeopleKeypoints&)> viewer_handler = nullptr;
+   std::function<void(const seamless::PeopleKeypoints&)> transfer_handler = nullptr;
 };
 
 #endif

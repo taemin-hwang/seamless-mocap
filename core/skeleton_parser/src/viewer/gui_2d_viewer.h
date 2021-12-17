@@ -1,0 +1,33 @@
+#ifndef _GUI_2D_VIEWER_H_
+#define _GUI_2D_VIEWER_H_
+
+#include <cuda.h>
+#include <opencv2/opencv.hpp>
+
+#include "system/logger/logger.h"
+#include "system/types.h"
+
+class Gui2DViewer {
+ public:
+    Gui2DViewer();
+    void Display2DViewer(const cv::Mat&, const seamless::PeopleKeypoints& people_keypoints);
+
+
+
+ private:
+    //float4 generateColorID(int idx);
+
+    float const id_colors[8][3] = {
+        { 232.0f, 176.0f ,59.0f },
+        { 175.0f, 208.0f ,25.0f },
+        { 102.0f, 205.0f ,105.0f},
+        { 185.0f, 0.0f   ,255.0f},
+        { 99.0f, 107.0f  ,252.0f},
+        {252.0f, 225.0f, 8.0f},
+        {167.0f, 130.0f, 141.0f},
+        {194.0f, 72.0f, 113.0f}
+    };
+
+};
+
+#endif

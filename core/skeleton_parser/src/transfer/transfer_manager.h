@@ -11,7 +11,7 @@ class TransferManager : public TransferInterface {
     TransferManager() = default;
     virtual ~TransferManager() = default;
 
-    void SendPeopleKeypoints(const PeopleKeypoints& people_keypoints);
+    void SendPeopleKeypoints(const seamless::PeopleKeypoints& people_keypoints);
 };
 
 #endif
