@@ -69,6 +69,7 @@ void ZedTracker::Run() {
     Resolution display_resolution(min((int)camera_config.resolution.width, 1280), min((int)camera_config.resolution.height, 720));
     cv::Mat image_ocv(display_resolution.height, display_resolution.width, CV_8UC4, 1);
     sl::Mat image_zed(display_resolution, MAT_TYPE::U8_C4, image_ocv.data, image_ocv.step);
+
     sl::float2 image_scale(display_resolution.width / (float)camera_config.resolution.width, display_resolution.height / (float) camera_config.resolution.height);
 
     bool quit = false;
@@ -102,8 +103,6 @@ void ZedTracker::Run() {
                     for (auto &kp : obj.keypoint_2d)
                     {
                         cv::Point2f cv_kp = cvt(kp, image_scale);
-                        // logDebug << "[" << person_id << "] [" << joint_id << "] : " << cv_kp.x << ", " << cv_kp.y;
-                        // person_keypoints[joint_id] = {cv_kp.x, cv_kp.y};
                         person_keypoints[joint_id] = cv_kp;
                         joint_id++;
                     }
