@@ -21,7 +21,9 @@ void SkeletonParser::Initialize() {
 
     body_tracker_->SetTransferHandler([=](seamless::PeopleKeypoints people_keypoints){ body_transfer_->SendPeopleKeypoints(people_keypoints); });
     if(enable_viewer_) {
-        body_tracker_->SetViewerHandler([=](const cv::Mat& image, seamless::PeopleKeypoints people_keypoints){ viewer_manager_->DisplayPeopleKeypoints(image, people_keypoints); });
+        body_tracker_->SetViewerHandler([=](const cv::Mat& image, const std::pair<float, float>& scale, seamless::PeopleKeypoints people_keypoints){
+            viewer_manager_->DisplayPeopleKeypoints(image, scale, people_keypoints);
+        });
     }
 
     body_tracker_->Initialize();

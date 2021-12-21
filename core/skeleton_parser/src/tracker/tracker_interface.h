@@ -23,14 +23,17 @@ class TrackerInterface {
     virtual void Initialize() = 0;
     virtual void Run() = 0;
     virtual void Shutdown() = 0;
-    virtual void SetViewerHandler(std::function<void(const cv::Mat&, const seamless::PeopleKeypoints&)> f) { viewer_handler = f; };
+    virtual void SetViewerHandler(std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> f) { viewer_handler = f; };
     virtual void SetTransferHandler(std::function<void(const seamless::PeopleKeypoints&)> f) { transfer_handler = f; };
 
  protected:
     BodyFormat body_format_;
     DetectionModel detection_model_;
 
-   std::function<void(const cv::Mat&, const seamless::PeopleKeypoints&)> viewer_handler = nullptr;
+   // param1: OpenCV matrix including RGB image
+   // param2: x, y scale for resolution
+   // param3: a vector of 2D human skeleton
+   std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> viewer_handler = nullptr;
    std::function<void(const seamless::PeopleKeypoints&)> transfer_handler = nullptr;
 };
 

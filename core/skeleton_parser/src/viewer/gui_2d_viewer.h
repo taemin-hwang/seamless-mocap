@@ -1,6 +1,8 @@
 #ifndef _GUI_2D_VIEWER_H_
 #define _GUI_2D_VIEWER_H_
 
+#include <utility> // std::pair
+
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 
@@ -13,13 +15,12 @@
 
 #include "system/logger/logger.h"
 #include "system/types.h"
+#include "system/body_parts.h"
 
 class Gui2DViewer {
  public:
     Gui2DViewer();
-    void Display2DViewer(const cv::Mat&, const seamless::PeopleKeypoints& people_keypoints);
-
-
+    void Display2DViewer(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints& people_keypoints);
 
  private:
     float4 generateColorID(int idx);
@@ -29,6 +30,14 @@ class Gui2DViewer {
         int color_idx = idx % 8;
         return cv::Scalar(id_colors[color_idx][0], id_colors[color_idx][1], id_colors[color_idx][2], 255);
     }
+
+    template<typename T>
+    inline cv::Point2f GetPointWithScale(T pt, const std::pair<float, float>& scale) {
+       return cv::Point2f(pt.x * scale.first, pt.y * scale.second);
+    }
+
+    void DisplayLinesBetweenKeypoints(const cv::Mat &display, const cv::Scalar& color, const cv::Point2f& from, const cv::Point2f& to);
+    void DisplayCirclesOnKeypoints(const cv::Mat &display, const cv::Scalar& color, const cv::Point2f& pos);
 
     float const id_colors[8][3] = {
         { 232.0f, 176.0f ,59.0f },

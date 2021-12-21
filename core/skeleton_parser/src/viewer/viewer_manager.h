@@ -20,7 +20,7 @@ class ViewerManager {
     void Run();
     void Shutdown();
 
-    void DisplayPeopleKeypoints(const cv::Mat&, const seamless::PeopleKeypoints& people_keypoints);
+    void DisplayPeopleKeypoints(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints& people_keypoints);
 
  private:
     std::unique_ptr<Gui2DViewer> gui_2d_viewer_;
