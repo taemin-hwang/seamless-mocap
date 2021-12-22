@@ -65,12 +65,12 @@ void ZedTracker::Run() {
     RuntimeParameters runtime_parameters;
     runtime_parameters.measure3D_reference_frame = sl::REFERENCE_FRAME::WORLD;
 
-    auto camera_config = zed_.getCameraInformation().camera_configuration;
-    Resolution display_resolution(min((int)camera_config.resolution.width, 1280), min((int)camera_config.resolution.height, 720));
+    sl::Resolution camera_resolution = zed_.getCameraInformation().camera_configuration.resolution;
+    Resolution display_resolution(min((int)camera_resolution.width, 1280), min((int)camera_resolution.height, 720));
     cv::Mat image_ocv(display_resolution.height, display_resolution.width, CV_8UC4, 1);
     sl::Mat image_zed(display_resolution, MAT_TYPE::U8_C4, image_ocv.data, image_ocv.step);
 
-    sl::float2 image_scale(display_resolution.width / (float)camera_config.resolution.width, display_resolution.height / (float) camera_config.resolution.height);
+    sl::float2 image_scale(display_resolution.width / (float)camera_resolution.width, display_resolution.height / (float) camera_resolution.height);
 
     bool quit = false;
     char key = ' ';
