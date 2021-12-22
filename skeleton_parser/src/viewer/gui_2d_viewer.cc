@@ -8,6 +8,7 @@ Gui2DViewer::Gui2DViewer()
     logDebug << __func__;
 }
 
+// Display people keypoints on display
 void Gui2DViewer::Display2DViewer(const cv::Mat &display, const std::pair<float, float>& scale, const seamless::PeopleKeypoints &people_keypoints)
 {
     cv::Mat overlay = display.clone();
@@ -77,6 +78,8 @@ float4 Gui2DViewer::generateColorID(int idx) {
     }
 }
 
+
+// Display a line between 'from' and 'to'
 void Gui2DViewer::DisplayLinesBetweenKeypoints(const cv::Mat &display, const cv::Scalar& color, const cv::Point2f& from, const cv::Point2f& to) {
     // int from_x = static_cast<int>(from.x);
     // int from_y = static_cast<int>(from.y);
@@ -90,6 +93,7 @@ void Gui2DViewer::DisplayLinesBetweenKeypoints(const cv::Mat &display, const cv:
     #endif
 }
 
+// Display a circle of 'pos'
 void Gui2DViewer::DisplayCirclesOnKeypoints(const cv::Mat &display, const cv::Scalar& color, const cv::Point2f& pos) {
     // int pos_x = static_cast<int>(pos.x);
     // int pos_y = static_cast<int>(pos.y);

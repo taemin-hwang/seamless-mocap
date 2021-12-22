@@ -1,5 +1,14 @@
 #include "transfer/transfer_manager.h"
 
+void TransferManager::Initialize(const std::string& ip_addr, const int& port) {
+    ip_addr_ = ip_addr;
+    port_ = port;
+
+    logInfo << "Try to access to " << ip_addr_ << " (" << port_ << ")";
+    target_url_ = "http://" + ip_addr_ + ":" + std::to_string(port_);
+    logInfo << target_url_;
+}
+
 void TransferManager::SendPeopleKeypoints(const seamless::PeopleKeypoints& people_keypoints) {
     if (people_keypoints.size() < 1) {
         logWarn << "People keypoint size is less than 1";
@@ -13,8 +22,6 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleKeypoints& peopl
 
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
-
-    std::string target_url = "http://127.0.0.1:50001";
 
     std::vector<std::pair<int, int>> person_keypoint_int_array;
     person_keypoint_int_array.resize(people_keypoints[0].second.size());
@@ -30,7 +37,7 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleKeypoints& peopl
         resource_json = GetStringFromKeypoint(person_tracking_id, person_keypoint_list.size(), person_keypoint_int_array);
 
         if (curl) {
-            curl_easy_setopt(curl, CURLOPT_URL, target_url.c_str());
+            curl_easy_setopt(curl, CURLOPT_URL, target_url_.c_str());
             curl_easy_setopt(curl, CURLOPT_POSTFIELDS, resource_json.c_str());
             res = curl_easy_perform(curl);
             if (res != CURLE_OK) {

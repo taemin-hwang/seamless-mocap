@@ -3,8 +3,8 @@
 
 // Create TrackerManager, TransferManager, and ConfigParser
 SkeletonParser::SkeletonParser() {
-    body_tracker_ = std::make_unique<TrackerManager>(BodyFormat::kPose34, DetectionModel::kFast);
-    body_transfer_ = std::make_unique<TransferManager>();
+    tracker_manager_ = std::make_unique<TrackerManager>(BodyFormat::kPose34, DetectionModel::kFast);
+    transfer_manager_ = std::make_unique<TransferManager>();
     config_parser_ = std::make_unique<ConfigParser>("../etc/config.json");
     viewer_manager_ = std::make_unique<ViewerManager>();
 }
@@ -15,29 +15,38 @@ void SkeletonParser::Initialize() {
     logInfo << "[Server Addr  ] : " << config_parser_->GetAddress();
     logInfo << "[Port Number  ] : " << config_parser_->GetPort();
     logInfo << "[Viewer Status] : " << (config_parser_->IsViewerOn() ? "ON" : "OFF");
+
+    // Set HTTP server IP address and port number
+    transfer_manager_->Initialize(config_parser_->GetAddress(), config_parser_->GetPort());
+
+    // Set flag if 2D viewer would be ON
     if(config_parser_->IsViewerOn()) {
         enable_viewer_ = true;
     }
 
-    body_tracker_->SetTransferHandler([=](seamless::PeopleKeypoints people_keypoints){ body_transfer_->SendPeopleKeypoints(people_keypoints); });
+    // Set event handler calling when body keypoints are retrieved
+    tracker_manager_->SetTransferHandler([=](seamless::PeopleKeypoints people_keypoints){ transfer_manager_->SendPeopleKeypoints(people_keypoints); });
     if(enable_viewer_) {
-        body_tracker_->SetViewerHandler([=](const cv::Mat& image, const std::pair<float, float>& scale, seamless::PeopleKeypoints people_keypoints){
+        tracker_manager_->SetViewerHandler([=](const cv::Mat& image, const std::pair<float, float>& scale, seamless::PeopleKeypoints people_keypoints){
             viewer_manager_->DisplayPeopleKeypoints(image, scale, people_keypoints);
         });
     }
 
-    body_tracker_->Initialize();
+    // Initialize tracker manager and viewer manager
+    tracker_manager_->Initialize();
     if(enable_viewer_) viewer_manager_->Initialize();
 }
 
+// Run estimating 2D body keypoint, and display it if viewer is enabled
 void SkeletonParser::Run() {
     logDebug << __func__;
-    body_tracker_->Run();
+    tracker_manager_->Run();
     if(enable_viewer_) viewer_manager_->Run();
 }
 
+// Shutdown
 void SkeletonParser::Shutdown() {
     logDebug << __func__;
-    body_tracker_->Shutdown();
+    tracker_manager_->Shutdown();
     if(enable_viewer_) viewer_manager_->Shutdown();
 }
