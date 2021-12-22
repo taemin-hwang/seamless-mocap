@@ -1,13 +1,28 @@
 @startuml overview
 
-component skeleton_parser
+component "skeleton_parser #1" as sp1
+component "skeleton_parser #2" as sp2
+component "skeleton_parser #3" as sp3
+component "skeleton_parser #4" as sp4
 component human_reconstructor
 component web_server #pink
 
-() "RGB Cam" as cam
+() "RGB Cam #1" as cam1
+() "RGB Cam #2" as cam2
+() "RGB Cam #3" as cam3
+() "RGB Cam #4" as cam4
+() "Display" as display
 
-skeleton_parser -left-> cam
-skeleton_parser -up-> human_reconstructor : HTTP
+cam1 -up-> sp1
+sp1 -up-> human_reconstructor : HTTP
+cam2 -up-> sp2
+sp2 -up-> human_reconstructor : HTTP
+cam3 -up-> sp3
+sp3 -up-> human_reconstructor : HTTP
+cam4 -up-> sp4
+sp4 -up-> human_reconstructor : HTTP
+
 human_reconstructor -up-> web_server : HTTP
+web_server -right-> display
 
 @enduml
