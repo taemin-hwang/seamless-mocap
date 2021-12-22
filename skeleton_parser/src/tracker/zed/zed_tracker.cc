@@ -25,7 +25,7 @@
 
 #include <iostream>
 #include <utility>
-
+#include <cmath> // isnan
 #include <opencv2/cvconfig.h>
 
 #include "tracker/zed/zed_tracker.h"
@@ -106,18 +106,18 @@ void ZedTracker::Run() {
                 if (renderObject(obj, is_tracking_on)) {
                     // skeleton joints
                     int joint_id = 0;
-                    for (auto &kp : obj.keypoint_2d)
-                    {
+                    for (auto &kp : obj.keypoint_2d) {
                         cv::Point2f cv_kp = cvt(kp, image_scale);
                         person_keypoints[joint_id] = cv_kp;
-
                         person_keypoins_with_confidence[joint_id].first = {cv_kp.x, cv_kp.y};
                         joint_id++;
                     }
 
                     joint_id = 0;
                     for (auto &c : obj.keypoint_confidence) {
-                        person_keypoins_with_confidence[joint_id].second = c;
+                        float confidence = 0.0;
+                        if(isnan(c) == 0) confidence = c;
+                        person_keypoins_with_confidence[joint_id].second = confidence;
                         joint_id++;
                     }
 
@@ -151,7 +151,7 @@ void ZedTracker::Shutdown() {
 int ZedTracker::OpenCamera() {
     logDebug << __func__;
     InitParameters init_parameters;
-    init_parameters.camera_resolution = RESOLUTION::HD1080;
+    init_parameters.camera_resolution = RESOLUTION::HD720;
     // On Jetson the object detection combined with an heavy depth mode could reduce the frame rate too much
     init_parameters.depth_mode = isJetson ? DEPTH_MODE::PERFORMANCE : DEPTH_MODE::ULTRA;
     init_parameters.coordinate_system = COORDINATE_SYSTEM::RIGHT_HANDED_Y_UP;
@@ -182,8 +182,8 @@ int ZedTracker::EnableBodyTracking() {
     object_detection_parameters_.enable_tracking = true; // Objects will keep the same ID between frames
     object_detection_parameters_.detection_model = isJetson ? DETECTION_MODEL::HUMAN_BODY_FAST : DETECTION_MODEL::HUMAN_BODY_ACCURATE;
     object_detection_parameters_.enable_body_fitting = true; // Fitting process is called, user have access to all available informations for a person processed by SDK
-    object_detection_parameters_.body_format = BODY_FORMAT::POSE_34; // selects the 34 keypoints body model for SDK outputs
-    // object_detection_parameters_.body_format = BODY_FORMAT::POSE_18; // selects the 34 keypoints body model for SDK outputs
+    // object_detection_parameters_.body_format = BODY_FORMAT::POSE_34; // selects the 34 keypoints body model for SDK outputs
+    object_detection_parameters_.body_format = BODY_FORMAT::POSE_18; // selects the 34 keypoints body model for SDK outputs
 
     // Set runtime parameters
     object_detection_runtime_parameters_.detection_confidence_threshold = 40;
