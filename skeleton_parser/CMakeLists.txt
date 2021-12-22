@@ -61,7 +61,9 @@ target_link_libraries(${PROJECT_NAME}
                         ${OPENGL_LIBRARIES}
                         ${GLUT_LIBRARY}
                         ${OpenCV_LIBRARIES}
-                        ${GLEW_LIBRARIES})
+                        ${GLEW_LIBRARIES}
+                        curl
+                      )
 
 if(INSTALL_SAMPLES)
     LIST(APPEND SAMPLE_LIST ${PROJECT_NAME})
