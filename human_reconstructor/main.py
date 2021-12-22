@@ -3,10 +3,10 @@ import socketserver
 
 class MyHTTPRequestHandler( BaseHTTPRequestHandler ):
     def do_GET(self):
-        print( 'get방식 요청' )
+        print( 'Call GET request handler' )
 
     def do_POST(self):
-        print( 'post방식 요청' )
+        print( 'Call POST request handler' )
         content_len = int(self.headers.get('Content-Length'))
         post_body = self.rfile.read(content_len)
         print(post_body)
