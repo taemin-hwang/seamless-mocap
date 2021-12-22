@@ -1,0 +1,13 @@
+@startuml overview
+
+component skeleton_parser
+component human_reconstructor
+component web_server #pink
+
+() "RGB Cam" as cam
+
+skeleton_parser -left-> cam
+skeleton_parser -up-> human_reconstructor : HTTP
+human_reconstructor -up-> web_server : HTTP
+
+@enduml
