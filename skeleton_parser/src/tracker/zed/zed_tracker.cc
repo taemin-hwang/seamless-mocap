@@ -81,11 +81,15 @@ void ZedTracker::Run() {
 
     seamless::PersonKeypoints person_keypoints;
     seamless::PeopleKeypoints people_keypoints;
+    seamless::PersonKeypointsWithConfidence person_keypoins_with_confidence;
+    seamless::PeopleKeypointsWithConfidence people_keypoins_with_confidence;
 
     if(body_format == sl::BODY_FORMAT::POSE_18) {
         person_keypoints.resize(18);
+        person_keypoins_with_confidence.resize(18);
     } else {
         person_keypoints.resize(34);
+        person_keypoins_with_confidence.resize(34);
     }
 
     while(!quit && key != 'q') {
@@ -95,6 +99,8 @@ void ZedTracker::Run() {
 
             int person_id = 0;
             people_keypoints.resize(bodies.object_list.size());
+            people_keypoins_with_confidence.resize(bodies.object_list.size());
+
             for (auto i = bodies.object_list.rbegin(); i != bodies.object_list.rend(); ++i) {
                 sl::ObjectData& obj = (*i);
                 if (renderObject(obj, is_tracking_on)) {
@@ -104,23 +110,33 @@ void ZedTracker::Run() {
                     {
                         cv::Point2f cv_kp = cvt(kp, image_scale);
                         person_keypoints[joint_id] = cv_kp;
+
+                        person_keypoins_with_confidence[joint_id].first = {cv_kp.x, cv_kp.y};
                         joint_id++;
                     }
+
+                    joint_id = 0;
+                    for (auto &c : obj.keypoint_confidence) {
+                        person_keypoins_with_confidence[joint_id].second = c;
+                        joint_id++;
+                    }
+
                 }
                 people_keypoints[person_id].first = obj.id;
                 people_keypoints[person_id].second = person_keypoints;
+                people_keypoins_with_confidence[person_id].first = obj.id;
+                people_keypoins_with_confidence[person_id].second = person_keypoins_with_confidence;
+
                 person_id++;
             }
 
             if (viewer_handler != nullptr) viewer_handler(image_ocv, {image_scale.x, image_scale.y}, people_keypoints);
-            if (transfer_handler != nullptr) transfer_handler(people_keypoints);
+            if (transfer_handler != nullptr) transfer_handler(people_keypoins_with_confidence);
 
             current_fps = zed_.getCurrentFPS();
             if (current_fps > 0.0) { logDebug << "Current FPS : " << current_fps; }
 
         }
-        // cv::imshow("hello", image_ocv);
-        // key = cv::waitKey(10);
     }
     bodies.object_list.clear();
 }

@@ -25,7 +25,7 @@ void SkeletonParser::Initialize() {
     }
 
     // Set event handler calling when body keypoints are retrieved
-    tracker_manager_->SetTransferHandler([=](seamless::PeopleKeypoints people_keypoints){ transfer_manager_->SendPeopleKeypoints(people_keypoints); });
+    tracker_manager_->SetTransferHandler([=](seamless::PeopleKeypointsWithConfidence people_keypoints){ transfer_manager_->SendPeopleKeypoints(people_keypoints); });
     if(enable_viewer_) {
         tracker_manager_->SetViewerHandler([=](const cv::Mat& image, const std::pair<float, float>& scale, seamless::PeopleKeypoints people_keypoints){
             viewer_manager_->DisplayPeopleKeypoints(image, scale, people_keypoints);

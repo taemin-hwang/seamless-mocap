@@ -9,9 +9,9 @@ void TransferManager::Initialize(const std::string& ip_addr, const int& port) {
     logInfo << target_url_;
 }
 
-void TransferManager::SendPeopleKeypoints(const seamless::PeopleKeypoints& people_keypoints) {
+void TransferManager::SendPeopleKeypoints(const seamless::PeopleKeypointsWithConfidence& people_keypoints) {
     if (people_keypoints.size() < 1) {
-        logWarn << "People keypoint size is less than 1";
+        logWarn << "People keypoint size is less than 1, No one here";
         return;
     }
 
@@ -23,18 +23,12 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleKeypoints& peopl
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
 
-    std::vector<std::pair<int, int>> person_keypoint_int_array;
-    person_keypoint_int_array.resize(people_keypoints[0].second.size());
 
     for (auto& person_keypoints : people_keypoints) {
         int person_tracking_id = person_keypoints.first;
         auto person_keypoint_list = person_keypoints.second;
 
-        for (int i = 0; i < person_keypoint_list.size(); i++) {
-            person_keypoint_int_array[i] = {static_cast<int>(person_keypoint_list[i].x), static_cast<int>(person_keypoint_list[i].y)};
-        }
-
-        resource_json = GetStringFromKeypoint(person_tracking_id, person_keypoint_list.size(), person_keypoint_int_array);
+        resource_json = GetStringFromKeypoint(person_tracking_id, person_keypoint_list.size(), person_keypoint_list);
 
         if (curl) {
             curl_easy_setopt(curl, CURLOPT_URL, target_url_.c_str());
@@ -49,7 +43,7 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleKeypoints& peopl
     curl_easy_cleanup(curl);
 }
 
-std::string TransferManager::GetStringFromKeypoint(int id, /*std::string timestamp,*/ int bodytype, std::vector<std::pair<int, int>> keypoint) {
+std::string TransferManager::GetStringFromKeypoint(int id, /*std::string timestamp,*/ int bodytype, const seamless::PersonKeypointsWithConfidence& keypoint) {
     rapidjson::Document d;
     d.SetObject();
 
@@ -67,8 +61,9 @@ std::string TransferManager::GetStringFromKeypoint(int id, /*std::string timesta
     for(const auto& kp : keypoint) {
         rapidjson::Value element_keypoints(rapidjson::kArrayType);
         {
-            element_keypoints.PushBack(kp.first, allocator);
-            element_keypoints.PushBack(kp.second, allocator);
+            element_keypoints.PushBack(static_cast<int>(kp.first.first), allocator); // X
+            element_keypoints.PushBack(static_cast<int>(kp.first.second), allocator); // Y
+            element_keypoints.PushBack(kp.second, allocator); // Confidence
         }
         array_keypoints.PushBack(element_keypoints, allocator);
     }
