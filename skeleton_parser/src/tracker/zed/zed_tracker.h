@@ -89,7 +89,68 @@ class ZedTracker {
           case sl::MAT_TYPE::U8_C4: cv_type = CV_8UC4; break;
           default: break;
        }
-       return cv_type;
+        return cv_type;
+     }
+
+    inline void SetLengthWithBodyFormat(seamless::PersonKeypoints& person_keypoints, seamless::PersonKeypointsWithConfidence& person_keypoints_with_confidence, sl::BODY_FORMAT body_format){
+       if(body_format == sl::BODY_FORMAT::POSE_18) {
+          person_keypoints.resize(18);
+          person_keypoints_with_confidence.resize(18);
+       } else {
+          person_keypoints.resize(34);
+          person_keypoints_with_confidence.resize(34);
+       }
+    }
+
+    inline void SetLengthWithNumberOfPeople(seamless::PeopleKeypoints& people_keypoints, seamless::PeopleKeypointsWithConfidence& people_keypoints_with_confidence, seamless::PeopleBoundBox& people_bound_box, int num_of_people) {
+       people_keypoints.resize(num_of_people);
+       people_keypoints_with_confidence.resize(num_of_people);
+       people_bound_box.resize(num_of_people);
+    }
+
+    inline void SetBoundingBox(seamless::PersonBoundBox& person_bound_box, std::vector<sl::uint2> bounding_box_2d, sl::float2 image_scale, float confidence) {
+       cv::Point2f left_top = cvt(bounding_box_2d[0], image_scale);
+       cv::Point2f right_bottom = cvt(bounding_box_2d[2], image_scale);
+       person_bound_box.SetLeftTop({left_top.x, left_top.y});
+       person_bound_box.SetRightBottom({right_bottom.x, right_bottom.y});
+       person_bound_box.SetConfidence(confidence/100);
+    }
+
+    inline void SetKeypointPosition(seamless::PersonKeypoints& person_keypoints, seamless::PersonKeypointsWithConfidence& person_keypoints_with_confidence, std::vector< sl::float2 > keypoint_2d, sl::float2 image_scale){
+       int joint_id = 0;
+       for (auto &kp : keypoint_2d) {
+          cv::Point2f cv_kp = cvt(kp, image_scale);
+          person_keypoints[joint_id] = cv_kp;
+          person_keypoints_with_confidence.SetKeypointWithId(joint_id, {cv_kp.x, cv_kp.y});
+          joint_id++;
+       }
+    }
+
+    inline void SetKeypointConfidence(seamless::PersonKeypoints& person_keypoints, seamless::PersonKeypointsWithConfidence& person_keypoints_with_confidence, std::vector<float> keypoint_confidence) {
+       int joint_id = 0;
+       for (auto &c : keypoint_confidence) {
+          float confidence = 0.0;
+          if(isnan(c) == 0) confidence = c;
+          person_keypoints_with_confidence.SetConfidenceWithId(joint_id, confidence);
+          joint_id++;
+       }
+    }
+
+    inline void SetPersonId(seamless::PersonKeypointsWithConfidence& person_keypoints_with_confidence, int id){
+       person_keypoints_with_confidence.SetId(id);
+    }
+
+    inline void SetPeopleKeypoint(int person_id, seamless::PeopleKeypoints& people_keypoints, int id, seamless::PersonKeypoints person_keypoints){
+       people_keypoints[person_id].first = id;
+       people_keypoints[person_id].second = person_keypoints;
+    }
+
+    inline void SetPeopleKeypointWithConfidence(int person_id, seamless::PeopleKeypointsWithConfidence& people_keypoints_with_confidence, seamless::PersonKeypointsWithConfidence& person_keypoints_with_confidence) {
+       people_keypoints_with_confidence[person_id] = person_keypoints_with_confidence;
+    }
+
+    inline void SetPeopleBoundBox(int person_id, seamless::PeopleBoundBox& people_bound_box, seamless::PersonBoundBox person_bound_box) {
+       people_bound_box[person_id] = person_bound_box;
     }
 
  private:

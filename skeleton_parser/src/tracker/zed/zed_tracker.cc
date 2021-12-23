@@ -69,80 +69,49 @@ void ZedTracker::Run() {
     Resolution display_resolution(min((int)camera_resolution.width, 1280), min((int)camera_resolution.height, 720));
     cv::Mat image_ocv(display_resolution.height, display_resolution.width, CV_8UC4, 1);
     sl::Mat image_zed(display_resolution, MAT_TYPE::U8_C4, image_ocv.data, image_ocv.step);
-
     sl::float2 image_scale(display_resolution.width / (float)camera_resolution.width, display_resolution.height / (float) camera_resolution.height);
 
     bool quit = false;
     char key = ' ';
     float current_fps = 0.0;
-
     bool is_tracking_on = object_detection_parameters_.enable_tracking;
-    sl::BODY_FORMAT body_format = object_detection_parameters_.body_format;
+    int person_id = 0;
 
     seamless::PersonKeypoints person_keypoints;
     seamless::PeopleKeypoints people_keypoints;
-    seamless::PersonKeypointsWithConfidence person_keypoins_with_confidence;
-    seamless::PeopleKeypointsWithConfidence people_keypoins_with_confidence;
+    seamless::PersonKeypointsWithConfidence person_keypoints_with_confidence;
+    seamless::PeopleKeypointsWithConfidence people_keypoints_with_confidence;
     seamless::PersonBoundBox person_bound_box;
     seamless::PeopleBoundBox people_bound_box;
 
-    if(body_format == sl::BODY_FORMAT::POSE_18) {
-        person_keypoints.resize(18);
-        person_keypoins_with_confidence.resize(18);
-    } else {
-        person_keypoints.resize(34);
-        person_keypoins_with_confidence.resize(34);
-    }
+    // Set person keypoint length woth body format
+    SetLengthWithBodyFormat(person_keypoints, person_keypoints_with_confidence, object_detection_parameters_.body_format);
 
     while(!quit && key != 'q') {
         if (zed_.grab() == ERROR_CODE::SUCCESS) {
             zed_.retrieveImage(image_zed, sl::VIEW::LEFT, sl::MEM::CPU, display_resolution);
             zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
 
-            int person_id = 0;
-            people_keypoints.resize(bodies.object_list.size());
-            people_keypoins_with_confidence.resize(bodies.object_list.size());
-            people_bound_box.resize(bodies.object_list.size());
+            // Set vector size with number of people
+            SetLengthWithNumberOfPeople(people_keypoints, people_keypoints_with_confidence, people_bound_box, bodies.object_list.size());
 
+            person_id = 0;
             for (auto i = bodies.object_list.rbegin(); i != bodies.object_list.rend(); ++i) {
                 sl::ObjectData& obj = (*i);
                 if (renderObject(obj, is_tracking_on)) {
-                    // get bounding box
-                    cv::Point2f left_top = cvt(obj.bounding_box_2d[0], image_scale);
-                    cv::Point2f right_bottom = cvt(obj.bounding_box_2d[2], image_scale);
-                    person_bound_box.SetLeftTop({left_top.x, left_top.y});
-                    person_bound_box.SetRightBottom({right_bottom.x, right_bottom.y});
-                    person_bound_box.SetConfidence(obj.confidence/100);
-
-                    // skeleton joints
-                    int joint_id = 0;
-                    for (auto &kp : obj.keypoint_2d) {
-                        cv::Point2f cv_kp = cvt(kp, image_scale);
-                        person_keypoints[joint_id] = cv_kp;
-                        person_keypoins_with_confidence.SetKeypointWithId(joint_id, {cv_kp.x, cv_kp.y});
-                        joint_id++;
-                    }
-
-                    joint_id = 0;
-                    for (auto &c : obj.keypoint_confidence) {
-                        float confidence = 0.0;
-                        if(isnan(c) == 0) confidence = c;
-                        person_keypoins_with_confidence.SetConfidenceWithId(joint_id, confidence);
-                        joint_id++;
-                    }
+                    SetBoundingBox(person_bound_box, obj.bounding_box_2d, image_scale, obj.confidence);// set bounding box
+                    SetKeypointPosition(person_keypoints, person_keypoints_with_confidence, obj.keypoint_2d, image_scale);// set skeleton joints
+                    SetKeypointConfidence(person_keypoints, person_keypoints_with_confidence, obj.keypoint_confidence);// set skeleton joints
+                    SetPersonId(person_keypoints_with_confidence, obj.id);// set person id
                 }
-                person_keypoins_with_confidence.SetId(obj.id);
-
-                people_keypoints[person_id].first = obj.id;
-                people_keypoints[person_id].second = person_keypoints;
-                people_keypoins_with_confidence[person_id] = person_keypoins_with_confidence;
-                people_bound_box[person_id] = person_bound_box;
-
+                SetPeopleKeypoint(person_id, people_keypoints, obj.id, person_keypoints);
+                SetPeopleKeypointWithConfidence(person_id, people_keypoints_with_confidence, person_keypoints_with_confidence);
+                SetPeopleBoundBox(person_id, people_bound_box, person_bound_box);
                 person_id++;
             }
 
             if (viewer_handler != nullptr) viewer_handler(image_ocv, {image_scale.x, image_scale.y}, people_keypoints);
-            if (transfer_handler != nullptr) transfer_handler(people_bound_box, people_keypoins_with_confidence);
+            if (transfer_handler != nullptr) transfer_handler(people_bound_box, people_keypoints_with_confidence);
 
             current_fps = zed_.getCurrentFPS();
             if (current_fps > 0.0) { logInfo << "Current FPS : " << current_fps; }
@@ -194,7 +163,7 @@ int ZedTracker::EnableBodyTracking() {
     object_detection_parameters_.detection_model = DETECTION_MODEL::HUMAN_BODY_FAST;
     object_detection_parameters_.enable_body_fitting = true; // Fitting process is called, user have access to all available informations for a person processed by SDK
     // object_detection_parameters_.body_format = BODY_FORMAT::POSE_34; // selects the 34 keypoints body model for SDK outputs
-    object_detection_parameters_.body_format = BODY_FORMAT::POSE_34; // selects the 34 keypoints body model for SDK outputs
+    object_detection_parameters_.body_format = BODY_FORMAT::POSE_18; // selects the 34 keypoints body model for SDK outputs
 
     // Set runtime parameters
     object_detection_runtime_parameters_.detection_confidence_threshold = 40;
@@ -210,7 +179,6 @@ int ZedTracker::EnableBodyTracking() {
 std::tuple<cv::Mat, sl::float2> ZedTracker::GetImageConfiguration() {
     logDebug << __func__;
     // For 2D GUI
-
 }
 
 void ZedTracker::Print(std::string msg_prefix, ERROR_CODE err_code, std::string msg_suffix) {
