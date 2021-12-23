@@ -96,7 +96,7 @@ void ZedTracker::Run() {
 
     while(!quit && key != 'q') {
         if (zed_.grab() == ERROR_CODE::SUCCESS) {
-            zed_.retrieveImage(image_zed, sl::VIEW::LEFT, sl::MEM::GPU, display_resolution);
+            zed_.retrieveImage(image_zed, sl::VIEW::LEFT, sl::MEM::CPU, display_resolution);
             zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
 
             int person_id = 0;
