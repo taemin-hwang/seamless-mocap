@@ -83,6 +83,8 @@ void ZedTracker::Run() {
     seamless::PeopleKeypoints people_keypoints;
     seamless::PersonKeypointsWithConfidence person_keypoins_with_confidence;
     seamless::PeopleKeypointsWithConfidence people_keypoins_with_confidence;
+    seamless::PersonBoundBox person_bound_box;
+    seamless::PeopleBoundBox people_bound_box;
 
     if(body_format == sl::BODY_FORMAT::POSE_18) {
         person_keypoints.resize(18);
@@ -100,16 +102,22 @@ void ZedTracker::Run() {
             int person_id = 0;
             people_keypoints.resize(bodies.object_list.size());
             people_keypoins_with_confidence.resize(bodies.object_list.size());
+            people_bound_box.resize(bodies.object_list.size());
 
             for (auto i = bodies.object_list.rbegin(); i != bodies.object_list.rend(); ++i) {
                 sl::ObjectData& obj = (*i);
                 if (renderObject(obj, is_tracking_on)) {
+                    // get bounding box
+                    person_bound_box.SetLeftTop({obj.bounding_box_2d[0].x, obj.bounding_box_2d[0].y});
+                    person_bound_box.SetRightBottom({obj.bounding_box_2d[2].x, obj.bounding_box_2d[2].y});
+                    person_bound_box.SetConfidence(obj.confidence/100);
+
                     // skeleton joints
                     int joint_id = 0;
                     for (auto &kp : obj.keypoint_2d) {
                         cv::Point2f cv_kp = cvt(kp, image_scale);
                         person_keypoints[joint_id] = cv_kp;
-                        person_keypoins_with_confidence[joint_id].first = {cv_kp.x, cv_kp.y};
+                        person_keypoins_with_confidence.SetKeypointWithId(joint_id, {cv_kp.x, cv_kp.y});
                         joint_id++;
                     }
 
@@ -117,21 +125,22 @@ void ZedTracker::Run() {
                     for (auto &c : obj.keypoint_confidence) {
                         float confidence = 0.0;
                         if(isnan(c) == 0) confidence = c;
-                        person_keypoins_with_confidence[joint_id].second = confidence;
+                        person_keypoins_with_confidence.SetConfidenceWithId(joint_id, confidence);
                         joint_id++;
                     }
-
                 }
+                person_keypoins_with_confidence.SetId(obj.id);
+
                 people_keypoints[person_id].first = obj.id;
                 people_keypoints[person_id].second = person_keypoints;
-                people_keypoins_with_confidence[person_id].first = obj.id;
-                people_keypoins_with_confidence[person_id].second = person_keypoins_with_confidence;
+                people_keypoins_with_confidence[person_id] = person_keypoins_with_confidence;
+                people_bound_box[person_id] = person_bound_box;
 
                 person_id++;
             }
 
             if (viewer_handler != nullptr) viewer_handler(image_ocv, {image_scale.x, image_scale.y}, people_keypoints);
-            if (transfer_handler != nullptr) transfer_handler(people_keypoins_with_confidence);
+            if (transfer_handler != nullptr) transfer_handler(people_bound_box, people_keypoins_with_confidence);
 
             current_fps = zed_.getCurrentFPS();
             if (current_fps > 0.0) { logDebug << "Current FPS : " << current_fps; }
@@ -151,7 +160,7 @@ void ZedTracker::Shutdown() {
 int ZedTracker::OpenCamera() {
     logDebug << __func__;
     InitParameters init_parameters;
-    init_parameters.camera_resolution = RESOLUTION::HD720;
+    init_parameters.camera_resolution = RESOLUTION::HD720; //HD2K, HD1080, HD720, VGA
     // On Jetson the object detection combined with an heavy depth mode could reduce the frame rate too much
     init_parameters.depth_mode = isJetson ? DEPTH_MODE::PERFORMANCE : DEPTH_MODE::ULTRA;
     init_parameters.coordinate_system = COORDINATE_SYSTEM::RIGHT_HANDED_Y_UP;

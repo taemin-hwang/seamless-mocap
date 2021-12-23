@@ -51,7 +51,7 @@ class ZedTracker {
     void Shutdown();
 
     virtual void SetViewerHandler(std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> f) { viewer_handler = f; };
-    virtual void SetTransferHandler(std::function<void(const seamless::PeopleKeypointsWithConfidence&)> f) { transfer_handler = f; };
+    virtual void SetTransferHandler(std::function<void(const seamless::PeopleBoundBox&, const seamless::PeopleKeypointsWithConfidence&)> f) { transfer_handler = f; };
 
  private:
     int OpenCamera();
@@ -102,7 +102,7 @@ class ZedTracker {
     bool is_playback_ = false;
 
    std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> viewer_handler = nullptr;
-   std::function<void(const seamless::PeopleKeypointsWithConfidence&)> transfer_handler = nullptr;
+   std::function<void(const seamless::PeopleBoundBox&, const seamless::PeopleKeypointsWithConfidence&)> transfer_handler = nullptr;
 };
 
 #endif

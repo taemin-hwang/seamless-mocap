@@ -13,7 +13,7 @@ class TransferInterface {
     virtual ~TransferInterface() = default;
 
     virtual void Initialize(const std::string&, const int&) = 0;
-    virtual void SendPeopleKeypoints(const seamless::PeopleKeypointsWithConfidence& people_keypoints) = 0;
+    virtual void SendPeopleKeypoints(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& people_keypoints) = 0;
 
     void SetIpAddress(const std::string& ip_addr) { ip_addr_ = ip_addr; }
     void SetPort(const int& port) { port_ = port; }

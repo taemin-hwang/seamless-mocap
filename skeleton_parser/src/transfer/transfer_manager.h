@@ -24,10 +24,10 @@ class TransferManager : public TransferInterface {
     virtual ~TransferManager() = default;
 
     void Initialize(const std::string&, const int&);
-    void SendPeopleKeypoints(const seamless::PeopleKeypointsWithConfidence& people_keypoints);
+    void SendPeopleKeypoints(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& people_keypoints);
 
  private:
-    std::string GetStringFromKeypoint(int id, int type, const seamless::PersonKeypointsWithConfidence& keypoint);
+    std::string GetStringFromKeypoint(const seamless::PersonKeypointsWithConfidence& keypoint);
     size_t CallBackFunc(char* ptr, size_t size, size_t nmemb, string* stream);
     size_t WriteFunction(void* ptr, size_t size, size_t nmemb, void* stream);
 

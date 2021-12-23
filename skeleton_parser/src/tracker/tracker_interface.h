@@ -24,7 +24,7 @@ class TrackerInterface {
     virtual void Run() = 0;
     virtual void Shutdown() = 0;
     virtual void SetViewerHandler(std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> f) { viewer_handler = f; };
-    virtual void SetTransferHandler(std::function<void(const seamless::PeopleKeypointsWithConfidence&)> f) { transfer_handler = f; };
+    virtual void SetTransferHandler(std::function<void(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence&)> f) { transfer_handler = f; };
 
  protected:
     BodyFormat body_format_;
@@ -34,7 +34,7 @@ class TrackerInterface {
    // param2: x, y scale for resolution
    // param3: a vector of 2D human skeleton
    std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> viewer_handler = nullptr;
-   std::function<void(const seamless::PeopleKeypointsWithConfidence&)> transfer_handler = nullptr;
+   std::function<void(const seamless::PeopleBoundBox&, const seamless::PeopleKeypointsWithConfidence&)> transfer_handler = nullptr;
 };
 
 #endif
