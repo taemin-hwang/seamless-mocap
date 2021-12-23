@@ -15,80 +15,48 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleBoundBox& bbox, 
         return;
     }
 
-    for (auto& b : bbox) {
-        std::pair<int, int> left_top = b.GetLeftTop();
-        std::pair<int, int> right_bottom = b.GetRightBottom();
-
-        std::cout << left_top.first << ", " << left_top.second << std::endl;
-        std::cout << right_bottom.first << ", " << right_bottom.second << std::endl;
-        std::cout << b.GetConfidence() << std::endl;
-
-        std::cout << std::endl;
-    }
-
-    for (auto& p : people_keypoints) {
-
-    }
-
     CURL* curl;
     CURLcode res;
     std::string chunk;
-    std::string resource_json;
+    std::string resource_json = "EMPTY";
 
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
 
-
-    for (auto& person_keypoints : people_keypoints) {
-        resource_json = GetStringFromKeypoint(person_keypoints);
-
-        if (curl) {
-            curl_easy_setopt(curl, CURLOPT_URL, target_url_.c_str());
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, resource_json.c_str());
-            res = curl_easy_perform(curl);
-            if (res != CURLE_OK) {
-                logError << "curl_easy_perform() failed : " << curl_easy_strerror(res);
-            }
+    resource_json = GetStringFromPeopleKeypoint(bbox, people_keypoints);
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, target_url_.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, resource_json.c_str());
+        res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            logError << "curl_easy_perform() failed : " << curl_easy_strerror(res);
         }
     }
-
     curl_easy_cleanup(curl);
 }
 
-std::string TransferManager::GetStringFromKeypoint(const seamless::PersonKeypointsWithConfidence& keypoint) {
-    rapidjson::Document d;
-    d.SetObject();
+std::string TransferManager::GetStringFromPeopleKeypoint(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& keypoint) {
+    rapidjson::Document document;
+    document.SetObject();
+    rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
 
-    rapidjson::Document::AllocatorType& allocator = d.GetAllocator();
+    document.AddMember("height", 999, allocator);
+    document.AddMember("width", 999, allocator);
 
-    size_t sz = allocator.Size();
+    rapidjson::Value annots_array(rapidjson::kArrayType);
 
-    d.AddMember("id", keypoint.GetId(), allocator);
-    // Value val(kObjectType);
-    // val.SetString(timestamp.c_str(), static_cast<SizeType>(timestamp.length()), allocator);
-    // d.AddMember("timestamp", val, allocator);
-    d.AddMember("bodytype", keypoint.size(), allocator);
-
-    rapidjson::Value array_keypoints(rapidjson::kArrayType);
-
-    auto joint = keypoint.GetKeypoint();
-    auto confidence = keypoint.GetConfidence();
-
-    for (int i = 0; i < keypoint.size(); i++) {
-        rapidjson::Value element_keypoints(rapidjson::kArrayType);
-        {
-            element_keypoints.PushBack(static_cast<int>(joint[i].first), allocator); // X
-            element_keypoints.PushBack(static_cast<int>(joint[i].second), allocator); // Y
-            element_keypoints.PushBack(confidence[i], allocator); // Confidence
-        }
-        array_keypoints.PushBack(element_keypoints, allocator);
+    for(int i = 0; i < keypoint.size(); i++) {
+        auto person_keypoint = keypoint[i];
+        auto person_bbox = bbox[i];
+        rapidjson::Value annots_element(rapidjson::kObjectType);
+        SetObjectFromPersonKeypoint(annots_element, allocator, person_bbox, person_keypoint);
+        annots_array.PushBack(annots_element, allocator);
     }
-
-    d.AddMember("keypoints2d", array_keypoints, allocator);
+    document.AddMember("annots", annots_array, allocator);
 
     rapidjson::StringBuffer strbuf;
     rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
-    d.Accept(writer);
+    document.Accept(writer);
 
     std::string ret = strbuf.GetString();
     logDebug << ret;
@@ -96,6 +64,42 @@ std::string TransferManager::GetStringFromKeypoint(const seamless::PersonKeypoin
     return ret;
 }
 
+void TransferManager::SetObjectFromPersonKeypoint(rapidjson::Value& annots_element, rapidjson::Document::AllocatorType& allocator, const seamless::PersonBoundBox& bbox, const seamless::PersonKeypointsWithConfidence& keypoint) {
+    // Add member of bounding box
+    logDebug << "Add member of bouding box";
+    rapidjson::Value array_bbox(rapidjson::kArrayType);
+    std::pair<int, int> left_top = bbox.GetLeftTop();
+    std::pair<int, int> right_bottom = bbox.GetRightBottom();
+    float bbox_confidence = bbox.GetConfidence();
+    array_bbox.PushBack(left_top.first, allocator); // Left-Top X
+    array_bbox.PushBack(left_top.second, allocator); // Left-Top Y
+    array_bbox.PushBack(right_bottom.first, allocator); // Right-Bottom X
+    array_bbox.PushBack(right_bottom.second, allocator); // Right-Bottom Y
+    array_bbox.PushBack(bbox_confidence, allocator);
+    annots_element.AddMember("bbox", array_bbox, allocator);
+
+    // Add member of person id
+    logDebug << "Add member of person id";
+    annots_element.AddMember("personID", keypoint.GetId(), allocator);
+
+    // Add member of keypoints array
+    logDebug << "Add member of keypoint array";
+    auto joint = keypoint.GetKeypoint();
+    auto joint_confidence = keypoint.GetConfidence();
+
+    rapidjson::Value array_keypoints(rapidjson::kArrayType);
+    for (int i = 0; i < keypoint.size(); i++) {
+        rapidjson::Value element_keypoints(rapidjson::kArrayType);
+        {
+            element_keypoints.PushBack(static_cast<int>(joint[i].first), allocator); // X
+            element_keypoints.PushBack(static_cast<int>(joint[i].second), allocator); // Y
+            element_keypoints.PushBack(joint_confidence[i], allocator); // Confidence
+        }
+        array_keypoints.PushBack(element_keypoints, allocator);
+    }
+    annots_element.AddMember("keypoints", array_keypoints, allocator);
+    logDebug << "Done";
+}
 
 size_t TransferManager::CallBackFunc(char* ptr, size_t size, size_t nmemb, string* stream)
 {
@@ -109,4 +113,3 @@ size_t TransferManager::WriteFunction(void *ptr, size_t size, size_t nmemb, void
     fwrite(ptr, size, nmemb, (FILE *)stream);
     return (nmemb*size);
 }
-

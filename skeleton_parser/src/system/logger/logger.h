@@ -11,7 +11,7 @@
 using namespace std;
 
 enum class LOGLEVEL : int { FATAL, ERRORS, WARN, INFO, DEBUG };
-static LOGLEVEL kLogLevel = LOGLEVEL::DEBUG;
+static LOGLEVEL kLogLevel = LOGLEVEL::INFO;
 
 class LogPrefix {
  public:

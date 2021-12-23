@@ -27,7 +27,8 @@ class TransferManager : public TransferInterface {
     void SendPeopleKeypoints(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& people_keypoints);
 
  private:
-    std::string GetStringFromKeypoint(const seamless::PersonKeypointsWithConfidence& keypoint);
+    std::string GetStringFromPeopleKeypoint(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& keypoint);
+    void SetObjectFromPersonKeypoint(rapidjson::Value& annots_object, rapidjson::Document::AllocatorType& allocator, const seamless::PersonBoundBox& bbox, const seamless::PersonKeypointsWithConfidence& keypoint);
     size_t CallBackFunc(char* ptr, size_t size, size_t nmemb, string* stream);
     size_t WriteFunction(void* ptr, size_t size, size_t nmemb, void* stream);
 
