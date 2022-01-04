@@ -66,7 +66,7 @@ void ZedTracker::Run() {
     runtime_parameters.measure3D_reference_frame = sl::REFERENCE_FRAME::WORLD;
 
     sl::Resolution camera_resolution = zed_.getCameraInformation().camera_configuration.resolution;
-    Resolution display_resolution(min((int)camera_resolution.width, 1280), min((int)camera_resolution.height, 720));
+    sl::Resolution display_resolution(min((int)camera_resolution.width, 1280), min((int)camera_resolution.height, 720));
     cv::Mat image_ocv(display_resolution.height, display_resolution.width, CV_8UC4, 1);
     sl::Mat image_zed(display_resolution, MAT_TYPE::U8_C4, image_ocv.data, image_ocv.step);
     sl::float2 image_scale(display_resolution.width / (float)camera_resolution.width, display_resolution.height / (float) camera_resolution.height);
@@ -76,6 +76,9 @@ void ZedTracker::Run() {
     float current_fps = 0.0;
     bool is_tracking_on = object_detection_parameters_.enable_tracking;
     int person_id = 0;
+    sl::Timestamp image_timestamp;
+    uint64_t timestamp_ms;
+    int serial_number = zed_.getCameraInformation().serial_number;
 
     seamless::PersonKeypoints person_keypoints;
     seamless::PeopleKeypoints people_keypoints;
@@ -83,6 +86,7 @@ void ZedTracker::Run() {
     seamless::PeopleKeypointsWithConfidence people_keypoints_with_confidence;
     seamless::PersonBoundBox person_bound_box;
     seamless::PeopleBoundBox people_bound_box;
+    seamless::PeopleSkeleton people_skeleton;
 
     // Set person keypoint length woth body format
     SetLengthWithBodyFormat(person_keypoints, person_keypoints_with_confidence, object_detection_parameters_.body_format);
@@ -91,6 +95,8 @@ void ZedTracker::Run() {
         if (zed_.grab() == ERROR_CODE::SUCCESS) {
             zed_.retrieveImage(image_zed, sl::VIEW::LEFT, sl::MEM::CPU, display_resolution);
             zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
+            image_timestamp = zed_.getTimestamp(TIME_REFERENCE::IMAGE);
+            timestamp_ms = image_timestamp.getMilliseconds();
 
             // Set vector size with number of people
             SetLengthWithNumberOfPeople(people_keypoints, people_keypoints_with_confidence, people_bound_box, bodies.object_list.size());
@@ -110,8 +116,10 @@ void ZedTracker::Run() {
                 person_id++;
             }
 
+            SetPeopleSkeleton(people_skeleton, people_bound_box, people_keypoints_with_confidence, timestamp_ms, display_resolution, serial_number);
+
             if (viewer_handler != nullptr) viewer_handler(image_ocv, {image_scale.x, image_scale.y}, people_keypoints);
-            if (transfer_handler != nullptr) transfer_handler(people_bound_box, people_keypoints_with_confidence);
+            if (transfer_handler != nullptr) transfer_handler(people_skeleton);
 
             current_fps = zed_.getCurrentFPS();
             if (current_fps > 0.0) { logInfo << "Current FPS : " << current_fps; }

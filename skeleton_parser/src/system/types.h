@@ -66,6 +66,30 @@ namespace seamless
 
     using PeopleKeypointsWithConfidence = std::vector<PersonKeypointsWithConfidence>;
     using PeopleBoundBox = std::vector<PersonBoundBox>;
+    using TimestampMilliseconds = uint64_t;
+    using FrameSize = std::pair<int, int>; //width, height
+
+    class PeopleSkeleton {
+     public:
+        inline void SetPeopleKeypointsWithConfidence(const PeopleKeypointsWithConfidence& people_keypoints_with_confidence) { people_keypoints_with_confidence_ = people_keypoints_with_confidence; }
+        inline void SetPeopleBoundBox(const PeopleBoundBox& people_bound_box) { people_bound_box_ = people_bound_box; }
+        inline void SetTimestampMilliseconds(const TimestampMilliseconds& timestamp_ms) { timestamp_ms_ = timestamp_ms; }
+        inline void SetFrameSize(const FrameSize& frame_size) { frame_size_ = frame_size; }
+        inline void SetCameraId(const int& camera_id) { camera_id_ = camera_id; }
+        inline PeopleKeypointsWithConfidence GetPeopleKeypointsWithConfidence() const { return people_keypoints_with_confidence_; }
+        inline PeopleBoundBox GetPeopleBoundBox() const { return people_bound_box_; }
+        inline TimestampMilliseconds GetTimestampMilliseconds() const { return timestamp_ms_; }
+        inline FrameSize GetFrameSize() const { return frame_size_; }
+        inline int GetCameraId() const {return camera_id_; }
+
+     private:
+        PeopleKeypointsWithConfidence people_keypoints_with_confidence_;
+        PeopleBoundBox people_bound_box_;
+        TimestampMilliseconds timestamp_ms_;
+        FrameSize frame_size_;
+        int camera_id_;
+    };
+
 }
 
 #endif /* _SEAMLESS_TYPES_H_ */

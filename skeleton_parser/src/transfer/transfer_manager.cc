@@ -9,7 +9,13 @@ void TransferManager::Initialize(const std::string& ip_addr, const int& port) {
     logInfo << target_url_;
 }
 
-void TransferManager::SendPeopleKeypoints(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& people_keypoints) {
+void TransferManager::SendPeopleKeypoints(const seamless::PeopleSkeleton& people_skeleton) {
+    auto bbox = people_skeleton.GetPeopleBoundBox();
+    auto people_keypoints = people_skeleton.GetPeopleKeypointsWithConfidence();
+    auto timestamp = people_skeleton.GetTimestampMilliseconds();
+    auto frame_size = people_skeleton.GetFrameSize();
+    auto camera_id = people_skeleton.GetCameraId();
+
     if (people_keypoints.size() < 1) {
         logWarn << "People keypoint size is less than 1, No one here";
         return;
@@ -23,7 +29,7 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleBoundBox& bbox, 
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
 
-    resource_json = GetStringFromPeopleKeypoint(bbox, people_keypoints);
+    resource_json = GetStringFromPeopleKeypoint(bbox, people_keypoints, timestamp, frame_size, camera_id);
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, target_url_.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, resource_json.c_str());
@@ -35,13 +41,15 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleBoundBox& bbox, 
     curl_easy_cleanup(curl);
 }
 
-std::string TransferManager::GetStringFromPeopleKeypoint(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& keypoint) {
+std::string TransferManager::GetStringFromPeopleKeypoint(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& keypoint, const seamless::TimestampMilliseconds timestamp, const seamless::FrameSize framesize, int camera_id) {
     rapidjson::Document document;
     document.SetObject();
     rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
 
-    document.AddMember("height", 999, allocator);
-    document.AddMember("width", 999, allocator);
+    document.AddMember("id", camera_id, allocator);
+    document.AddMember("timestamp", timestamp, allocator);
+    document.AddMember("height", framesize.second, allocator);
+    document.AddMember("width", framesize.first, allocator);
 
     rapidjson::Value annots_array(rapidjson::kArrayType);
 

@@ -25,8 +25,8 @@ void SkeletonParser::Initialize() {
     }
 
     // Set event handler calling when body keypoints are retrieved
-    tracker_manager_->SetTransferHandler([=](const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& people_keypoints){
-        transfer_manager_->SendPeopleKeypoints(bbox, people_keypoints);
+    tracker_manager_->SetTransferHandler([=](const seamless::PeopleSkeleton& people_skeleton){
+        transfer_manager_->SendPeopleKeypoints(people_skeleton);
     });
 
     if(enable_viewer_) {

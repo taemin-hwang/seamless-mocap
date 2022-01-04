@@ -13,13 +13,19 @@ class TransferInterface {
     virtual ~TransferInterface() = default;
 
     virtual void Initialize(const std::string&, const int&) = 0;
-    virtual void SendPeopleKeypoints(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& people_keypoints) = 0;
+    virtual void SendPeopleKeypoints(const seamless::PeopleSkeleton&) = 0;
 
     void SetIpAddress(const std::string& ip_addr) { ip_addr_ = ip_addr; }
     void SetPort(const int& port) { port_ = port; }
 
  protected:
-    inline virtual void PrintElement(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& people_keypoints) {
+    inline virtual void PrintElement(const seamless::PeopleSkeleton& people_skeleton) {
+        auto bbox = people_skeleton.GetPeopleBoundBox();
+        auto people_keypoints = people_skeleton.GetPeopleKeypointsWithConfidence();
+        auto timestamp = people_skeleton.GetTimestampMilliseconds();
+
+        std::cout << "Timestamp : " << timestamp << std::endl;
+
         for (auto& b : bbox) {
             std::pair<int, int> left_top = b.GetLeftTop();
             std::pair<int, int> right_bottom = b.GetRightBottom();

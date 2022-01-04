@@ -51,7 +51,7 @@ class ZedTracker {
     void Shutdown();
 
     virtual void SetViewerHandler(std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> f) { viewer_handler = f; };
-    virtual void SetTransferHandler(std::function<void(const seamless::PeopleBoundBox&, const seamless::PeopleKeypointsWithConfidence&)> f) { transfer_handler = f; };
+    virtual void SetTransferHandler(std::function<void(const seamless::PeopleSkeleton&)> f) { transfer_handler = f; };
 
  private:
     int OpenCamera();
@@ -153,6 +153,14 @@ class ZedTracker {
        people_bound_box[person_id] = person_bound_box;
     }
 
+    inline void SetPeopleSkeleton(seamless::PeopleSkeleton& people_skeleton, seamless::PeopleBoundBox& people_bound_box, seamless::PeopleKeypointsWithConfidence& people_keypoints_with_confidence, seamless::TimestampMilliseconds timestamp, sl::Resolution display_resolution, int serial_number) {
+       people_skeleton.SetPeopleBoundBox(people_bound_box);
+       people_skeleton.SetPeopleKeypointsWithConfidence(people_keypoints_with_confidence);
+       people_skeleton.SetTimestampMilliseconds(timestamp);
+       people_skeleton.SetFrameSize({display_resolution.width, display_resolution.height});
+       people_skeleton.SetCameraId(serial_number);
+    }
+
  private:
     sl::Camera zed_;
     sl::InitParameters init_parameters_;
@@ -163,7 +171,7 @@ class ZedTracker {
     bool is_playback_ = false;
 
    std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> viewer_handler = nullptr;
-   std::function<void(const seamless::PeopleBoundBox&, const seamless::PeopleKeypointsWithConfidence&)> transfer_handler = nullptr;
+   std::function<void(const seamless::PeopleSkeleton&)> transfer_handler = nullptr;
 };
 
 #endif
