@@ -10,7 +10,7 @@ from visualizer import viewer_2d
   TEST CODE
 '''
 def run_test():
-    with open("./msg_2d.json", "r") as json_file:
+    with open("./etc/msg_2d.json", "r") as json_file:
         item = json.load(json_file)
         viewer_2d.render_2D(item)
 
