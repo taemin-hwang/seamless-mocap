@@ -14,18 +14,19 @@ def run_test():
         item = json.load(json_file)
         viewer_2d.render_2D(item)
 
-def run():
+def run(enable_viewer):
     skeleton_server.execute()
     while True:
         mq = skeleton_server.message_queue
         if mq.qsize() > 0:
             item = json.loads(mq.get())
             #print(item)
-            viewer_2d.render_2D(item)
+            if enable_viewer is True:
+                viewer_2d.render_2D(item)
         else:
             time.sleep(0.01)
 
 if sys.argv.count('-t'):
     run_test()
-else:
-    run()
+elif sys.argv.count('-v'):
+    run(enable_viewer=True)

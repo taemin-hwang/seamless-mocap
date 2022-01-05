@@ -6,14 +6,51 @@ import cv2
 import numpy as np
 from visualizer.utils import *
 
+cam_id_list = []
+
+def set_background_color(display, r, g, b):
+    display[:,:,0]=b # Blue
+    display[:,:,1]=g # Green
+    display[:,:,2]=r # Red
+
+def merge_display(displaylist, width, height):
+    resized_display_list = []
+
+    i = 0
+    for display in displaylist:
+        cv2.rectangle(display, [0, 0], [width, height], color=(255, 255, 255), thickness=3)
+        resized_display_list.append(cv2.resize(display, dsize=(0,0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA))
+        i += 1
+
+    top = np.hstack((resized_display_list[0], resized_display_list[1]))
+    bottom = np.hstack((resized_display_list[2], resized_display_list[3]))
+    merged_display = np.vstack((top, bottom))
+
+    return merged_display
+
+
 def render_2D(data):
-    id = data['id']
+    global cam_id_list
+    cam_id = data['id']
     timestamp = data['timestamp']
     height = data['height']
     width = data['width']
     annots = data['annots']
 
-    display = np.zeros((height, width, 3), np.uint8)
+    if cam_id_list.count(cam_id) == 0:
+        cam_id_list.append(cam_id)
+
+    display_id = cam_id_list.index(cam_id)
+    display_num = 4
+    display_list = np.zeros((display_num, height, width, 3), np.uint8)
+
+    #display = np.zeros((height, width, 3), np.uint8)
+    set_background_color(display_list[0], 51, 0, 25)
+    set_background_color(display_list[1], 51, 0, 25)
+    set_background_color(display_list[2], 51, 0, 25)
+    set_background_color(display_list[3], 51, 0, 25)
+
+    display = display_list[display_id]
 
     for person in annots:
         bbox = person['bbox']
@@ -61,5 +98,7 @@ def render_2D(data):
             if(kp[0] < display.shape[1] and kp[1] < display.shape[0]):
                 cv2.circle(display, (int(kp[0]), int(kp[1])), 3, color, -1)
 
-    cv2.imshow("2D Viewer", display)
+    merged_display = merge_display(display_list, width, height)
+
+    cv2.imshow("2D Viewer", merged_display)
     cv2.waitKey(10)
