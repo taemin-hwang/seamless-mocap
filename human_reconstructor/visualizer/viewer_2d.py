@@ -98,7 +98,7 @@ def render_2D(data):
                 kp_a = keypoints[part[0].value]
                 kp_b = keypoints[part[1].value]
                 # Check that the keypoints are inside the image
-                if(kp_a[0] < display.shape[1] and kp_a[1] < display.shape[0] 
+                if(kp_a[0] < display.shape[1] and kp_a[1] < display.shape[0]
                 and kp_b[0] < display.shape[1] and kp_b[1] < display.shape[0]
                 and kp_a[0] > 0 and kp_a[1] > 0 and kp_b[0] > 0 and kp_b[1] > 0 ):
                     cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 1, cv2.LINE_AA)
