@@ -4,8 +4,7 @@ import json
 import time
 from transfer import skeleton_server
 from visualizer import viewer_2d
-#from visualizer import viewer_3d
-from visualizer import opengl
+from visualizer import viewer_3d
 from reconstructor import reconstructor
 
 '''
@@ -13,37 +12,44 @@ from reconstructor import reconstructor
 '''
 def run_test():
     print('Run test')
-#    with open("./etc/msg_2d.json", "r") as message_file:
-#        skeletons = json.load(message_file)
-#        viewer_2d.render_2D(skeletons)
 
-    #plotter = viewer_3d.RealtimePlotter()
-    plotter = opengl.GLViewer()
-    plotter.init()
+    v2d = viewer_2d.Viewer2d()
+    with open("./human_reconstructor/etc/msg_2d.json", "r") as message_file:
+        skeletons_2d = json.load(message_file)
+        v2d.render_2d(skeletons_2d)
+
+    v3d = viewer_3d.Viewer3d()
+    v3d.init()
     for i in range(0, 600):
         filename = str(i).zfill(6) + '.json'
         #print(filename)
         with open("./human_reconstructor/etc/mvmp/" + filename, "r") as mvmp_file:
-            skeletons = json.load(mvmp_file)
-            #plotter.render_3D(skeletons)
-            if(plotter.is_available()):
-                plotter.update_3d_skeleton(skeletons)
+            skeletons_3d = json.load(mvmp_file)
+            if(v3d.is_available()):
+                v3d.render_3d(skeletons_3d)
             time.sleep(0.01)
-    plotter.exit()
+    v3d.exit()
 
 def run(enable_viewer):
     print('Run 3D reconstructor')
+    v2d = viewer_2d.Viewer2d()
+    v3d = viewer_3d.Viewer3d()
+    v3d.init()
     skeleton_server.execute()
     while True:
         mq = skeleton_server.message_queue
         if mq.qsize() > 0:
             skeletons_2d = json.loads(mq.get())
             if enable_viewer is True:
-                viewer_2d.render_2D(skeletons_2d)
+                v2d.render_2d(skeletons_2d)
+
+            if (enable_viewer is True) and (v3d.is_available()):
+                skeletons_3d = []
+                #v3d.render_3d(skeletons_3d) #TODO
         else:
             time.sleep(0.01)
 
 if sys.argv.count('-t'):
     run_test()
-elif sys.argv.count('-v'):
-    run(enable_viewer=True)
+elif sys.argv.count('-voff'):
+    run(enable_viewer=False)
