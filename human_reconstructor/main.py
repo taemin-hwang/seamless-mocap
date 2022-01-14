@@ -1,11 +1,11 @@
 import sys
 import threading
-import time
 import json
-
+import time
 from transfer import skeleton_server
 from visualizer import viewer_2d
-from visualizer import viewer_3d
+#from visualizer import viewer_3d
+from visualizer import opengl
 from reconstructor import reconstructor
 
 '''
@@ -17,13 +17,19 @@ def run_test():
 #        skeletons = json.load(message_file)
 #        viewer_2d.render_2D(skeletons)
 
-    plotter = viewer_3d.RealtimePlotter()
+    #plotter = viewer_3d.RealtimePlotter()
+    plotter = opengl.GLViewer()
+    plotter.init()
     for i in range(0, 600):
         filename = str(i).zfill(6) + '.json'
-        print(filename)
-        with open("./etc/mvmp/" + filename, "r") as mvmp_file:
+        #print(filename)
+        with open("./human_reconstructor/etc/mvmp/" + filename, "r") as mvmp_file:
             skeletons = json.load(mvmp_file)
-            plotter.render_3D(skeletons)
+            #plotter.render_3D(skeletons)
+            if(plotter.is_available()):
+                plotter.update_3d_skeleton(skeletons)
+            time.sleep(0.01)
+    plotter.exit()
 
 def run(enable_viewer):
     print('Run 3D reconstructor')

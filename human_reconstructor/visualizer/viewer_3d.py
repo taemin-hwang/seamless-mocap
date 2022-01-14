@@ -46,7 +46,7 @@ class RealtimePlotter:
         #plt.draw()
         later = datetime.now()
         print(later-now)
-        plt.pause(0.1)
+        plt.pause(0.01)
 
     def draw_skeleton(self, person_id, skeletons):
         if len(skeletons) > 0:

@@ -9,6 +9,7 @@ from OpenGL.GLUT import *
 from threading import Lock
 from visualizer.utils import *
 import numpy as np
+import time
 import sys
 import array
 import math
@@ -190,7 +191,7 @@ class Simple3DObject:
         self.add_point_clr(_p2)
 
     def add_sphere(self):
-        m_radius = 0.025
+        m_radius = 0.01
         m_stack_count = 16
         m_sector_count = 16
 
@@ -281,8 +282,7 @@ class Skeleton:
     def set_skeleton(self, person_id, skeletons):
         self.joints.set_drawing_type(GL_LINES)
         self.clr = generate_color_id(person_id)
-        #self.Z = abs(obj.position[2])
-        self.Z = 1
+        self.Z = 0.6
 
         # Draw skeletons
         print('skeleton format : ', len(skeletons))
@@ -318,14 +318,39 @@ class Skeleton:
                 for bone in BODY_BONES_POSE_25:
                     kp_1 = skeletons[bone[0].value]
                     kp_2 = skeletons[bone[1].value]
-                    if math.isfinite(kp_1[0]) and math.isfinite(kp_2[0]):
-                        self.joints.add_line(kp_1, kp_2)
+                    np_kp_1 = np.array(kp_1[:3])
+                    np_kp_1_c = np_kp_1.copy()
+                    np_kp_1_c[0] = np_kp_1[1]
+                    np_kp_1_c[1] = np_kp_1[2]
+                    np_kp_1_c[2] = np_kp_1[0]
+                    np_kp_1_c[:2] = np_kp_1_c[:2]/2
+                    np_kp_1_c[1] = np_kp_1_c[1]-0.3
+                    np_kp_1_c[2] = np_kp_1_c[2]-2.5
+
+                    np_kp_2 = np.array(kp_2[:3])
+                    np_kp_2_c = np_kp_2.copy()
+                    np_kp_2_c[0] = np_kp_2[1]
+                    np_kp_2_c[1] = np_kp_2[2]
+                    np_kp_2_c[2] = np_kp_2[0]
+                    np_kp_2_c[:2] = np_kp_2_c[:2]/2
+                    np_kp_2_c[1] = np_kp_2_c[1]-0.3
+                    np_kp_2_c[2] = np_kp_2_c[2]-2.5
+                    if math.isfinite(np_kp_1_c[0]) and math.isfinite(np_kp_2_c[0]):
+                        self.joints.add_line(np_kp_1_c.tolist(), np_kp_2_c.tolist())
 
                 for part in range(len(BODY_PARTS_POSE_25)-1):
                     kp = skeletons[part]
-                    norm = np.linalg.norm(kp)
+                    np_kp = np.array(kp[:3])
+                    np_kp_c = np_kp_2.copy()
+                    np_kp_c[0] = np_kp[1]
+                    np_kp_c[1] = np_kp[2]
+                    np_kp_c[2] = np_kp[0]
+                    np_kp_c[:2] = np_kp_c[:2]/2
+                    np_kp_c[1] = np_kp_c[1]-0.3
+                    np_kp_c[2] = np_kp_c[2]-2.5
+                    norm = np.linalg.norm(np_kp_c.tolist())
                     if math.isfinite(norm):
-                        self.kps.append(kp)
+                        self.kps.append(np_kp_c.tolist())
 
             # POSE_34 -> 34 keypoints
             elif self.body_format == 34:
@@ -337,65 +362,6 @@ class Skeleton:
 
                 for part in range(len(BODY_PARTS_POSE_34)-1):
                     kp = skeletons[part]
-                    norm = np.linalg.norm(kp)
-                    if math.isfinite(norm):
-                        self.kps.append(kp)
-
-    def set(self, obj):
-        self.joints.set_drawing_type(GL_LINES)
-        self.clr = generate_color_id(obj.id)
-        self.Z = abs(obj.position[2])
-        # Draw skeletons
-        if obj.keypoint.size > 0:
-            # POSE_18 -> 18 keypoints
-            if self.body_format == 18:
-                # Bones
-                # Definition of SKELETON_BONES in cv_viewer.utils.py, which slightly differs from BODY_BONES
-                for bone in SKELETON_BONES:
-                    kp_1 = obj.keypoint[bone[0].value]
-                    kp_2 = obj.keypoint[bone[1].value]
-                    if math.isfinite(kp_1[0]) and math.isfinite(kp_2[0]):
-                        self.joints.add_line(kp_1, kp_2)
-
-                for part in range(len(BODY_PARTS)-1):    # -1 to avoid LAST
-                    kp = obj.keypoint[part]
-                    norm = np.linalg.norm(kp)
-                    if math.isfinite(norm):
-                        self.kps.append(kp)
-
-                # Create backbone (not defined in BODY_BONES)
-                spine = (obj.keypoint[BODY_PARTS.LEFT_HIP.value] + obj.keypoint[BODY_PARTS.RIGHT_HIP.value]) / 2
-                neck = obj.keypoint[BODY_PARTS.NECK.value]
-                self.joints.add_line(spine, neck)
-
-                # Spine base joint
-                if math.isfinite(np.linalg.norm(spine)):
-                    self.kps.append(spine)
-
-            # POSE_25 -> 25 keypoints
-            elif self.body_format == 25:
-                for bone in BODY_BONES_POSE_25:
-                    kp_1 = obj.keypoint[bone[0].value]
-                    kp_2 = obj.keypoint[bone[1].value]
-                    if math.isfinite(kp_1[0]) and math.isfinite(kp_2[0]):
-                        self.joints.add_line(kp_1, kp_2)
-
-                for part in range(len(BODY_PARTS_POSE_25)-1):
-                    kp = obj.keypoint[part]
-                    norm = np.linalg.norm(kp)
-                    if math.isfinite(norm):
-                        self.kps.append(kp)
-
-            # POSE_34 -> 34 keypoints
-            elif self.body_format == 34:
-                for bone in BODY_BONES_POSE_34:
-                    kp_1 = obj.keypoint[bone[0].value]
-                    kp_2 = obj.keypoint[bone[1].value]
-                    if math.isfinite(kp_1[0]) and math.isfinite(kp_2[0]):
-                        self.joints.add_line(kp_1, kp_2)
-
-                for part in range(len(BODY_PARTS_POSE_34)-1):
-                    kp = obj.keypoint[part]
                     norm = np.linalg.norm(kp)
                     if math.isfinite(norm):
                         self.kps.append(kp)
@@ -412,6 +378,7 @@ class Skeleton:
     def drawKPS(self, shader_clr, sphere, shader_pt):
         glUniform4f(shader_clr, self.clr[0],self.clr[1],self.clr[2],self.clr[3])
         for k in self.kps:
+            print('k : ', k)
             glUniform4f(shader_pt, k[0],k[1],k[2], 1)
             sphere.draw()
             sphere.draw()
@@ -524,30 +491,22 @@ class GLViewer:
         self.body_format = 25
 
     def init(self):
-        print('glutInit()')
         glutInit()
-        print('glutGet()')
         wnd_w = glutGet(GLUT_SCREEN_WIDTH)
         wnd_h = glutGet(GLUT_SCREEN_HEIGHT)
-        width = (int)(wnd_w*0.9)
-        height = (int)(wnd_h*0.9)
+        width = (int)(wnd_w*0.7)
+        height = (int)(wnd_h*0.7)
 
-        print('glutInitWindowSize()')
         glutInitWindowSize(width, height)
-        print('glutInitWindowPosition()')
         glutInitWindowPosition((int)(wnd_w*0.05), (int)(wnd_h*0.05)) # The window opens at the upper left corner of the screen
-        print('glutInitDisplayMode()')
         glutInitDisplayMode(GLUT_DOUBLE | GLUT_SRGB)
         glutCreateWindow("ZED Body Tracking")
         glViewport(0, 0, width, height)
-
-        print('glutSetoption()')
+        
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE,
                       GLUT_ACTION_CONTINUE_EXECUTION)
 
-        print('glEnable()')
         glEnable(GL_BLEND)
-        print('glBlendFunc()')
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
         glEnable(GL_LINE_SMOOTH)
@@ -557,7 +516,6 @@ class GLViewer:
         glEnable(GL_FRAMEBUFFER_SRGB)
 
         # Compile and create the shader for 3D objects
-        print('compile and create the shader for 3D objects()')
         self.shader_sk_image = Shader(SK_VERTEX_SHADER, SK_FRAGMENT_SHADER)
         self.shader_sk_MVP = glGetUniformLocation(self.shader_sk_image.get_program_id(), "u_mvpMatrix")
         self.shader_sk_clr = glGetUniformLocation(self.shader_sk_image.get_program_id(), "u_color")
@@ -576,20 +534,16 @@ class GLViewer:
         self.basic_sphere.push_to_GPU()
 
         # Register the drawing function with GLUT
-        print('register the drawing function with GLUT')
         glutDisplayFunc(self.draw_callback)
         # Register the function called when nothing happens
-        print('register the function called when nothing happens')
         glutIdleFunc(self.idle)
 
         glutKeyboardFunc(self.keyPressedCallback)
         # Register the closing function
-        print('register the closing function')
         glutCloseFunc(self.close_func)
 
         self.available = True
         self.body_format = 25
-        print('initialization finished')
 
     def set_floor_plane_equation(self, _eq):
         self.floor_plane_set = True
@@ -598,12 +552,22 @@ class GLViewer:
     def set_render_camera_projection(self, _znear, _zfar):
         # Just slightly move up the ZED camera FOV to make a small black border
 
+        # fov_y :  0.9466695954842801
+        # fov_x :  1.4751958758738115
+        # image_size.width :  1920
+        # image_size.height:  1080
+        # cx :  939.536376953125
+        # cy :  546.5872802734375
+        # _znear :  0.1
+        # _zfar :  200
+        # self.Z:  0.6196141839027405
+
         v_fov = 53.7725
         h_fov = 84.0623
-        cx = 84.0623
-        cy = 84.0623
-        width = 720
-        height = 404
+        cx = 939.536376953125
+        cy = 546.5872802734375
+        width = 1920
+        height = 1080
 
         fov_y = (v_fov + 0.5) * M_PI / 180
         fov_x = (h_fov + 0.5) * M_PI / 180
@@ -633,7 +597,6 @@ class GLViewer:
         self.projection.append( 0)
 
     def is_available(self):
-        print('is_available()')
         if self.available:
             glutMainLoopEvent()
         return self.available
@@ -642,12 +605,6 @@ class GLViewer:
     def update_3d_skeleton(self, _skeleton_3d):
         print('update_3d_skeleton()')
         self.mutex.acquire()
-
-        _image = np.zeros((720, 404, 3), np.uint8)
-        _image[:,:,0]=25 # Blue
-        _image[:,:,1]=0  # Green
-        _image[:,:,2]=51 # Red
-
         # Clear objects
         self.bodies.clear()
         # Only show tracked objects
@@ -661,17 +618,6 @@ class GLViewer:
             print('append bodies')
             self.bodies.append(current_sk)
         self.mutex.release()
-
-#    def update_view(self, _objs):
-#        self.mutex.acquire()
-#        # Clear objects
-#        self.bodies.clear()
-#        # Only show tracked objects
-#        for obj in _objs.object_list:
-#            current_sk = Skeleton(self.body_format)
-#            current_sk.set(obj)
-#            self.bodies.append(current_sk)
-#        self.mutex.release()
 
     def idle(self):
         print('idle()')
@@ -694,28 +640,22 @@ class GLViewer:
             self.close_func()
 
     def draw_callback(self):
-        print('draw_callback()')
         if self.available:
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
+            
             self.mutex.acquire()
             self.update()
             self.draw()
             self.mutex.release()
 
-            print('swap buffers')
             glutSwapBuffers()
-            print('post re-display')
             glutPostRedisplay()
-            print('draw_callback_end')
 
     def update(self):
-        print('update()')
         for body in self.bodies:
             body.push_to_GPU()
 
     def draw(self):
-        print('draw()')
         glUseProgram(self.shader_sk_image.get_program_id())
         glUniformMatrix4fv(self.shader_sk_MVP, 1, GL_TRUE,  (GLfloat * len(self.projection))(*self.projection))
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
