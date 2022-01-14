@@ -287,7 +287,6 @@ class Skeleton:
         self.Z = 0.6
 
         # Draw skeletons
-        print('skeleton format : ', len(skeletons))
         if len(skeletons) > 0:
             # POSE_18 -> 18 keypoints
             if self.body_format == 18:
@@ -316,7 +315,6 @@ class Skeleton:
 
             # POSE_25 -> 25 keypoints
             elif self.body_format == 25:
-                print('set keypoints : 25')
                 for bone in BODY_BONES_POSE_25:
                     kp_1 = skeletons[bone[0].value]
                     kp_2 = skeletons[bone[1].value]
@@ -380,7 +378,6 @@ class Skeleton:
     def drawKPS(self, shader_clr, sphere, shader_pt):
         glUniform4f(shader_clr, self.clr[0],self.clr[1],self.clr[2],self.clr[3])
         for k in self.kps:
-            print('k : ', k)
             glUniform4f(shader_pt, k[0],k[1],k[2], 1)
             sphere.draw()
             sphere.draw()
@@ -605,7 +602,6 @@ class Viewer3d:
 
     # Modified function
     def render_3d(self, _skeleton_3d):
-        print('update_3d_skeleton()')
         self.mutex.acquire()
         now = datetime.now()
 
@@ -615,11 +611,8 @@ class Viewer3d:
         for person in _skeleton_3d:
             person_id = person['id']
             skeleton = person['keypoints3d']
-            print('create skeleton instance : ', person_id)
             current_sk = Skeleton(25)
-            print('set skeleton')
             current_sk.set_skeleton(person_id, skeleton)
-            print('append bodies')
             self.bodies.append(current_sk)
         later = datetime.now()
         print(later-now)
@@ -627,22 +620,18 @@ class Viewer3d:
         self.mutex.release()
 
     def idle(self):
-        print('idle()')
         if self.available:
             glutPostRedisplay()
 
     def exit(self):
-        print('exit()')
         if self.available:
             self.available = False
 
     def close_func(self):
-        print('close_func()')
         if self.available:
             self.available = False
 
     def keyPressedCallback(self, key, x, y):
-        print('keyPressedCallback()')
         if ord(key) == 113 or ord(key) == 27:
             self.close_func()
 
