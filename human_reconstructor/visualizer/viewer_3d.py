@@ -600,6 +600,22 @@ class Viewer3d:
             glutMainLoopEvent()
         return self.available
 
+    def render_MV1P(self, _skeleton_3d):
+        self.mutex.acquire()
+        now = datetime.now()
+
+        # Clear objects
+        self.bodies.clear()
+        skeleton = _skeleton_3d
+        current_sk = Skeleton(25)
+        current_sk.set_skeleton(0, skeleton)
+        self.bodies.append(current_sk)
+        
+        later = datetime.now()
+        print(later-now)
+
+        self.mutex.release()
+
     # Modified function
     def render_3d(self, _skeleton_3d):
         self.mutex.acquire()
