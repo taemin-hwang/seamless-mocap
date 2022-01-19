@@ -44,7 +44,7 @@ class MyTCPServer(socketserver.TCPServer):
         self.socket.bind(self.server_address)
 
 def run_server():
-    httpd = MyTCPServer(('127.0.0.1', 50001), MyHTTPRequestHandler)
+    httpd = MyTCPServer(('192.168.0.13', 50001), MyHTTPRequestHandler)
     print('Server listening on port 50001...')
     httpd.serve_forever()
 

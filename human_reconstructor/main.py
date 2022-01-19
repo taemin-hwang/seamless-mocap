@@ -62,7 +62,7 @@ def run(enable_viewer):
         skeletons_3d = recon.get_3d_skeletons()
         if len(skeletons_3d) > 0:
             send_3d_skeletons(skeletons_3d)
-            time.sleep(0.1)
+        time.sleep(0.01)
 
 if sys.argv.count('-vt'):
     run_vis_test()
