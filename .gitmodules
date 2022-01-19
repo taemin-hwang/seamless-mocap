@@ -1,0 +1,3 @@
+[submodule "human_reconstructor/easymocap"]
+	path = human_reconstructor/easymocap
+	url = https://github.com/taemin-hwang/EasyMocap.git
