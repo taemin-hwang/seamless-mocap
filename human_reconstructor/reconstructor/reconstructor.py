@@ -59,7 +59,7 @@ class Reconstructor:
         #p_use = self.cali.Pall
         p_use = np.stack([self.cali.cameras[str(id)]['P'] for id in valid_index])
         keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
-        clear_valid_index()
+        self.clear_valid_index()
         return keypoints3d
 
     # NOTE: ONLY FOR INTERNAL TEST
