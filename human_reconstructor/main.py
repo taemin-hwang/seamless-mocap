@@ -59,9 +59,9 @@ def run(enable_viewer):
         if mq.qsize() > 0:
             skeletons_2d = json.loads(mq.get())
             recon.set_2d_skeletons(skeletons_2d)
-        
         skeletons_3d = recon.get_3d_skeletons()
-        send_3d_skeletons(skeletons_3d)
+        if len(skeletons_3d) > 0:
+            send_3d_skeletons(skeletons_3d)
         time.sleep(0.01)
 
 if sys.argv.count('-vt'):

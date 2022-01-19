@@ -10,7 +10,7 @@ import numpy as np
 
 # MVBase
 class CameraCalibration:
-    def read_camera_test(self, num, path):
+    def read_camera(self, num, path):
         intri_name = join(path, 'intri.yml')
         extri_name = join(path, 'extri.yml')
         if os.path.exists(intri_name) and os.path.exists(extri_name):
@@ -30,34 +30,36 @@ class Reconstructor:
         self.cali = CameraCalibration()
         self.skeletons = {} # {cam_id : [], cam_id : []}
         self.skeletons_test = {} # {cam_id : [], cam_id : []}
-
         self.last_timestamp = 0.0
 
     def initialize(self, num, path):
         self.cali.read_camera(num, path)
         self.cam_num = num
+        self.valid_index = { i:False for i in range(self.cam_num) } # {0: False, 1: False, 2: False, 3: False}
+
+    def clear_valid_index(self):
+        self.valid_index = { i:False for i in range(self.cam_num) } # {0: False, 1: False, 2: False, 3: False}
 
     def set_2d_skeletons(self, _skeletons):
         '''collect 2d skeletons'''
         cam_id = _skeletons['id']
         timestamp = _skeletons['timestamp']
         annots = _skeletons['annots']
+        self.valid_index[cam_id] = True
         self.skeletons[cam_id] = {'timestamp' : timestamp, 'annots' : annots}
-        self.last_timestamp = timestamp
 
     def get_3d_skeletons(self):
         '''reconstruct 3d human from 2d skeletons'''
-        for skeleton in self.skeletons:
-            if self.last_timestamp - skeleton['timestamp'] > 300: # exceed 300ms
-                del skeleton
-        
-        if len(self.skeletons) < 3:
-            print("number of 2d skeletons is less than 3 : ", len(self.skeletons))
-            return
+        valid_index = [v for v in self.valid_index.values() if v == True]
+        if (len(valid_index) < 2):
+            print('cannot reconstruct, num of skeleton is less than 2')
+            return []
 
-        keypoints_use = np.stack([self.skeletons[id]['annots'] for id in self.skeletons ])
-        p_use = self.cali.Pall
+        keypoints_use = np.stack([self.skeletons[id]['annots'] for id in valid_index ])
+        #p_use = self.cali.Pall
+        p_use = np.stack([self.cali.cameras[str(id)]['P'] for id in valid_index])
         keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
+        clear_valid_index()
         return keypoints3d
 
     # NOTE: ONLY FOR INTERNAL TEST
