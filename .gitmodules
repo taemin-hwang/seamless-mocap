@@ -1,6 +1,0 @@
-[submodule "human_reconstructor/easymocap/EasyMocap"]
-	path = human_reconstructor/easymocap/EasyMocap
-	url = https://github.com/zju3dv/EasyMocap.git
-[submodule "human_reconstructor/EasyMocap"]
-	path = human_reconstructor/EasyMocap
-	url = https://github.com/zju3dv/EasyMocap.git
