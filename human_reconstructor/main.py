@@ -38,40 +38,31 @@ def run_reconstruct_test():
     cam_num = 23
     recon.initialize(cam_num, './etc/mv1p_data')
 
-    #v3d = viewer_3d.Viewer3d()
-    #v3d.init()
-
-
     for file_id in range(0, 600):
         for cam_id in range(1, cam_num+1):
             filename = str(file_id).zfill(6) + '_keypoints.json'
-            #print(filename)
             with open("./etc/mv1p_data/openpose/" + str(cam_id) + '/' + filename, "r") as mvmp_file:
                 skeletons_2d = json.load(mvmp_file)
-                recon.collect_2d_skeletons(cam_id, skeletons_2d)
-        keypoints3d = recon.get_3d_skeletons()
+                recon.set_2d_skeletons_test(cam_id, skeletons_2d)
+        keypoints3d = recon.get_3d_skeletons_test()
         send_3d_skeletons(keypoints3d)
-        #print(keypoints3d)
         time.sleep(0.1)
 
 def run(enable_viewer):
     print('Run 3D reconstructor')
-    v2d = viewer_2d.Viewer2d()
-    v3d = viewer_3d.Viewer3d()
-    v3d.init()
+    recon = reconstructor.Reconstructor()
+    cam_num = 4
+    recon.initialize(cam_num, './etc/mv1p_data')
     skeleton_server.execute()
     while True:
         mq = skeleton_server.message_queue
         if mq.qsize() > 0:
             skeletons_2d = json.loads(mq.get())
-            if enable_viewer is True:
-                v2d.render_2d(skeletons_2d)
-
-            if (enable_viewer is True) and (v3d.is_available()):
-                skeletons_3d = []
-                #v3d.render_3d(skeletons_3d) #TODO
-        else:
-            time.sleep(0.01)
+            recon.set_2d_skeletons(skeletons_2d)
+        
+        skeletons_3d = recon.get_3d_skeletons()
+        send_3d_skeletons(skeletons_3d)
+        time.sleep(0.01)
 
 if sys.argv.count('-vt'):
     run_vis_test()
