@@ -17,7 +17,7 @@ def run_vis_test():
     print('Run test')
 
     v2d = viewer_2d.Viewer2d()
-    with open("./human_reconstructor/etc/msg_2d.json", "r") as message_file:
+    with open("./etc/msg_2d.json", "r") as message_file:
         skeletons_2d = json.load(message_file)
         v2d.render_2d(skeletons_2d)
 
@@ -26,7 +26,7 @@ def run_vis_test():
     for i in range(0, 600):
         filename = str(i).zfill(6) + '.json'
         #print(filename)
-        with open("./human_reconstructor/etc/vis_data/" + filename, "r") as mvmp_file:
+        with open("./etc/vis_data/" + filename, "r") as mvmp_file:
             skeletons_3d = json.load(mvmp_file)
             if(v3d.is_available()):
                 v3d.render_3d(skeletons_3d)
@@ -36,7 +36,7 @@ def run_vis_test():
 def run_reconstruct_test():
     recon = reconstructor.Reconstructor()
     cam_num = 23
-    recon.initialize(cam_num, './human_reconstructor/etc/mv1p_data')
+    recon.initialize(cam_num, './etc/mv1p_data')
 
     #v3d = viewer_3d.Viewer3d()
     #v3d.init()
@@ -46,7 +46,7 @@ def run_reconstruct_test():
         for cam_id in range(1, cam_num+1):
             filename = str(file_id).zfill(6) + '_keypoints.json'
             #print(filename)
-            with open("./human_reconstructor/etc/mv1p_data/openpose/" + str(cam_id) + '/' + filename, "r") as mvmp_file:
+            with open("./etc/mv1p_data/openpose/" + str(cam_id) + '/' + filename, "r") as mvmp_file:
                 skeletons_2d = json.load(mvmp_file)
                 recon.collect_2d_skeletons(cam_id, skeletons_2d)
         keypoints3d = recon.get_3d_skeletons()
