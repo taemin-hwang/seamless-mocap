@@ -26,6 +26,9 @@ ConfigParser::ConfigParser(std::string path) {
     if(document.HasMember("port") && document["port"].IsInt()) {
         port_ = document["port"].GetInt();
     }
+    if(document.HasMember("camid") && document["camid"].IsInt()) {
+        camid_ = document["camid"].GetInt();
+    }
     if(document.HasMember("viewer") && document["viewer"].IsString()) {
         is_enable_viewer_ = document["viewer"].GetString();
     }
