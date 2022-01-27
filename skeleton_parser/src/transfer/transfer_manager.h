@@ -23,7 +23,7 @@ class TransferManager : public TransferInterface {
     TransferManager() = default;
     virtual ~TransferManager() = default;
 
-    void Initialize(const std::string&, const int&);
+    void Initialize(const int&, const std::string&, const int&);
     void SendPeopleKeypoints(const seamless::PeopleSkeleton& people_skeleton);
 
  private:

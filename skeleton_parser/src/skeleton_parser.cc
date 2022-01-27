@@ -12,12 +12,13 @@ SkeletonParser::SkeletonParser() {
 // Initialize TrackerManager, TransferManger
 void SkeletonParser::Initialize() {
     logDebug << __func__;
+    logInfo << "[Cam ID       ] : " << config_parser_->GetCamId();
     logInfo << "[Server Addr  ] : " << config_parser_->GetAddress();
     logInfo << "[Port Number  ] : " << config_parser_->GetPort();
     logInfo << "[Viewer Status] : " << (config_parser_->IsViewerOn() ? "ON" : "OFF");
 
     // Set HTTP server IP address and port number
-    transfer_manager_->Initialize(config_parser_->GetAddress(), config_parser_->GetPort());
+    transfer_manager_->Initialize(config_parser_->GetCamId(), config_parser_->GetAddress(), config_parser_->GetPort());
 
     // Set flag if 2D viewer would be ON
     if(config_parser_->IsViewerOn()) {

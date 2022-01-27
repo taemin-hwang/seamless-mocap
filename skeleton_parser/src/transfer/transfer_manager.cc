@@ -1,8 +1,9 @@
 #include "transfer/transfer_manager.h"
 
-void TransferManager::Initialize(const std::string& ip_addr, const int& port) {
+void TransferManager::Initialize(const int& camid, const std::string& ip_addr, const int& port) {
     ip_addr_ = ip_addr;
     port_ = port;
+    camid_ = camid;
 
     logInfo << "Try to access to " << ip_addr_ << " (" << port_ << ")";
     target_url_ = "http://" + ip_addr_ + ":" + std::to_string(port_);
@@ -14,7 +15,8 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleSkeleton& people
     auto people_keypoints = people_skeleton.GetPeopleKeypointsWithConfidence();
     auto timestamp = people_skeleton.GetTimestampMilliseconds();
     auto frame_size = people_skeleton.GetFrameSize();
-    auto camera_id = people_skeleton.GetCameraId();
+    //auto camera_id = people_skeleton.GetCameraId();
+    int camera_id = camid_;
 
     if (people_keypoints.size() < 1) {
         logWarn << "People keypoint size is less than 1, No one here";

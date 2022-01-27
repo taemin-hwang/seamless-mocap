@@ -1,6 +1,10 @@
 # seamless-mocap
 This project aims to provide a solution for 3D human-pose reconstruction in realtime.
 
+## clone repository
+```
+git clone --recursive https://github.com/taemin-hwang/seamless-mocap.git
+```
 
 ## pre-requisite
 ### EasyMocap

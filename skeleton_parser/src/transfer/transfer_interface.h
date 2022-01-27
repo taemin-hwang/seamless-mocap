@@ -12,7 +12,7 @@ class TransferInterface {
     TransferInterface() = default;
     virtual ~TransferInterface() = default;
 
-    virtual void Initialize(const std::string&, const int&) = 0;
+    virtual void Initialize(const int&, const std::string&, const int&) = 0;
     virtual void SendPeopleKeypoints(const seamless::PeopleSkeleton&) = 0;
 
     void SetIpAddress(const std::string& ip_addr) { ip_addr_ = ip_addr; }
@@ -45,6 +45,7 @@ class TransferInterface {
  protected:
     std::string ip_addr_ = "";
     int port_ = 0;
+    int camid_ = 0;
 };
 
 #endif
