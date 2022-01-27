@@ -44,7 +44,7 @@ class Reconstructor:
         '''collect 2d skeletons'''
         cam_id = _skeletons['id']
         timestamp = _skeletons['timestamp']
-        annots = _skeletons['annots']
+        annots = np.array(_skeletons['annots'][0]['keypoints'])
         self.valid_index[cam_id] = True
         self.skeletons[cam_id] = {'timestamp' : timestamp, 'annots' : annots}
         print('Received 2d skeleton from cam id : ', cam_id)
@@ -52,15 +52,21 @@ class Reconstructor:
     def get_3d_skeletons(self):
         '''reconstruct 3d human from 2d skeletons'''
         valid_index = [v for v in self.valid_index.values() if v == True]
-        if (len(valid_index) < 2):
-            print('cannot reconstruct, num of skeleton is less than 2')
+        if (len(valid_index) < 4):
+            #print('cannot reconstruct, num of skeleton is less than 2')
             return []
 
-        keypoints_use = np.stack([self.skeletons[id]['annots'] for id in valid_index ])
-        #p_use = self.cali.Pall
-        p_use = np.stack([self.cali.cameras[str(id)]['P'] for id in valid_index])
+        #keypoints_use = np.stack([self.skeletons[id+1]['annots'] for id, item in enumerate(valid_index) if item == True ])
+        ##p_use = self.cali.Pall
+        #p_use = np.stack([self.cali.cameras[str(id+1)]['P'] for id, item in enumerate(valid_index) if item == True ])
+        #keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
+        #self.clear_valid_index()
+
+
+        keypoints_use = np.stack([self.skeletons[id]['annots'] for id in self.skeletons ])
+        p_use = self.cali.Pall
         keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
-        self.clear_valid_index()
+
         return keypoints3d
 
     # NOTE: ONLY FOR INTERNAL TEST

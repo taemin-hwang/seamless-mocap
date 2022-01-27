@@ -9,18 +9,22 @@ from visualizer.utils import *
 class Viewer2d:
     def __init__(self):
         self.cam_id_list = []
+        self.height = 720
+        self.width = 1280
+        self.display_num = 4
+        self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
 
     def set_background_color(self, display, r, g, b):
         display[:,:,0]=b # Blue
         display[:,:,1]=g # Green
         display[:,:,2]=r # Red
 
-    def merge_display(self, displaylist, width, height):
+    def merge_display(self):
         resized_display_list = []
 
         i = 0
-        for display in displaylist:
-            cv2.rectangle(display, [0, 0], [width, height], color=(255, 255, 255), thickness=3)
+        for display in self.display_list:
+            cv2.rectangle(display, [0, 0], [self.width, self.height], color=(255, 255, 255), thickness=3)
             resized_display_list.append(cv2.resize(display, dsize=(0,0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA))
             i += 1
 
@@ -34,24 +38,18 @@ class Viewer2d:
     def render_2d(self, data):
         cam_id = data['id']
         timestamp = data['timestamp']
-        height = data['height']
-        width = data['width']
         annots = data['annots']
 
         if self.cam_id_list.count(cam_id) == 0:
             self.cam_id_list.append(cam_id)
 
         display_id = self.cam_id_list.index(cam_id)
-        display_num = 4
-        display_list = np.zeros((display_num, height, width, 3), np.uint8)
-
-        #display = np.zeros((height, width, 3), np.uint8)
-        self.set_background_color(display_list[0], 51, 0, 25)
-        self.set_background_color(display_list[1], 51, 0, 25)
-        self.set_background_color(display_list[2], 51, 0, 25)
-        self.set_background_color(display_list[3], 51, 0, 25)
-
-        display = display_list[display_id]
+        self.display_list[display_id] = np.zeros((self.height, self.width, 3), np.uint8)
+        display = self.display_list[display_id]
+        #self.set_background_color(self.display_list[0], 51, 0, 25)
+        #self.set_background_color(self.display_list[1], 51, 0, 25)
+        #self.set_background_color(self.display_list[2], 51, 0, 25)
+        #self.set_background_color(self.display_list[3], 51, 0, 25)
 
         for person in annots:
             bbox = person['bbox']
@@ -62,7 +60,7 @@ class Viewer2d:
 
             keypoints = person['keypoints']
             if len(keypoints) == 18:
-                print('keypoint format: 18')
+                #print('keypoint format: 18')
                 # Draw skeleton bones
                 for part in SKELETON_BONES:
                     kp_a = keypoints[part[0].value]
@@ -93,7 +91,7 @@ class Viewer2d:
                     cv2.circle(display, (int(kp_spine[0]), int(kp_spine[1])), 3, color, -1)
 
             elif len(keypoints) == 34:
-                print('keypoint format: 34')
+                #print('keypoint format: 34')
                 # Draw skeleton bones
                 for part in BODY_BONES_POSE_34:
                     kp_a = keypoints[part[0].value]
@@ -108,7 +106,8 @@ class Viewer2d:
                 if(kp[0] < display.shape[1] and kp[1] < display.shape[0]):
                     cv2.circle(display, (int(kp[0]), int(kp[1])), 3, color, -1)
 
-        merged_display = self.merge_display(display_list, width, height)
+        merged_display = self.merge_display()
 
         cv2.imshow("2D Viewer", merged_display)
         cv2.waitKey(10)
+
