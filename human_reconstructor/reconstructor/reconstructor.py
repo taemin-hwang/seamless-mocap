@@ -3,6 +3,8 @@
 from easymocap.mytools.camera_utils import read_camera, get_fundamental_matrix, Undistort
 from easymocap.mytools.reconstruction import simple_recon_person
 
+from visualizer import utils
+
 
 import os
 from os.path import join
@@ -44,7 +46,10 @@ class Reconstructor:
         '''collect 2d skeletons'''
         cam_id = _skeletons['id']
         timestamp = _skeletons['timestamp']
+
         annots = np.array(_skeletons['annots'][0]['keypoints'])
+        annots_25 = utils.convert_25_from_34(annots)
+
         self.valid_index[cam_id] = True
         self.skeletons[cam_id] = {'timestamp' : timestamp, 'annots' : annots}
         print('Received 2d skeleton from cam id : ', cam_id)
@@ -62,11 +67,17 @@ class Reconstructor:
         #keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
         #self.clear_valid_index()
 
-
         keypoints_use = np.stack([self.skeletons[id]['annots'] for id in self.skeletons ])
         p_use = self.cali.Pall
+
         keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
 
+        #print('-------------------------keypoints 2d--------------------------')
+        #print(keypoints_use)
+        #print('-------------------------Pall----------------------------------')
+        #print(p_use)
+        #print('-------------------------keypoints 3d--------------------------')
+        #print(keypoints3d)
         return keypoints3d
 
     # NOTE: ONLY FOR INTERNAL TEST
@@ -82,4 +93,11 @@ class Reconstructor:
         keypoints_use = np.stack([self.skeletons_test[id]['annots'] for id in self.skeletons_test ])
         p_use = self.cali.Pall
         keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
+        #print('-------------------------keypoints 2d--------------------------')
+        #print(keypoints_use)
+        #print('-------------------------Pall----------------------------------')
+        #print(p_use)
+        #print('-------------------------keypoints 3d--------------------------')
+        #print(keypoints3d)
+
         return keypoints3d

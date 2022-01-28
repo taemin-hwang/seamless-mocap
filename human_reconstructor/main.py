@@ -73,12 +73,14 @@ def run(enable_viewer):
             lk.release()
         skeletons_3d = recon.get_3d_skeletons()
 
-        if (len(skeletons_2d) > 0 and frame_num > 20):
+        if (len(skeletons_2d) > 0 and frame_num > 5):
             v2d.render_2d(skeletons_2d)
             frame_num = 0
         frame_num += 1
-        #if len(skeletons_3d) > 0:
-            #send_3d_skeletons(skeletons_3d)
+
+        if len(skeletons_3d) > 0:
+            send_3d_skeletons(skeletons_3d)
+
         time.sleep(0.001)
 
 if sys.argv.count('-vt'):
