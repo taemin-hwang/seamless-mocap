@@ -170,8 +170,8 @@ int ZedTracker::EnableBodyTracking() {
     object_detection_parameters_.enable_tracking = true; // Objects will keep the same ID between frames
     object_detection_parameters_.detection_model = DETECTION_MODEL::HUMAN_BODY_FAST;
     object_detection_parameters_.enable_body_fitting = true; // Fitting process is called, user have access to all available informations for a person processed by SDK
-    // object_detection_parameters_.body_format = BODY_FORMAT::POSE_34; // selects the 34 keypoints body model for SDK outputs
-    object_detection_parameters_.body_format = BODY_FORMAT::POSE_18; // selects the 34 keypoints body model for SDK outputs
+    object_detection_parameters_.body_format = BODY_FORMAT::POSE_34; // selects the 34 keypoints body model for SDK outputs
+    // object_detection_parameters_.body_format = BODY_FORMAT::POSE_18; // selects the 34 keypoints body model for SDK outputs
 
     // Set runtime parameters
     object_detection_runtime_parameters_.detection_confidence_threshold = 40;
