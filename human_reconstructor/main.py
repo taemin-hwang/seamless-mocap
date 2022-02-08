@@ -4,8 +4,7 @@ import json
 import time
 from datetime import datetime
 
-from transfer import skeleton_server
-from transfer.skeleton_sender import send_3d_skeletons
+from transfer import skeleton_server, skeleton_sender
 from visualizer import viewer_2d
 from visualizer import viewer_3d
 #from visualizer.legacy import matplot_viewer_3d
@@ -37,9 +36,10 @@ def run_vis_test():
 
 def run_reconstruct_test():
     recon = reconstructor.Reconstructor()
+    sender = skeleton_sender.SkeletonSender()
     cam_num = 23
     recon.initialize(cam_num, './etc/mv1p_data')
-
+    recon.get_smpl_init_test()
     for file_id in range(0, 600):
         for cam_id in range(1, cam_num+1):
             filename = str(file_id).zfill(6) + '_keypoints.json'
@@ -47,24 +47,29 @@ def run_reconstruct_test():
                 skeletons_2d = json.load(mvmp_file)
                 recon.set_2d_skeletons_test(cam_id, skeletons_2d)
 
-        now = datetime.now()
         keypoints3d = recon.get_3d_skeletons_test()
-        later = datetime.now()
-        print("Reconstruction time : ", later-now)
-        send_3d_skeletons(keypoints3d)
+        smpl = recon.get_smpl_test(keypoints3d)
+        if smpl:
+            sender.send_smpl_bunch(smpl)
+        #    print(smpl)
+        #print("Reconstruction time : {}, SMPL time : {}".format(recon_time-start, smpl_time-recon_time))
+        #sender.send_3d_skeletons(keypoints3d)
+
         time.sleep(0.01)
 
 def run(enable_viewer):
     print('Run 3D reconstructor')
     v2d = viewer_2d.Viewer2d()
     recon = reconstructor.Reconstructor()
+    sender = skeleton_sender.SkeletonSender()
     cam_num = 4
     recon.initialize(cam_num, './etc/keti_mv1p_data')
     skeleton_server.execute()
     lk = skeleton_server.lock
     mq = skeleton_server.message_queue
     skeletons_2d = {}
-    frame_num = 0
+    frame_2d_num = 0
+    frame_3d_num = 0
     while True:
         if mq.qsize() > 0:
             lk.acquire()
@@ -73,13 +78,15 @@ def run(enable_viewer):
             lk.release()
         skeletons_3d = recon.get_3d_skeletons()
 
-        if (len(skeletons_2d) > 0 and frame_num > 5):
+        if (len(skeletons_2d) > 0 and frame_2d_num > 10):
             v2d.render_2d(skeletons_2d)
-            frame_num = 0
-        frame_num += 1
+            frame_2d_num = 0
+        frame_2d_num += 1
 
-        if len(skeletons_3d) > 0:
-            send_3d_skeletons(skeletons_3d)
+        if (len(skeletons_3d) > 0 and frame_3d_num > 10):
+            sender.send_3d_skeletons(skeletons_3d)
+            frame_3d_num = 0
+        frame_3d_num += 1
 
         time.sleep(0.001)
 

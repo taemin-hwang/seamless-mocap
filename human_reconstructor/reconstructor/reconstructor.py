@@ -2,9 +2,10 @@
 #from easymocap.dataset import CONFIG, MV1PMF
 from easymocap.mytools.camera_utils import read_camera, get_fundamental_matrix, Undistort
 from easymocap.mytools.reconstruction import simple_recon_person
+from easymocap.pipeline import smpl_from_keypoints3d2d, smpl_from_keypoints3d
+from easymocap.smplmodel import check_keypoints, load_model, select_nf
 
 from visualizer import utils
-
 
 import os
 from os.path import join
@@ -101,3 +102,64 @@ class Reconstructor:
         #print(keypoints3d)
 
         return keypoints3d
+
+
+    # NOTE: ONLY FOR INTERNAL TEST
+    def get_smpl_init_test(self):
+        self.body_model = load_model(model_path='./easymocap/data/smplx')
+        self.frame_num_test = 0
+        self.kp3ds = np.empty((0, 25, 4))
+
+    def get_smpl_test(self, keypoints3d):
+        from datetime import datetime
+        from easymocap.dataset import CONFIG
+        from easymocap.pipeline.weight import load_weight_pose, load_weight_shape
+        from easymocap.pyfitting import optimizeShape
+        from easymocap.pipeline.basic import multi_stage_optimize
+        from easymocap.pipeline.config import Config
+
+        if(self.frame_num_test < 100):
+            self.kp3ds = np.append(self.kp3ds, keypoints3d.reshape(1, 25, 4), axis=0)
+            #self.kp3ds = np.array(self.kp3ds)
+            #print(self.kp3ds.shape)
+            self.frame_num_test += 1
+            return {}
+        else:
+            print(self.kp3ds.shape)
+
+            time1 = datetime.now()
+            #params = smpl_from_keypoints3d2d(body_model, kp3ds, keypoints2d, bboxes, dataset.Pall, config=dataset.config, args=args, weight_shape=None, weight_pose=None)
+            #body_model = load_model(model_path='./easymocap/data/smplx')
+            model_type = self.body_model.model_type
+            params_init = self.body_model.init_params(nFrames=1)
+            weight_shape = load_weight_shape(model_type, opts={})
+            if model_type in ['smpl', 'smplh', 'smplx']:
+                # when use SMPL model, optimize the shape only with first 1-14 limbs,
+                # don't use (nose, neck)
+                params_shape = optimizeShape(self.body_model, params_init, self.kp3ds,
+                    weight_loss=weight_shape, kintree=CONFIG['body15']['kintree'][1:])
+            else:
+                print('cannot find model type')
+            time2 = datetime.now()
+
+            cfg = Config()
+            cfg.device = self.body_model.device
+
+            # optimize 3D pose
+            params = self.body_model.init_params(nFrames=self.kp3ds.shape[0])
+            params['shapes'] = params_shape['shapes'].copy()
+            weight_pose = load_weight_pose(model_type, opts={})
+            time3 = datetime.now()
+
+            # We divide this step to two functions, because we can have different initialization method
+            params = multi_stage_optimize(self.body_model, params, self.kp3ds, None, None, None, weight_pose, cfg)
+            time4 = datetime.now()
+
+            print("- Load model : ", time2-time1)
+            print("- Init param : ", time3-time2)
+            print("- Optimize 3D pose : ", time4-time3)
+
+            self.kp3ds = np.empty((0, 25, 4))
+            self.frame_num_test = 0
+
+            return params
