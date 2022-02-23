@@ -37,7 +37,7 @@ def run_vis_test():
     v3d.exit()
 
 lock = threading.Lock()
-def produce_3d_skeleton(q, recon):
+def work_get_3d_skeleton(q, recon):
     cam_num = 23
     recon.initialize(cam_num, './etc/mv1p_data')
     recon.get_smpl_init_test()
@@ -53,8 +53,7 @@ def produce_3d_skeleton(q, recon):
         q.put(keypoints3d)
         lock.release
 
-def send_smpl(q, recon):
-    sender = skeleton_sender.SkeletonSender()
+def send_smpl(q, recon, sender):
     qsize = q.qsize()
     kp3ds = np.empty((0, 25, 4))
     for i in range(qsize):
@@ -64,12 +63,12 @@ def send_smpl(q, recon):
     if smpl:
         sender.send_smpl_bunch(smpl)
 
-def consume_3d_skeleton(q, recon):
+def work_get_smpl(q, recon, sender):
     while True:
-        q_size = q.qsize()
-        if q_size > 50:
+        qsize = q.qsize()
+        if qsize > 50:
             lock.acquire
-            t = threading.Thread(target=send_smpl, args=(q, recon))
+            t = threading.Thread(target=send_smpl, args=(q, recon, sender))
             t.start()
             lock.release
         time.sleep(0.01)
@@ -77,11 +76,14 @@ def consume_3d_skeleton(q, recon):
 def run_reconstruct_test():
         q = Queue()
         recon = reconstructor.Reconstructor()
-        t1 = threading.Thread(target=produce_3d_skeleton, args=(q, recon))
-        t2 = threading.Thread(target=consume_3d_skeleton, args=(q, recon))
+        sender = skeleton_sender.SkeletonSender()
+        t1 = threading.Thread(target=work_get_3d_skeleton, args=(q, recon))
+        t2 = threading.Thread(target=work_get_smpl, args=(q, recon, sender))
+        t3 = threading.Thread(target=sender.work_send_smpl)
         t1.start()
         t2.start()
-        t2.join()
+        t3.start()
+        t3.join()
 
 def run(enable_viewer):
     print('Run 3D reconstructor')
