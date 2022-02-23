@@ -118,7 +118,7 @@ class Reconstructor:
         from easymocap.pipeline.basic import multi_stage_optimize
         from easymocap.pipeline.config import Config
 
-        if(self.frame_num_test < 100):
+        if(self.frame_num_test < 40):
             self.kp3ds = np.append(self.kp3ds, keypoints3d.reshape(1, 25, 4), axis=0)
             #self.kp3ds = np.array(self.kp3ds)
             #print(self.kp3ds.shape)
@@ -127,37 +127,17 @@ class Reconstructor:
         else:
             print(self.kp3ds.shape)
 
-            time1 = datetime.now()
-            #params = smpl_from_keypoints3d2d(body_model, kp3ds, keypoints2d, bboxes, dataset.Pall, config=dataset.config, args=args, weight_shape=None, weight_pose=None)
-            #body_model = load_model(model_path='./easymocap/data/smplx')
             model_type = self.body_model.model_type
-            params_init = self.body_model.init_params(nFrames=1)
-            weight_shape = load_weight_shape(model_type, opts={})
-            if model_type in ['smpl', 'smplh', 'smplx']:
-                # when use SMPL model, optimize the shape only with first 1-14 limbs,
-                # don't use (nose, neck)
-                params_shape = optimizeShape(self.body_model, params_init, self.kp3ds,
-                    weight_loss=weight_shape, kintree=CONFIG['body15']['kintree'][1:])
-            else:
-                print('cannot find model type')
-            time2 = datetime.now()
-
             cfg = Config()
             cfg.device = self.body_model.device
 
             # optimize 3D pose
             params = self.body_model.init_params(nFrames=self.kp3ds.shape[0])
-            params['shapes'] = params_shape['shapes'].copy()
+            params['shapes'] = np.array([[ 0.15387063, -0.19116399,  0.07848503,  0.18847144,  0.03092081,0.03787636, -0.01424125, -0.02344685,  0.014108  , -0.01093242]])
             weight_pose = load_weight_pose(model_type, opts={})
-            time3 = datetime.now()
 
             # We divide this step to two functions, because we can have different initialization method
             params = multi_stage_optimize(self.body_model, params, self.kp3ds, None, None, None, weight_pose, cfg)
-            time4 = datetime.now()
-
-            print("- Load model : ", time2-time1)
-            print("- Init param : ", time3-time2)
-            print("- Optimize 3D pose : ", time4-time3)
 
             self.kp3ds = np.empty((0, 25, 4))
             self.frame_num_test = 0
