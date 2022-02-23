@@ -110,6 +110,38 @@ class Reconstructor:
         self.frame_num_test = 0
         self.kp3ds = np.empty((0, 25, 4))
 
+    def get_smpl_bunch(self, kp3ds):
+        from datetime import datetime
+        from easymocap.dataset import CONFIG
+        from easymocap.pipeline.weight import load_weight_pose, load_weight_shape
+        from easymocap.pyfitting import optimizeShape
+        from easymocap.pipeline.basic import multi_stage_optimize
+        from easymocap.pipeline.config import Config
+
+        self.kp3ds = kp3ds
+
+        print(self.kp3ds.shape)
+        if self.kp3ds.shape[0] < 1:
+            return
+
+        model_type = self.body_model.model_type
+        cfg = Config()
+        cfg.device = self.body_model.device
+
+        # optimize 3D pose
+        params = self.body_model.init_params(nFrames=self.kp3ds.shape[0])
+        params['shapes'] = np.array([[ 0.15387063, -0.19116399,  0.07848503,  0.18847144,  0.03092081,0.03787636, -0.01424125, -0.02344685,  0.014108  , -0.01093242]])
+        weight_pose = load_weight_pose(model_type, opts={})
+
+        # We divide this step to two functions, because we can have different initialization method
+        params = multi_stage_optimize(self.body_model, params, self.kp3ds, None, None, None, weight_pose, cfg)
+
+        self.kp3ds = np.empty((0, 25, 4))
+        self.frame_num_test = 0
+
+        return params
+
+
     def get_smpl_test(self, keypoints3d):
         from datetime import datetime
         from easymocap.dataset import CONFIG

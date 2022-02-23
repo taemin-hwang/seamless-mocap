@@ -38,4 +38,4 @@ class SkeletonSender:
             #print('------')
             #print(data)
             self.client.send_smpl(data)
-            time.sleep(0.06)
+            time.sleep(0.07)

@@ -3,6 +3,8 @@ import threading
 import json
 import time
 from datetime import datetime
+from queue import Queue
+import numpy as np
 
 from transfer import skeleton_server, skeleton_sender
 from visualizer import viewer_2d
@@ -34,9 +36,8 @@ def run_vis_test():
             time.sleep(0.01)
     v3d.exit()
 
-def run_reconstruct_test():
-    recon = reconstructor.Reconstructor()
-    sender = skeleton_sender.SkeletonSender()
+lock = threading.Lock()
+def produce_3d_skeleton(q, recon):
     cam_num = 23
     recon.initialize(cam_num, './etc/mv1p_data')
     recon.get_smpl_init_test()
@@ -46,16 +47,41 @@ def run_reconstruct_test():
             with open("./etc/mv1p_data/openpose/" + str(cam_id) + '/' + filename, "r") as mvmp_file:
                 skeletons_2d = json.load(mvmp_file)
                 recon.set_2d_skeletons_test(cam_id, skeletons_2d)
-
         keypoints3d = recon.get_3d_skeletons_test()
-        smpl = recon.get_smpl_test(keypoints3d)
-        if smpl:
-            sender.send_smpl_bunch(smpl)
-        #    print(smpl)
-        #print("Reconstruction time : {}, SMPL time : {}".format(recon_time-start, smpl_time-recon_time))
-        #sender.send_3d_skeletons(keypoints3d)
+        time.sleep(0.05)
+        lock.acquire
+        q.put(keypoints3d)
+        lock.release
 
+def send_smpl(q, recon):
+    sender = skeleton_sender.SkeletonSender()
+    qsize = q.qsize()
+    kp3ds = np.empty((0, 25, 4))
+    for i in range(qsize):
+        keypoints3d = q.get()
+        kp3ds = np.append(kp3ds, keypoints3d.reshape(1, 25, 4), axis=0)
+    smpl = recon.get_smpl_bunch(kp3ds)
+    if smpl:
+        sender.send_smpl_bunch(smpl)
+
+def consume_3d_skeleton(q, recon):
+    while True:
+        q_size = q.qsize()
+        if q_size > 50:
+            lock.acquire
+            t = threading.Thread(target=send_smpl, args=(q, recon))
+            t.start()
+            lock.release
         time.sleep(0.01)
+
+def run_reconstruct_test():
+        q = Queue()
+        recon = reconstructor.Reconstructor()
+        t1 = threading.Thread(target=produce_3d_skeleton, args=(q, recon))
+        t2 = threading.Thread(target=consume_3d_skeleton, args=(q, recon))
+        t1.start()
+        t2.start()
+        t2.join()
 
 def run(enable_viewer):
     print('Run 3D reconstructor')
