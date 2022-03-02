@@ -38,7 +38,7 @@ if __name__ == "__main__":
         if zed.grab() == sl.ERROR_CODE.SUCCESS:
             zed.retrieve_image(image, sl.VIEW.LEFT, sl.MEM.CPU, image_size)
             image_left_ocv = image.get_data()[:,:,:3]
-            cv2.imshow("ZED | 2D View", image_left_ocv)
+            #cv2.imshow("ZED | 2D View", image_left_ocv)
             #print(image_left_ocv)
             if out.isOpened():
                 out.write(image_left_ocv)
