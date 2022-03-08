@@ -56,6 +56,7 @@ class Reconstructor:
 
         self.valid_index[cam_id] = True
         self.skeletons[cam_id] = {'timestamp' : timestamp, 'annots' : annots_25}
+        #print(self.skeletons[cam_id])
         print('Received 2d skeleton from cam id : ', cam_id)
 
     def get_3d_skeletons(self):

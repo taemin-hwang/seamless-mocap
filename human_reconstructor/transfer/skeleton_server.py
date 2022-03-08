@@ -18,17 +18,17 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write('<h1>hello</h1>'.encode('utf-8'))
 
     def do_POST(self):
-        print( 'POST request handler' )
+        #print( 'POST request handler' )
         global message_queue # declare global variable
 
         content_len = int(self.headers.get('Content-Length'))
         post_body = self.rfile.read(content_len)
-        self.message = post_body
+        #self.message = post_body
 
         lock.acquire() # lock acquire
         if message_queue.qsize() < 1000:
             message_queue.put(post_body)
-            print('queue size : ', message_queue.qsize())
+            #print('queue size : ', message_queue.qsize())
         else:
             print( 'Message queue size exceeds 1000, cannot receive anymore')
         lock.release() # lock release
@@ -37,6 +37,8 @@ class MyHTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/html')
         self.end_headers()
         self.wfile.write("".encode())
+    def log_message(self, format, *args):
+            return
 
 class MyTCPServer(socketserver.TCPServer):
     def server_bind(self):

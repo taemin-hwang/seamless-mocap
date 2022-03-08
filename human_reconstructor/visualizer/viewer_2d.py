@@ -59,6 +59,11 @@ class Viewer2d:
             cv2.rectangle(display, [bbox[0], bbox[1]], [bbox[2], bbox[3]], color)
 
             keypoints = person['keypoints']
+
+            #print('Received keypoint length : ', len(keypoints))
+            keypoints = convert_25_from_34(np.array(keypoints))
+            #print('Converted keypoint length : ', len(keypoints))
+
             if len(keypoints) == 18:
                 #print('keypoint format: 18')
                 # Draw skeleton bones
@@ -90,6 +95,18 @@ class Viewer2d:
                 and left_hip[0] > 0 and left_hip[1] > 0 and right_hip[0] > 0 and right_hip[1] > 0 ):
                     cv2.circle(display, (int(kp_spine[0]), int(kp_spine[1])), 3, color, -1)
 
+            elif len(keypoints) == 25:
+                #print('keypoint format: 25')
+                # Draw skeleton bones
+                for part in BODY_BONES_POSE_25:
+                    kp_a = keypoints[part[0].value]
+                    kp_b = keypoints[part[1].value]
+                    # Check that the keypoints are inside the image
+                    if(kp_a[0] < display.shape[1] and kp_a[1] < display.shape[0]
+                    and kp_b[0] < display.shape[1] and kp_b[1] < display.shape[0]
+                    and kp_a[0] > 0 and kp_a[1] > 0 and kp_b[0] > 0 and kp_b[1] > 0 ):
+                        cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 1, cv2.LINE_AA)
+
             elif len(keypoints) == 34:
                 #print('keypoint format: 34')
                 # Draw skeleton bones
@@ -109,5 +126,5 @@ class Viewer2d:
         merged_display = self.merge_display()
 
         cv2.imshow("2D Viewer", merged_display)
-        cv2.waitKey(10)
+        cv2.waitKey(5)
 
