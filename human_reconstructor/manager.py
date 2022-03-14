@@ -139,8 +139,8 @@ class Manager:
         #if qsize > self.min_cam:
         for i in range(qsize):
             json_data = mq_2d_skeleton.get()
+            print('json-data: ', json_data)
             if isinstance(json_data, dict) is False:
-                #print('json-data: ', json_data)
                 data = json.loads(json_data)
                 self.viewer.render_2d(data)
 
