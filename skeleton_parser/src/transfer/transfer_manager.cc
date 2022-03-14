@@ -4,24 +4,21 @@
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
 
 void TransferManager::Initialize(const int& camid, const std::string& ip_addr, const int& port) {
     ip_addr_ = ip_addr;
     port_ = port;
     camid_ = camid;
 
-    sock_ = socket(PF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in serv_addr;
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family=AF_INET;
-    serv_addr.sin_addr.s_addr=inet_addr(ip_addr.c_str());
-    serv_addr.sin_port=htons(port);
+    sock_ = socket(AF_INET, SOCK_DGRAM, 0);
+    memset(&serv_addr_, 0, sizeof(serv_addr_));
+    serv_addr_.sin_family=AF_INET;
+    serv_addr_.sin_addr.s_addr=inet_addr(ip_addr.c_str());
+    serv_addr_.sin_port=htons(port);
 
-    if(connect(sock_, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
-        logError << "Failed to connect";
-    }
+    //if(connect(sock_, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
+    //    logError << "Failed to connect";
+    //}
 }
 
 void TransferManager::SendPeopleKeypoints(const seamless::PeopleSkeleton& people_skeleton) {
@@ -46,7 +43,7 @@ void TransferManager::SendPeopleKeypoints(const seamless::PeopleSkeleton& people
     //logError << "size : " << strlen(resource_json.c_str());
 
     resource_json.copy(message, strlen(resource_json.c_str()));
-    send(sock_, message, strlen(resource_json.c_str()), 0);
+    sendto(sock_, message, strlen(resource_json.c_str()), 0, (sockaddr*)&serv_addr_, sizeof(serv_addr_));
 }
 
 std::string TransferManager::GetStringFromPeopleKeypoint(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& keypoint, const seamless::TimestampMilliseconds timestamp, const seamless::FrameSize framesize, int camera_id) {

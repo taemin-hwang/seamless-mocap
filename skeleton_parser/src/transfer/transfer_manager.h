@@ -15,6 +15,9 @@
 #include "transfer/transfer_interface.h"
 #include "system/logger/logger.h"
 
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
 class TransferManager : public TransferInterface {
  public:
     TransferManager() = default;
@@ -30,6 +33,7 @@ class TransferManager : public TransferInterface {
 
  private:
     int sock_;
+    struct sockaddr_in serv_addr_;
 };
 
 #endif
