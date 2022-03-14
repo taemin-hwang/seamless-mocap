@@ -31,44 +31,19 @@ class CameraCalibration:
 class Reconstructor:
     def __init__(self):
         self.cali = CameraCalibration()
-        self.skeletons = {} # {cam_id : [], cam_id : []}
         self.skeletons_test = {} # {cam_id : [], cam_id : []}
         self.last_timestamp = 0.0
 
     def initialize(self, num, path):
         self.cali.read_camera(num, path)
         self.cam_num = num
-        self.valid_index = { i:False for i in range(self.cam_num) } # {0: False, 1: False, 2: False, 3: False}
         self.body_model = load_model(model_path='./easymocap/data/smplx')
-        self.kp3ds = np.empty((0, 25, 4))
-        self.frame_num_test = 0
 
-    def clear_valid_index(self):
-        self.valid_index = { i:False for i in range(self.cam_num) } # {0: False, 1: False, 2: False, 3: False}
+    def get_cameras(self):
+        return self.cali.cameras
 
-    def set_2d_skeletons(self, _skeletons):
-        '''collect 2d skeletons'''
-        cam_id = _skeletons['id']
-        timestamp = _skeletons['timestamp']
-
-        annots = np.array(_skeletons['annots'][0]['keypoints'])
-        annots_25 = utils.convert_25_from_34(annots)
-
-        self.valid_index[cam_id] = True
-        self.skeletons[cam_id] = {'timestamp' : timestamp, 'annots' : annots_25}
-        #print(self.skeletons[cam_id])
-        print('Received 2d skeleton from cam id : ', cam_id)
-
-    def get_3d_skeletons(self):
+    def get_3d_skeletons(self, keypoints_use, p_use):
         '''reconstruct 3d human from 2d skeletons'''
-        valid_index = [v for v in self.valid_index.values() if v == True]
-        if (len(valid_index) < 4):
-            #print('cannot reconstruct, num of skeleton is less than 2')
-            return []
-
-        keypoints_use = np.stack([self.skeletons[id]['annots'] for id in self.skeletons ])
-        p_use = self.cali.Pall
-
         keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
         return keypoints3d
 
@@ -80,10 +55,8 @@ class Reconstructor:
         from easymocap.pipeline.basic import multi_stage_optimize
         from easymocap.pipeline.config import Config
 
-        self.kp3ds = kp3ds
-
-        print(self.kp3ds.shape)
-        if self.kp3ds.shape[0] < 1:
+        print(kp3ds.shape)
+        if kp3ds.shape[0] < 1:
             return
 
         model_type = self.body_model.model_type
@@ -91,15 +64,12 @@ class Reconstructor:
         cfg.device = self.body_model.device
 
         # optimize 3D pose
-        params = self.body_model.init_params(nFrames=self.kp3ds.shape[0])
+        params = self.body_model.init_params(nFrames=kp3ds.shape[0])
         params['shapes'] = np.array([[ 0.15387063, -0.19116399,  0.07848503,  0.18847144,  0.03092081,0.03787636, -0.01424125, -0.02344685,  0.014108  , -0.01093242]])
         weight_pose = load_weight_pose(model_type, opts={})
 
         # We divide this step to two functions, because we can have different initialization method
-        params = multi_stage_optimize(self.body_model, params, self.kp3ds, None, None, None, weight_pose, cfg)
-
-        self.kp3ds = np.empty((0, 25, 4))
-        self.frame_num_test = 0
+        params = multi_stage_optimize(self.body_model, params, kp3ds, None, None, None, weight_pose, cfg)
 
         return params
 

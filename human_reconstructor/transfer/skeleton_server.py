@@ -1,55 +1,48 @@
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import queue
 import threading
-import socketserver
 import socket
 import json
 
 global message_queue
 message_queue = queue.Queue() # global message queue
 lock = threading.Lock() # lock object
+thread_pool = {}
 
-class MyHTTPRequestHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        print( 'GET requenst handler' )
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/html; charset=utf-8')
-        self.end_headers()
-        self.wfile.write('<h1>hello</h1>'.encode('utf-8'))
-
-    def do_POST(self):
-        #print( 'POST request handler' )
-        global message_queue # declare global variable
-
-        content_len = int(self.headers.get('Content-Length'))
-        post_body = self.rfile.read(content_len)
-        #self.message = post_body
-
-        lock.acquire() # lock acquire
-        if message_queue.qsize() < 1000:
-            message_queue.put(post_body)
-            #print('queue size : ', message_queue.qsize())
+def run_server(client_socket, tid):
+    while True:
+        data = client_socket.recv(65535)
+        #print(data)
+        if data:
+            lock.acquire() # lock acquire
+            if message_queue.qsize() < 1000:
+                message_queue.put(data)
+                print('queue size : ', message_queue.qsize())
+            else:
+                print( 'Message queue size exceeds 1000, cannot receive anymore')
+            lock.release() # lock release
         else:
-            print( 'Message queue size exceeds 1000, cannot receive anymore')
-        lock.release() # lock release
+            break
+    del thread_pool[tid]
+    client_socket.close()
 
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write("".encode())
-    def log_message(self, format, *args):
-            return
 
-class MyTCPServer(socketserver.TCPServer):
-    def server_bind(self):
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(self.server_address)
-
-def run_server():
-    httpd = MyTCPServer(('192.168.0.13', 50001), MyHTTPRequestHandler)
-    print('Server listening on port 50001...')
-    httpd.serve_forever()
+def accept_client(server_socket):
+    tid = 0
+    while True:
+        client_socket, addr = server_socket.accept()
+        t = threading.Thread(target=run_server, args=(client_socket, tid))
+        t.start()
+        thread_pool[tid] = t
+        tid += 1
 
 def execute():
-    th1 = threading.Thread(target=run_server)
-    th1.start()
+    host = '192.168.0.13'
+    port = 50001
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((host, port))
+    server_socket.listen()
+    t = threading.Thread(target=accept_client, args=(server_socket,))
+    t.start()
+
