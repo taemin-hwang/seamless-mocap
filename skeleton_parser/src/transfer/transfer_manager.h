@@ -6,9 +6,6 @@
 #include <string>
 #include <cstring>
 
-// curl for HTTP
-#include <curl/curl.h>
-
 // rapidjson
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
@@ -25,15 +22,14 @@ class TransferManager : public TransferInterface {
 
     void Initialize(const int&, const std::string&, const int&);
     void SendPeopleKeypoints(const seamless::PeopleSkeleton& people_skeleton);
+    void Shutdown();
 
  private:
     std::string GetStringFromPeopleKeypoint(const seamless::PeopleBoundBox& bbox, const seamless::PeopleKeypointsWithConfidence& keypoint, const seamless::TimestampMilliseconds timestamp, const seamless::FrameSize framesize, int id);
     void SetObjectFromPersonKeypoint(rapidjson::Value& annots_object, rapidjson::Document::AllocatorType& allocator, const seamless::PersonBoundBox& bbox, const seamless::PersonKeypointsWithConfidence& keypoint);
-    size_t CallBackFunc(char* ptr, size_t size, size_t nmemb, string* stream);
-    size_t WriteFunction(void* ptr, size_t size, size_t nmemb, void* stream);
 
  private:
-    std::string target_url_;
+    int sock_;
 };
 
 #endif
