@@ -27,10 +27,7 @@ def run_server(server_socket):
         else:
             break
 
-def execute():
-    host = '192.168.0.13'
-    port = 50001
-
+def execute(host, port):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((host, port))

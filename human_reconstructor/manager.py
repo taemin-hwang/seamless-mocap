@@ -27,11 +27,11 @@ class Manager:
         self.time_delta = 50 # milli-seconds
         self.target_fps = 1000/self.time_delta
         self.buffer_size = 5
-        self.min_confidence = 0.4
+        self.min_confidence = 0.3
 
     def init(self):
         self.reconstructor.initialize(self.cam_num, './etc')
-        skeleton_server.execute()
+        skeleton_server.execute('192.168.0.13', 50001)
 
     def run(self):
         t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
