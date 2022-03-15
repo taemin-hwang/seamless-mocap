@@ -42,42 +42,58 @@ class Manager:
         #t3.start()
         t1.join()
 
+    # A thread for reconstruct 3D human pose with multiple 2D skeletons
+    # param1: mq_3d_skeleton is message queue for putting estimated 3D human pose
+    # param2: lk_3d_skeleton is lock for avoding data missing
+    # param3: recon is an instance of Recounstructor
+    # param4: sender is an instance of SkeletonSender which sends data to GUI server
     def work_get_3dskeleton(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
         print('Worker: get skeleton')
         lk_2d_skeleton = skeleton_server.lock
         mq_2d_skeleton = skeleton_server.message_queue
+
+        # Get initial parameters
         cams = recon.get_cameras()
         matching_table = self.get_initial_matching_table(cams)
         t = self.get_initial_time()
 
         frame_buffer = np.ones((self.buffer_size, 25, 4))
 
+        # Loop for reconstruct 3D human pose
         while True:
             t_sleep = datetime.now()
+
+            # Time-synchronization between multiple 2D skeletons with timestamp
             t = self.sync_matching_table(mq_2d_skeleton, lk_2d_skeleton, matching_table, t[0], t[1], t[2])
             self.use_previous_frame(matching_table, t[0], t[1])
 
+            # Read data from matching table if there are time-synchronized 2D skeletons
             valid_dlt_element = self.get_valid_dlt_element(matching_table)
+
+            # Try to reconstruct 3D human pose if the number of valid 2D skeletons exceed minimum case
             if valid_dlt_element['count'] >= self.min_cam:
-               print('Try to restore 3D pose with ', valid_dlt_element['count'], 'cameras')
-               valid_keypoint = np.stack(valid_dlt_element['valid_keypoint'], axis=0)
-               valid_p = np.stack(valid_dlt_element['valid_P'], axis=0)
-               out = recon.get_3d_skeletons(valid_keypoint, valid_p)
+                print('Try to restore 3D pose with ', valid_dlt_element['count'], 'cameras')
+                valid_keypoint = np.stack(valid_dlt_element['valid_keypoint'], axis=0)
+                valid_p = np.stack(valid_dlt_element['valid_P'], axis=0)
 
-               frame_buffer, ret = self.smooth_3d_pose(frame_buffer, out)
+                # Get 3D human pose by using valid 2D keypoints and Camera parameter Ps
+                out = recon.get_3d_skeletons(valid_keypoint, valid_p)
+                # Smooth 3D human pose with weighted average filter
+                frame_buffer, ret = self.smooth_3d_pose(frame_buffer, out)
 
-               # send 3d skeleton
-               ret[:, 0] = -1*ret[:, 0]
-               ret[:, 1] = -1*ret[:, 1]
-               ret[:, 2] = -1*ret[:, 2]
-               ret[:, 3][ret[:, 3] < self.min_confidence] = 0
+                # Fit XYZ coordinates
+                ret[:, 0] = -1*ret[:, 0]
+                ret[:, 1] = -1*ret[:, 1]
+                ret[:, 2] = -1*ret[:, 2]
+                ret[:, 3][ret[:, 3] < self.min_confidence] = 0
 
-               lk_3d_skeleton.acquire()
-               sender.send_3d_skeletons(ret)
-               mq_3d_skeleton.put(ret)
-               lk_3d_skeleton.release()
+                # Send and put 3D human pose to message queue
+                lk_3d_skeleton.acquire()
+                sender.send_3d_skeletons(ret)
+                mq_3d_skeleton.put(ret)
+                lk_3d_skeleton.release()
             else:
-               print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])
+                print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])
 
             self.reset_matching_table(matching_table)
             t = self.reset_time(t)
@@ -105,6 +121,10 @@ class Manager:
             sender.send_smpl_bunch(smpl)
         lk_3d_skeleton.release
 
+
+    # Create initial table for time-sync
+    # param1: cam is used for reading camera calibration P
+    # return: initialized matching table
     def get_initial_matching_table(self, cams):
         matching_table = {}
         for cam_id in range(1, self.cam_num+1):
@@ -115,10 +135,15 @@ class Manager:
             matching_table[str(cam_id)]['P'] = cams[str(cam_id)]['P']
         return matching_table
 
+    # Reset matching table to invalid
+    # param1: matchig table is a table for time-sync
     def reset_matching_table(self, matching_table):
         for cam_id in range(1, self.cam_num+1):
             matching_table[str(cam_id)]['is_valid'] = False
 
+    # Get Time-synced Keypoints and camera paramter P
+    # param1: matching table is a table which providing if it is valid
+    # return: valid DLT elements for 3d pose reconstruction
     def get_valid_dlt_element(self, matching_table):
         valid_dlt_element = {}
         valid_dlt_element['count'] = 0
@@ -133,6 +158,13 @@ class Manager:
                 valid_dlt_element['valid_P'].append(matching_table[str(cam_id)]['P'])
         return valid_dlt_element
 
+    # Synchronize 2D skeletons with Timestamp, and update matching table
+    # - (t < t_start)         : throw out-of-date data
+    # - (t > t_end)           : put data to message queue to use later
+    # - (t_start < t < t_end) : update matching table to use 3D pose estimation
+    # param1: mq_2d_skeleton is message queue for putting estimated 2D human pose
+    # param2: lk_2d_skeleton is lock for avoding data missing
+    # param3: matching table is a table for investigating it is valid
     def sync_matching_table(self, mq_2d_skeleton, lk_2d_skeleton, matching_table, t_start, t_end, t_diff):
         lk_2d_skeleton.acquire()
         qsize = mq_2d_skeleton.qsize()
@@ -142,11 +174,6 @@ class Manager:
             data = json.loads(json_data)
 
             t = data['timestamp']
-
-            # print('-------------------------------------')
-            # print('t_start : ', datetime.fromtimestamp(t_start/1000))
-            # print('t       : ', datetime.fromtimestamp(t/1000))
-            # print('t_end   : ', datetime.fromtimestamp(t_end/1000))
 
             if t_start == -1:
                 t_start = data['timestamp']
@@ -191,12 +218,6 @@ class Manager:
             matching_table[str(cam_id)]['keypoint'] = keypoints
         lk_2d_skeleton.release()
 
-    def is_time_expired(self, t_start, t_end, t_diff):
-        if t_end - t_diff >= datetime.now().timestamp()*1000:
-            return True
-        else:
-            return False
-
     def get_initial_time(self):
         t_start = -1
         t_end = -1
@@ -212,6 +233,12 @@ class Manager:
             t_end = t_start + self.time_delta
         return (t_start, t_end, t_diff)
 
+    # Smooth estimated 3D pose
+    # - Store 3D pose data to frame_buffer
+    # - Apply average filter by using weight, which is confidence
+    # param1: frame buffer is a buffer to store 3D poses
+    # param2: out is 3D pose from current frame
+    # return: ret is averaged 3D pose
     def smooth_3d_pose(self, frame_buffer, out):
         ret = np.zeros((25, 4))
         # moving average
