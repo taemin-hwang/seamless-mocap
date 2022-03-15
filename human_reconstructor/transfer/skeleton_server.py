@@ -1,3 +1,4 @@
+from email import message
 import queue
 import threading
 import socket
@@ -12,12 +13,13 @@ def run_server(server_socket):
     print('Run UDP server')
     while True:
         data, addr = server_socket.recvfrom(65535)
-        print(data.decode())
+        #print(data.decode())
         if data:
             lock.acquire() # lock acquire
             if message_queue.qsize() < 1000:
                 message_queue.put(data.decode())
-                print('queue size : ', message_queue.qsize())
+                if message_queue.qsize() > 10:
+                    print('WARNING: Message queue size exceeds 10, current size is ', message_queue.qsize())
             else:
                 print( 'Message queue size exceeds 1000, cannot receive anymore')
             lock.release() # lock release
