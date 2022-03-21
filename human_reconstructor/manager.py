@@ -50,10 +50,9 @@ class Manager:
             t3.start()
             t1.join()
         else:
-            # Launch work threads for 3D Skeleton reconstruction
+            # Launch work threads for 3D reconstruction
             t1.start()
             t1.join()
-
 
     def work_get_3dskeleton(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
     # A thread for reconstruct 3D human pose with multiple 2D skeletons
@@ -94,18 +93,19 @@ class Manager:
                 # Smooth 3D human pose with weighted average filter
                 frame_buffer, ret = self.smooth_3d_pose(frame_buffer, out)
 
+                # Fit XYZ coordinates
+                tmp = ret[:, 0]
+                ret[:, 0] = ret[:, 1]
+                ret[:, 1] = tmp
+                ret[:, 2] = -1*ret[:, 2]
+                ret[:, 2] += 1.1
+                ret[:, 3][ret[:, 3] < self.min_confidence] = 0
                 lk_3d_skeleton.acquire()
                 mq_3d_skeleton.put(ret)
                 lk_3d_skeleton.release()
 
                 # Send and put 3D human pose to message queue
                 if self.args.keypoint:
-                    # Fit XYZ coordinates
-                    ret[:, 0] = -1*ret[:, 0]
-                    ret[:, 1] = -1*ret[:, 1]
-                    ret[:, 2] = -1*ret[:, 2]
-                    #ret[:, 2] += 1.0
-                    ret[:, 3][ret[:, 3] < self.min_confidence] = 0
                     sender.send_3d_skeletons(ret)
             else:
                 print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])
