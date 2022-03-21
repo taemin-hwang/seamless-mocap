@@ -34,9 +34,9 @@ class Reconstructor:
         self.skeletons_test = {} # {cam_id : [], cam_id : []}
         self.last_timestamp = 0.0
 
-    def initialize(self, num, path):
-        self.cali.read_camera(num, path)
-        self.cam_num = num
+    def initialize(self, args, config):
+        self.cam_num = config["cam_num"]
+        self.cali.read_camera(self.cam_num, args.path)
         self.body_model = load_model(model_path='./easymocap/data/smplx')
 
     def get_cameras(self):
