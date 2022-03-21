@@ -33,7 +33,7 @@ class Manager:
         self.time_delta = 1000/self.target_fps # milli-seconds
         self.buffer_size = self.config["buffer_size"]
         self.min_confidence = self.config["min_confidence"]
-        self.reconstructor.initialize(self.cam_num, self.args.path)
+        self.reconstructor.initialize(self.args, self.config)
         self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
         skeleton_server.execute(self.config["server_ip"], self.config["server_port"])
 
@@ -90,15 +90,14 @@ class Manager:
                 # Smooth 3D human pose with weighted average filter
                 frame_buffer, ret = self.smooth_3d_pose(frame_buffer, out)
 
-                # Fit XYZ coordinates
-                ret[:, 0] = -1*ret[:, 0]
-                ret[:, 1] = -1*ret[:, 1]
-                ret[:, 2] = -1*ret[:, 2]
-                #ret[:, 2] += 1.0
-                ret[:, 3][ret[:, 3] < self.min_confidence] = 0
-
                 # Send and put 3D human pose to message queue
                 if self.args.keypoint:
+                    # Fit XYZ coordinates
+                    ret[:, 0] = -1*ret[:, 0]
+                    ret[:, 1] = -1*ret[:, 1]
+                    ret[:, 2] = -1*ret[:, 2]
+                    #ret[:, 2] += 1.0
+                    ret[:, 3][ret[:, 3] < self.min_confidence] = 0
                     sender.send_3d_skeletons(ret)
 
                 mq_3d_skeleton.put(ret)
@@ -114,7 +113,7 @@ class Manager:
         print('Worker: GET SMPL')
         while True:
             qsize = mq_3d_skeleton.qsize()
-            if qsize > self.max_frame:
+            if qsize >= self.max_frame:
                 t = threading.Thread(target=self.send_smpl, args=(mq_3d_skeleton, recon, sender))
                 t.start()
             time.sleep(0.01)
@@ -174,32 +173,36 @@ class Manager:
     # param2: matching table is a table for investigating it is valid
         qsize = mq_2d_skeleton.qsize()
 
-        for i in range(qsize):
-            json_data = mq_2d_skeleton.get()
-            data = json.loads(json_data)
+        if t_start == -1:
+            for i in range(qsize):
+                json_data = mq_2d_skeleton.get()
+                if i == qsize - 1:
+                    data = json.loads(json_data)
+                    t_start = data['timestamp']
+                    t_end = data['timestamp'] + self.time_delta
+                    t_diff = datetime.now().timestamp()*1000 - t_start
+        else:
+            for i in range(qsize):
+                json_data = mq_2d_skeleton.get()
+                data = json.loads(json_data)
 
-            t = data['timestamp']
+                t = data['timestamp']
+                if t < t_start:
+                    continue
+                elif t > t_end:
+                    mq_2d_skeleton.put(json.dumps(data))
+                else:
+                    cam_id = data['id']
+                    timestamp = data['timestamp']
+                    keypoints = np.array(data['annots'][0]['keypoints'])
+                    if self.args.visual:
+                        self.viewer.render_2d(data)
 
-            if t_start == -1:
-                t_start = data['timestamp']
-                t_end = data['timestamp'] + self.time_delta
-                t_diff = datetime.now().timestamp()*1000 - t_start
-            elif t < t_start:
-                continue
-            elif t > t_end:
-                mq_2d_skeleton.put(json.dumps(data))
-            else:
-                cam_id = data['id']
-                timestamp = data['timestamp']
-                keypoints = np.array(data['annots'][0]['keypoints'])
-                if self.args.visual:
-                    self.viewer.render_2d(data)
+                    keypoints_25 = utils.convert_25_from_34(keypoints)
 
-                keypoints_25 = utils.convert_25_from_34(keypoints)
-
-                matching_table[str(cam_id)]['is_valid'] = True
-                matching_table[str(cam_id)]['timestamp'] = timestamp
-                matching_table[str(cam_id)]['keypoint'] = keypoints_25
+                    matching_table[str(cam_id)]['is_valid'] = True
+                    matching_table[str(cam_id)]['timestamp'] = timestamp
+                    matching_table[str(cam_id)]['keypoint'] = keypoints_25
 
         return (t_start, t_end, t_diff)
 
