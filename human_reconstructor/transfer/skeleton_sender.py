@@ -7,12 +7,16 @@ from queue import Queue
 
 class SkeletonSender:
     def __init__(self):
-        self.client = BaseSocketClient('127.0.0.1', 9999)
         self.lock = threading.Lock()
         self.mq = Queue()
 
+    def initialize(self, host, port):
+        print("[GUI    IP  ] : ", host)
+        print("[GUI    PORT] : ", port)
+        self.client = BaseSocketClient(host, port)
+
     def work_send_smpl(self):
-        print('start to work to send 3d skeletons!')
+        print('Worker: SEND SMPL')
         while True:
             qsize = self.mq.qsize()
             if qsize > 0:

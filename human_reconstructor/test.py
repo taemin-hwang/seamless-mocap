@@ -7,17 +7,20 @@ import numpy as np
 from transfer import skeleton_sender
 from visualizer import viewer_2d as v2d
 from reconstructor import reconstructor as recon
+from config import config_parser as cp
 
 class TestManager:
     def __init__(self):
         print('Run Test')
         self.viewer = v2d.Viewer2d()
         self.reconstructor = recon.Reconstructor()
-        self.sender = skeleton_sender.SkeletonSender()
         self.lock = threading.Lock()
+        self.config_parser = cp.ConfigParser('./etc/config.json')
+        self.config = self.config_parser.GetConfig()
+        self.sender = skeleton_sender.SkeletonSender(self.config["gui_ip"], self.config["gui_port"])
         self.max_frame = 50
 
-    def init(self):
+    def initialize(self):
         self.q = Queue()
 
     def run(self):
