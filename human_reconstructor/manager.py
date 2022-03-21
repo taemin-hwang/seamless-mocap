@@ -39,14 +39,21 @@ class Manager:
         skeleton_server.execute(self.config["server_ip"], self.config["server_port"])
 
     def run(self):
-        # Launch work threads for SMPL reconstruction
         t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
         t2 = threading.Thread(target=self.work_get_smpl, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
         t3 = threading.Thread(target=self.sender.work_send_smpl)
-        t1.start()
-        #t2.start()
-        #t3.start()
-        t1.join()
+
+        if self.args.smpl is True:
+            # Launch work threads for SMPL reconstruction
+            t1.start()
+            t2.start()
+            t3.start()
+            t1.join()
+        else:
+            # Launch work threads for 3D Skeleton reconstruction
+            t1.start()
+            t1.join()
+
 
     def work_get_3dskeleton(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
     # A thread for reconstruct 3D human pose with multiple 2D skeletons
@@ -87,6 +94,10 @@ class Manager:
                 # Smooth 3D human pose with weighted average filter
                 frame_buffer, ret = self.smooth_3d_pose(frame_buffer, out)
 
+                lk_3d_skeleton.acquire()
+                mq_3d_skeleton.put(ret)
+                lk_3d_skeleton.release()
+
                 # Send and put 3D human pose to message queue
                 if self.args.keypoint:
                     # Fit XYZ coordinates
@@ -96,10 +107,6 @@ class Manager:
                     #ret[:, 2] += 1.0
                     ret[:, 3][ret[:, 3] < self.min_confidence] = 0
                     sender.send_3d_skeletons(ret)
-
-                lk_3d_skeleton.acquire()
-                mq_3d_skeleton.put(ret)
-                lk_3d_skeleton.release()
             else:
                 print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])
 
@@ -112,8 +119,7 @@ class Manager:
         print('Worker: GET SMPL')
         while True:
             qsize = mq_3d_skeleton.qsize()
-
-            if qsize > self.max_frame:
+            if qsize >= self.max_frame:
                 t = threading.Thread(target=self.send_smpl, args=(mq_3d_skeleton, lk_3d_skeleton, recon, sender))
                 t.start()
             time.sleep(0.01)
