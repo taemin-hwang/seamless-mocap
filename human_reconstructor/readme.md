@@ -1,24 +1,19 @@
-# Human Reconstructor
 This program reconstruct a realistic 3D model of the human body with 2D human keypoints.
 
 
-## pre-requisite
-```
-pip install opencv-python IPython matplotlib scipy
-```
-
-## clone repository
+# 1. clone repository
+Clone this repository including submodules from EasyMocap
 ```
 git clone --recursive https://github.com/taemin-hwang/seamless-mocap.git
 ```
 
-## run
-### gui
+# 2. Run
+## 2-1. Run Visualizer
 We use visualization tool of EasyMocap project. Please refer to the below site.
 <https://github.com/zju3dv/EasyMocap/blob/master/doc/realtime_visualization.md>
 
 ```
-# Start the server for basic skeletons
+# Start the server for 3D keypoints
 run_gui.sh
 ```
 
@@ -27,12 +22,22 @@ run_gui.sh
 run_gui.sh -smpl
 ```
 
-### app
+## 2-2. Run App
+### 2-2-1. Usage
 ```
-run_app.sh
-```
-### test
+usage: main.py [-h] -p PATH [-v] [-s] [-k]
 
+Reconstruct 3D pose and shape with SMPL model
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PATH, --path PATH  Path for config.json
+  -v, --visual          Enable 2D visualizer
+  -s, --smpl            Reconstruct shape with SMPL
+  -k, --keypoint        Reconstruct 3D keypoint wihtout SMPL
 ```
-run_app.sh -smpl
+
+### 2-2-2. Example
+```
+run_app.sh -p <config path> -vs # Reconstruct 3D keypoints with visualizer
 ```
