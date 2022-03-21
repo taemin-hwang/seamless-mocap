@@ -20,7 +20,6 @@ class Manager:
         self.viewer = v2d.Viewer2d()
         self.reconstructor = recon.Reconstructor()
         self.mq_3d_skeleton = Queue()
-        self.lk_3d_skeleton = threading.Lock()
         self.config_parser = cp.ConfigParser(self.args.path + 'config.json')
         self.sender = skeleton_sender.SkeletonSender()
 
@@ -40,22 +39,26 @@ class Manager:
 
     def run(self):
         # Launch work threads for SMPL reconstruction
-        t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
-        t2 = threading.Thread(target=self.work_get_smpl, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
+        t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.reconstructor, self.sender))
+        t2 = threading.Thread(target=self.work_get_smpl, args=(self.mq_3d_skeleton, self.reconstructor, self.sender))
         t3 = threading.Thread(target=self.sender.work_send_smpl)
-        t1.start()
-        #t2.start()
-        #t3.start()
-        t1.join()
 
-    def work_get_3dskeleton(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
+        if self.args.keypoint:
+            t1.start()
+            t1.join()
+        elif self.args.smpl:
+            t1.start()
+            t2.start()
+            t3.start()
+            t1.join()
+
+
+    def work_get_3dskeleton(self, mq_3d_skeleton, recon, sender):
     # A thread for reconstruct 3D human pose with multiple 2D skeletons
     # param1: mq_3d_skeleton is message queue for putting estimated 3D human pose
-    # param2: lk_3d_skeleton is lock for avoding data missing
-    # param3: recon is an instance of Recounstructor
-    # param4: sender is an instance of SkeletonSender which sends data to GUI server
+    # param2: recon is an instance of Recounstructor
+    # param3: sender is an instance of SkeletonSender which sends data to GUI server
         print('Worker: GET SKELETON')
-        lk_2d_skeleton = skeleton_server.lock
         mq_2d_skeleton = skeleton_server.message_queue
 
         # Get initial parameters
@@ -70,7 +73,7 @@ class Manager:
             t_sleep = datetime.now()
 
             # Time-synchronization between multiple 2D skeletons with timestamp
-            t = self.sync_matching_table(mq_2d_skeleton, lk_2d_skeleton, matching_table, t[0], t[1], t[2])
+            t = self.sync_matching_table(mq_2d_skeleton, matching_table, t[0], t[1], t[2])
             self.use_previous_frame(matching_table, t[0], t[1])
 
             # Read data from matching table if there are time-synchronized 2D skeletons
@@ -95,10 +98,10 @@ class Manager:
                 ret[:, 3][ret[:, 3] < self.min_confidence] = 0
 
                 # Send and put 3D human pose to message queue
-                lk_3d_skeleton.acquire()
-                sender.send_3d_skeletons(ret)
+                if self.args.keypoint:
+                    sender.send_3d_skeletons(ret)
+
                 mq_3d_skeleton.put(ret)
-                lk_3d_skeleton.release()
             else:
                 print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])
 
@@ -107,17 +110,16 @@ class Manager:
 
             pause.until(t_sleep.timestamp() + self.time_delta/1000)
 
-    def work_get_smpl(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
+    def work_get_smpl(self, mq_3d_skeleton, recon, sender):
         print('Worker: GET SMPL')
         while True:
             qsize = mq_3d_skeleton.qsize()
             if qsize > self.max_frame:
-                t = threading.Thread(target=self.send_smpl, args=(mq_3d_skeleton, lk_3d_skeleton, recon, sender))
+                t = threading.Thread(target=self.send_smpl, args=(mq_3d_skeleton, recon, sender))
                 t.start()
             time.sleep(0.01)
 
-    def send_smpl(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
-        lk_3d_skeleton.acquire
+    def send_smpl(self, mq_3d_skeleton, recon, sender):
         qsize = mq_3d_skeleton.qsize()
         kp3ds = np.empty((0, 25, 4))
         for i in range(qsize):
@@ -126,7 +128,6 @@ class Manager:
         smpl = recon.get_smpl_bunch(kp3ds)
         if smpl:
             sender.send_smpl_bunch(smpl)
-        lk_3d_skeleton.release
 
     def get_initial_matching_table(self, cams):
     # Create initial table for time-sync
@@ -164,15 +165,13 @@ class Manager:
                 valid_dlt_element['valid_P'].append(matching_table[str(cam_id)]['P'])
         return valid_dlt_element
 
-    def sync_matching_table(self, mq_2d_skeleton, lk_2d_skeleton, matching_table, t_start, t_end, t_diff):
+    def sync_matching_table(self, mq_2d_skeleton, matching_table, t_start, t_end, t_diff):
     # Synchronize 2D skeletons with Timestamp, and update matching table
     # - (t < t_start)         : throw out-of-date data
     # - (t > t_end)           : put data to message queue to use later
     # - (t_start < t < t_end) : update matching table to use 3D pose estimation
     # param1: mq_2d_skeleton is message queue for putting estimated 2D human pose
-    # param2: lk_2d_skeleton is lock for avoding data missing
-    # param3: matching table is a table for investigating it is valid
-        lk_2d_skeleton.acquire()
+    # param2: matching table is a table for investigating it is valid
         qsize = mq_2d_skeleton.qsize()
 
         for i in range(qsize):
@@ -202,7 +201,6 @@ class Manager:
                 matching_table[str(cam_id)]['timestamp'] = timestamp
                 matching_table[str(cam_id)]['keypoint'] = keypoints_25
 
-        lk_2d_skeleton.release()
         return (t_start, t_end, t_diff)
 
     def use_previous_frame(self, matching_table, t_start, t_end):
@@ -211,8 +209,7 @@ class Manager:
                 if matching_table[str(cam_id)]['timestamp'] > 0 and t_start - matching_table[str(cam_id)]['timestamp'] < self.time_delta*4:
                     matching_table[str(cam_id)]['is_valid'] = True
 
-    def use_latest_matching_table(self, mq_2d_skeleton, lk_2d_skeleton, matching_table):
-        lk_2d_skeleton.acquire()
+    def use_latest_matching_table(self, mq_2d_skeleton, matching_table):
         qsize = mq_2d_skeleton.qsize()
 
         for i in range(qsize):
@@ -223,7 +220,6 @@ class Manager:
             matching_table[str(cam_id)]['is_valid'] = True
             matching_table[str(cam_id)]['timestamp'] = timestamp
             matching_table[str(cam_id)]['keypoint'] = keypoints
-        lk_2d_skeleton.release()
 
     def get_initial_time(self):
         t_start = -1
