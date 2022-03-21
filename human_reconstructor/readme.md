@@ -39,5 +39,6 @@ optional arguments:
 
 ### 2-2-2. Example
 ```
-run_app.sh -p <config path> -vs # Reconstruct 3D keypoints with visualizer
+main.py -p <config path> -vs # Reconstruct 3D keypoints with visualizer
+run_app.sh -vs # Use shell script with default ./etc/ path 
 ```
