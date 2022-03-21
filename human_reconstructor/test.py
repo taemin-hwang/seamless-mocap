@@ -10,18 +10,21 @@ from reconstructor import reconstructor as recon
 from config import config_parser as cp
 
 class TestManager:
-    def __init__(self):
+    def __init__(self, args):
         print('Run Test')
         self.viewer = v2d.Viewer2d()
         self.reconstructor = recon.Reconstructor()
         self.lock = threading.Lock()
         self.config_parser = cp.ConfigParser('./etc/config.json')
         self.config = self.config_parser.GetConfig()
-        self.sender = skeleton_sender.SkeletonSender(self.config["gui_ip"], self.config["gui_port"])
+        self.sender = skeleton_sender.SkeletonSender()
         self.max_frame = 50
+        self.args = args
 
     def initialize(self):
         self.q = Queue()
+        self.reconstructor.initialize(self.args, self.config)
+        self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
 
     def run(self):
         t1 = threading.Thread(target=self.work_get_skeleton, args=(self.q, self.reconstructor))
@@ -34,7 +37,6 @@ class TestManager:
 
     def work_get_skeleton(self, q, recon):
         cam_num = 23
-        recon.initialize(cam_num, './etc/mv1p_data')
         for file_id in range(0, 600):
             for cam_id in range(1, cam_num+1):
                 filename = str(file_id).zfill(6) + '_keypoints.json'

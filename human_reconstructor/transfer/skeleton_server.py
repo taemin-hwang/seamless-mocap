@@ -6,6 +6,7 @@ import json
 
 global message_queue
 message_queue = queue.Queue() # global message queue
+lock = threading.Lock() # lock object
 thread_pool = {}
 
 # Receive from UDP client
@@ -15,12 +16,14 @@ def run_server(server_socket):
     while True:
         data, addr = server_socket.recvfrom(65535)
         if data:
+            lock.acquire() # lock acquire
             if message_queue.qsize() < 1000:
                 message_queue.put(data.decode())
                 if message_queue.qsize() > 30:
                     print('WARNING: Message queue size exceeds 30, current size is ', message_queue.qsize())
             else:
                 print( 'Message queue size exceeds 1000, cannot receive anymore')
+            lock.release() # lock release
         else:
             break
 

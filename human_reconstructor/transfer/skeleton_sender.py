@@ -7,6 +7,7 @@ from queue import Queue
 
 class SkeletonSender:
     def __init__(self):
+        self.lock = threading.Lock()
         self.mq = Queue()
 
     def initialize(self, host, port):
@@ -19,8 +20,10 @@ class SkeletonSender:
         while True:
             qsize = self.mq.qsize()
             if qsize > 0:
+                self.lock.acquire
                 data = self.mq.get()
                 self.client.send_smpl(data)
+                self.lock.release
                 time.sleep(0.05)
             else:
                 time.sleep(0.01)
@@ -33,6 +36,7 @@ class SkeletonSender:
         self.client.send(data)
 
     def send_smpl(self, smpl):
+        self.lock.acquire
         data = []
         data.append({})
         data[0]['id'] = 0
@@ -41,6 +45,7 @@ class SkeletonSender:
         data[0]['poses'] = np.round(smpl['poses'].astype(np.float64),3)
         data[0]['shapes'] = np.round(smpl['shapes'].astype(np.float64),3)
         self.mq.put(data)
+        self.lock.release
         #self.client.send_smpl(data)
 
     def send_smpl_bunch(self, smpl):

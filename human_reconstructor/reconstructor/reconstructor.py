@@ -35,8 +35,12 @@ class Reconstructor:
         self.last_timestamp = 0.0
 
     def initialize(self, args, config):
-        self.cam_num = config["cam_num"]
-        self.cali.read_camera(self.cam_num, args.path)
+        if args.test is False:
+            self.cam_num = config["cam_num"]
+            self.cali.read_camera(self.cam_num, args.path)
+        else:
+            self.cam_num = 23
+            self.cali.read_camera(self.cam_num, './etc/mv1p_data')
         self.body_model = load_model(model_path='./easymocap/data/smplx')
 
     def get_cameras(self):
