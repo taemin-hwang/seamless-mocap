@@ -274,7 +274,7 @@ class Manager:
             if np.sum(cdata) < 0.01:
                 break
 
-            x_avg = np.average(xdata, weights=cdata)
+            x_avg = np.average(xdata, weights=cdata * range(1, self.buffer_size+1))
             y_avg = np.average(ydata, weights=cdata)
             z_avg = np.average(zdata, weights=cdata)
             c_avg = np.average(cdata, weights=cdata)
