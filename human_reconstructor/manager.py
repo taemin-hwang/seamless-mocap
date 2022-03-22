@@ -98,7 +98,6 @@ class Manager:
                 ret[:, 0] = ret[:, 1]
                 ret[:, 1] = tmp
                 ret[:, 2] = -1*ret[:, 2]
-                ret[:, 2] += 1.1
                 ret[:, 3][ret[:, 3] < self.min_confidence] = 0
                 lk_3d_skeleton.acquire()
                 mq_3d_skeleton.put(ret)
