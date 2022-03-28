@@ -36,26 +36,28 @@ public class SetPositionWithKeypoint : MonoBehaviour
     async void Update()
     {
         if (NowFrame <= MaxFrame) {
-            // Debug.Log(Application.dataPath + "/Data/keypoints3d/" + NowFrame.ToString("D6") + ".json");
-            FileStream file_stream = new FileStream(Application.dataPath + "/Data/keypoints3d/" + NowFrame.ToString("D6") + ".json", FileMode.Open);
-            byte[] data = new byte[file_stream.Length];
-            file_stream.Read(data, 0, data.Length);
-            file_stream.Close();
-            string json_string = Encoding.UTF8.GetString(data);
-
-            json_string = RemoveArrayFromJson(json_string);
-            var json_data = Newtonsoft.Json.JsonConvert.DeserializeObject<JsonElement>(json_string);
-            // Debug.Log(json_string);
-            // Debug.Log("ID : "+ json_data.id);
-            // Debug.Log("Keypoints : "+ json_data.keypoints3d.Count);
-
-            // for (int i = 0; i < json_data.keypoints3d.Count; i++)
-            // {
-            //     Debug.Log("[" + i + "] : " + json_data.keypoints3d[i][0] + ", " + json_data.keypoints3d[i][1] + ", " + json_data.keypoints3d[i][2] + ", " + json_data.keypoints3d[i][3]);
+            string file_name = Application.dataPath + "/Data/keypoints3d/" + NowFrame.ToString("D6") + ".json";
+            var skeletons = Get3DSkeletonFromJson(file_name);
+            // for (int i = 0; i < skeletons.keypoints3d.Count; i++) {
+            //     Debug.Log("[" + i + "] : " + skeletons.keypoints3d[i][0] + ", " + skeletons.keypoints3d[i][1] + ", " + skeletons.keypoints3d[i][2] + ", " + skeletons.keypoints3d[i][3]);
             // }
-
             NowFrame++;
         }
+    }
+
+    JsonElement Get3DSkeletonFromJson(string path) {
+        // Debug.Log(Application.dataPath + "/Data/keypoints3d/" + NowFrame.ToString("D6") + ".json");
+        FileStream file_stream = new FileStream(path, FileMode.Open);
+        byte[] data = new byte[file_stream.Length];
+        file_stream.Read(data, 0, data.Length);
+        file_stream.Close();
+        string json_string = Encoding.UTF8.GetString(data);
+        // Debug.Log(json_string);
+        // Debug.Log("ID : "+ json_data.id);
+        // Debug.Log("Keypoints : "+ json_data.keypoints3d.Count);
+        json_string = RemoveArrayFromJson(json_string);
+        var json_data = Newtonsoft.Json.JsonConvert.DeserializeObject<JsonElement>(json_string);
+        return json_data;
     }
 
     string RemoveArrayFromJson(string json) {
