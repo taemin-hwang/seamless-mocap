@@ -4,71 +4,80 @@ using UnityEngine;
 
 public class MoveSkeleton : MonoBehaviour
 {
-    public Animator animator;
+    public Animator MainAnimator;
+    public bool EnableDisplay;
 
-    int NowFrame = 0;
-    int MaxFrame = 799;
+    int _NowFrame = 0;
+    int _MaxFrame = 799;
 
-    List<GameObject> spheres = new List<GameObject>(new GameObject[25]);
-    List<GameObject> character = new List<GameObject>(new GameObject[25]);
-    GameObject aim;
-    ReadSkeletonFromJson skeleton_reader;
+    GameObject _Aim;
+    ReadSkeletonFromJson _SkeletonReader;
+    List<GameObject> _Spheres = new List<GameObject>(new GameObject[25]);
 
     // Start is called before the first frame update
-    void Start()
+    async void Start()
     {
-        Debug.Log("Start Move Skeletons");
-        skeleton_reader = new ReadSkeletonFromJson();
-        transform.position = new Vector3(0, 0, 0);
-        animator = GetComponent<Animator>();
+        Debug.Log("Start Move Skeletons : " + EnableDisplay);
+        MainAnimator = GetComponent<Animator>();
+        _SkeletonReader = new ReadSkeletonFromJson();
         InitializeGameObject();
+        SetObjectRendering(EnableDisplay);
     }
 
     void InitializeGameObject() {
-        aim = GameObject.Find("AimTarget");
-        spheres[0] = GameObject.Find("sphere_nose");
-        spheres[1] = GameObject.Find("sphere_neck");
-        spheres[2] = GameObject.Find("sphere_right_shoulder");
-        spheres[3] = GameObject.Find("sphere_right_elbow");
-        spheres[4] = GameObject.Find("sphere_right_wrist");
-        spheres[5] = GameObject.Find("sphere_left_shoulder");
-        spheres[6] = GameObject.Find("sphere_left_elbow");
-        spheres[7] = GameObject.Find("sphere_left_wrist");
-        spheres[8] = GameObject.Find("sphere_mid_hip");
-        spheres[9] = GameObject.Find("sphere_right_hip");
-        spheres[10] = GameObject.Find("sphere_right_knee");
-        spheres[11] = GameObject.Find("sphere_right_ankle");
-        spheres[12] = GameObject.Find("sphere_left_hip");
-        spheres[13] = GameObject.Find("sphere_left_knee");
-        spheres[14] = GameObject.Find("sphere_left_ankle");
-        spheres[15] = GameObject.Find("sphere_right_eye");
-        spheres[16] = GameObject.Find("sphere_left_eye");
-        spheres[17] = GameObject.Find("sphere_right_ear");
-        spheres[18] = GameObject.Find("sphere_left_ear");
-        spheres[19] = GameObject.Find("sphere_left_big_toe");
-        spheres[20] = GameObject.Find("sphere_left_small_toe");
-        spheres[21] = GameObject.Find("sphere_left_heel");
-        spheres[22] = GameObject.Find("sphere_right_big_toe");
-        spheres[23] = GameObject.Find("sphere_right_small_toe");
-        spheres[24] = GameObject.Find("sphere_right_heel");
+        _Aim = GameObject.Find("AimTarget");
+        _Spheres[0] = GameObject.Find("sphere_nose");
+        _Spheres[1] = GameObject.Find("sphere_neck");
+        _Spheres[2] = GameObject.Find("sphere_right_shoulder");
+        _Spheres[3] = GameObject.Find("sphere_right_elbow");
+        _Spheres[4] = GameObject.Find("sphere_right_wrist");
+        _Spheres[5] = GameObject.Find("sphere_left_shoulder");
+        _Spheres[6] = GameObject.Find("sphere_left_elbow");
+        _Spheres[7] = GameObject.Find("sphere_left_wrist");
+        _Spheres[8] = GameObject.Find("sphere_mid_hip");
+        _Spheres[9] = GameObject.Find("sphere_right_hip");
+        _Spheres[10] = GameObject.Find("sphere_right_knee");
+        _Spheres[11] = GameObject.Find("sphere_right_ankle");
+        _Spheres[12] = GameObject.Find("sphere_left_hip");
+        _Spheres[13] = GameObject.Find("sphere_left_knee");
+        _Spheres[14] = GameObject.Find("sphere_left_ankle");
+        _Spheres[15] = GameObject.Find("sphere_right_eye");
+        _Spheres[16] = GameObject.Find("sphere_left_eye");
+        _Spheres[17] = GameObject.Find("sphere_right_ear");
+        _Spheres[18] = GameObject.Find("sphere_left_ear");
+        _Spheres[19] = GameObject.Find("sphere_left_big_toe");
+        _Spheres[20] = GameObject.Find("sphere_left_small_toe");
+        _Spheres[21] = GameObject.Find("sphere_left_heel");
+        _Spheres[22] = GameObject.Find("sphere_right_big_toe");
+        _Spheres[23] = GameObject.Find("sphere_right_small_toe");
+        _Spheres[24] = GameObject.Find("sphere_right_heel");
+    }
+
+    void SetObjectRendering(bool enable_flag) {
+        if (enable_flag == false) {
+            _Aim.SetActive(false);
+            for (int i = 0; i < 25; i++) {
+                _Spheres[i].SetActive(false);
+            }
+        }
     }
 
     // Update is called once per frame
     void Update()
     {
         if (Input.GetKey(KeyCode.RightArrow)) {
-            if (NowFrame <= MaxFrame) {
-                string file_name = Application.dataPath + "/Data/keypoints3d/" + NowFrame.ToString("D6") + ".json";
-                var skeletons = skeleton_reader.Get3DSkeletonFromJson(file_name);
+            if (_NowFrame <= _MaxFrame) {
+                string file_name = Application.dataPath + "/Data/keypoints3d/" + _NowFrame.ToString("D6") + ".json";
+                var skeletons = _SkeletonReader.Get3DSkeletonFromJson(file_name);
                 Update3DPose(skeletons);
-                NowFrame++;
+                _NowFrame++;
             }
         }
         if (Input.GetKey(KeyCode.LeftArrow)) {
-            if (NowFrame > 0) {
-                NowFrame--;
-                string file_name = Application.dataPath + "/Data/keypoints3d/" + NowFrame.ToString("D6") + ".json";
-                var skeletons = skeleton_reader.Get3DSkeletonFromJson(file_name);
+            if (_NowFrame > 0) {
+                _NowFrame--;
+                string file_name = Application.dataPath + "/Data/keypoints3d/" + _NowFrame.ToString("D6") + ".json";
+                var skeletons = _SkeletonReader.Get3DSkeletonFromJson(file_name);
                 Update3DPose(skeletons);
             }
         }
@@ -77,20 +86,34 @@ public class MoveSkeleton : MonoBehaviour
     void Update3DPose(JsonElement skeletons) {
         for (int i = 0; i < skeletons.keypoints3d.Count; i++) {
             Vector3 pos = new Vector3((float)skeletons.keypoints3d[i][0], (float)skeletons.keypoints3d[i][2], (float)skeletons.keypoints3d[i][1]);
-            spheres[i].transform.position = pos * 0.9f;
+            _Spheres[i].transform.position = pos * 0.9f;
         }
 
         // position
-        transform.position = Vector3.Scale(spheres[8].transform.position, new Vector3(1.0f, 0.0f, 1.0f));
-
-        // aim
-        Vector3 head_pose = (spheres[17].transform.position + spheres[18].transform.position) * 0.5f;
-        Vector3 nose_pose = spheres[0].transform.position;
-        Vector3 direction = Vector3.Scale(nose_pose - head_pose, new Vector3(1.0f, 0.0f, 1.0f));
-        aim.transform.position = nose_pose + 3 * direction;
+        ChangeAvatarPosition(_Spheres[8].transform.position);
 
         // rotation
-        Vector3 body_axis = Vector3.Scale(spheres[9].transform.position - spheres[12].transform.position, new Vector3(1.0f, 0.0f, 1.0f));
+        Vector3 right_hip_pose = _Spheres[9].transform.position;
+        Vector3 left_hip_pose = _Spheres[12].transform.position;
+        ChangeAvatarRotation(right_hip_pose, left_hip_pose);
+
+        // aim
+        Vector3 head_pose = (_Spheres[17].transform.position + _Spheres[18].transform.position) * 0.5f;
+        Vector3 nose_pose = _Spheres[0].transform.position;
+        SetHeadAim(head_pose, nose_pose);
+    }
+
+    void ChangeAvatarPosition(Vector3 hip_pose) {
+        transform.position = Vector3.Scale(hip_pose, new Vector3(1.0f, 0.0f, 1.0f));
+    }
+
+    void SetHeadAim(Vector3 head_pose, Vector3 nose_pose) {
+        Vector3 direction = Vector3.Scale(nose_pose - head_pose, new Vector3(1.0f, 0.0f, 1.0f));
+        _Aim.transform.position = nose_pose + 3 * direction;
+    }
+
+    void ChangeAvatarRotation(Vector3 right_hip_pose, Vector3 left_hip_pose) {
+        Vector3 body_axis = Vector3.Scale(right_hip_pose - left_hip_pose, new Vector3(1.0f, 0.0f, 1.0f));
         Vector3 z_axis = new Vector3(1.0f, 0.0f, 0.0f);
         float rotation_angle = Vector3.SignedAngle(body_axis, z_axis, new Vector3(0.0f, 1.0f, 0.0f));
         Debug.Log("Angle : " + -rotation_angle);
@@ -99,16 +122,16 @@ public class MoveSkeleton : MonoBehaviour
 
     void OnAnimatorIK(int layerIndex) {
         //Debug.Log("Right Hand Pose : " + right_hand_pose.x + ", " + right_hand_pose.y + ", " + right_hand_pose.z);
-        animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 1);
-        animator.SetIKPosition(AvatarIKGoal.RightHand, spheres[4].transform.position);
+        MainAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, 1);
+        MainAnimator.SetIKPosition(AvatarIKGoal.RightHand, _Spheres[4].transform.position);
 
-        animator.SetIKPositionWeight(AvatarIKGoal.RightFoot, 1);
-        animator.SetIKPosition(AvatarIKGoal.RightFoot, spheres[11].transform.position);
+        MainAnimator.SetIKPositionWeight(AvatarIKGoal.RightFoot, 1);
+        MainAnimator.SetIKPosition(AvatarIKGoal.RightFoot, _Spheres[11].transform.position);
 
-        animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1);
-        animator.SetIKPosition(AvatarIKGoal.LeftHand, spheres[7].transform.position);
+        MainAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1);
+        MainAnimator.SetIKPosition(AvatarIKGoal.LeftHand, _Spheres[7].transform.position);
 
-        animator.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 1);
-        animator.SetIKPosition(AvatarIKGoal.LeftFoot, spheres[14].transform.position);
+        MainAnimator.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 1);
+        MainAnimator.SetIKPosition(AvatarIKGoal.LeftFoot, _Spheres[14].transform.position);
     }
 }
