@@ -25,7 +25,7 @@ public class MoveSkeleton : MonoBehaviour
     }
 
     void InitializeGameObject() {
-        aim = GameObject.Find("Target");
+        aim = GameObject.Find("AimTarget");
         spheres[0] = GameObject.Find("sphere_nose");
         spheres[1] = GameObject.Find("sphere_neck");
         spheres[2] = GameObject.Find("sphere_right_shoulder");
@@ -83,16 +83,18 @@ public class MoveSkeleton : MonoBehaviour
         // position
         transform.position = Vector3.Scale(spheres[8].transform.position, new Vector3(1.0f, 0.0f, 1.0f));
 
+        // aim
+        Vector3 head_pose = (spheres[17].transform.position + spheres[18].transform.position) * 0.5f;
+        Vector3 nose_pose = spheres[0].transform.position;
+        Vector3 direction = Vector3.Scale(nose_pose - head_pose, new Vector3(1.0f, 0.0f, 1.0f));
+        aim.transform.position = nose_pose + 3 * direction;
+
         // rotation
         Vector3 body_axis = Vector3.Scale(spheres[9].transform.position - spheres[12].transform.position, new Vector3(1.0f, 0.0f, 1.0f));
         Vector3 z_axis = new Vector3(1.0f, 0.0f, 0.0f);
-        float rotation_angle = Vector3.Angle(body_axis, z_axis);
+        float rotation_angle = Vector3.SignedAngle(body_axis, z_axis, new Vector3(0.0f, 1.0f, 0.0f));
+        Debug.Log("Angle : " + -rotation_angle);
         transform.rotation = Quaternion.Euler(new Vector3(0, -rotation_angle, 0));
-
-        // aim
-        Vector3 aim_pose = 2.0f * spheres[0].transform.position;
-        aim_pose.y = spheres[0].transform.position.y;
-        aim.transform.position = aim_pose;
     }
 
     void OnAnimatorIK(int layerIndex) {
