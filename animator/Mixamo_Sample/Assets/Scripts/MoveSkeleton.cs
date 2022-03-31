@@ -11,6 +11,8 @@ public class MoveSkeleton : MonoBehaviour
     int _MaxFrame = 799;
 
     GameObject _Aim;
+    //GameObject _Stick;
+    //GameObject _LeftHandMiddle1;
     ReadSkeletonFromJson _SkeletonReader;
     List<GameObject> _Spheres = new List<GameObject>(new GameObject[25]);
 
@@ -26,6 +28,8 @@ public class MoveSkeleton : MonoBehaviour
 
     void InitializeGameObject() {
         _Aim = GameObject.Find("AimTarget");
+        //_Stick = GameObject.Find("Stick");
+        //_LeftHandMiddle1 = GameObject.Find("mixamorig:LeftHandMiddle1");
         _Spheres[0] = GameObject.Find("sphere_nose");
         _Spheres[1] = GameObject.Find("sphere_neck");
         _Spheres[2] = GameObject.Find("sphere_right_shoulder");
@@ -101,6 +105,10 @@ public class MoveSkeleton : MonoBehaviour
         Vector3 head_pose = (_Spheres[17].transform.position + _Spheres[18].transform.position) * 0.5f;
         Vector3 nose_pose = _Spheres[0].transform.position;
         SetHeadAim(head_pose, nose_pose);
+
+        // stick position and rotation
+        //_Stick.transform.position = _LeftHandMiddle1.transform.position;
+        //_Stick.transform.rotation = Quaternion.Euler(new Vector3(_LeftHandMiddle1.transform.localRotation.x, _LeftHandMiddle1.transform.localRotation.y, _LeftHandMiddle1.transform.localRotation.z + 90));
     }
 
     void ChangeAvatarPosition(Vector3 hip_pose) {
