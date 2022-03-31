@@ -133,5 +133,17 @@ public class MoveSkeleton : MonoBehaviour
 
         MainAnimator.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 1);
         MainAnimator.SetIKPosition(AvatarIKGoal.LeftFoot, _Spheres[14].transform.position);
+
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, 0.7f);
+        MainAnimator.SetIKHintPosition(AvatarIKHint.RightElbow, _Spheres[3].transform.position);
+
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightKnee, 0.7f);
+        MainAnimator.SetIKHintPosition(AvatarIKHint.RightKnee, _Spheres[10].transform.position);
+
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0.7f);
+        MainAnimator.SetIKHintPosition(AvatarIKHint.LeftElbow, _Spheres[6].transform.position);
+
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftKnee, 0.7f);
+        MainAnimator.SetIKHintPosition(AvatarIKHint.LeftKnee, _Spheres[13].transform.position);
     }
 }
