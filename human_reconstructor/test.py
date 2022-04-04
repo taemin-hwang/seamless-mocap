@@ -4,7 +4,7 @@ import time
 from queue import Queue
 import numpy as np
 
-from transfer import skeleton_sender
+from transfer import skeleton_sender, skeleton_udp_sender
 from visualizer import viewer_2d as v2d
 from reconstructor import reconstructor as recon
 from config import config_parser as cp
@@ -18,24 +18,33 @@ class TestManager:
         self.config_parser = cp.ConfigParser('./etc/config.json')
         self.config = self.config_parser.GetConfig()
         self.sender = skeleton_sender.SkeletonSender()
+        self.udp_sender = skeleton_udp_sender.UdpSocketSender()
         self.max_frame = 50
         self.args = args
 
     def initialize(self):
         self.q = Queue()
         self.reconstructor.initialize(self.args, self.config)
-        self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
+        if self.args.unity is False:
+            self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
+        else:
+            self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
     def run(self):
-        t1 = threading.Thread(target=self.work_get_skeleton, args=(self.q, self.reconstructor))
+        t1 = threading.Thread(target=self.work_get_skeleton, args=(self.q, self.reconstructor, self.sender, self.udp_sender))
         t2 = threading.Thread(target=self.work_get_smpl, args=(self.q, self.reconstructor, self.sender))
         t3 = threading.Thread(target=self.sender.work_send_smpl)
-        t1.start()
-        t2.start()
-        t3.start()
-        t3.join()
 
-    def work_get_skeleton(self, q, recon):
+        if self.args.smpl is True:
+            t1.start()
+            t2.start()
+            t3.start()
+            t1.join()
+        else:
+            t1.start()
+            t1.join()
+
+    def work_get_skeleton(self, q, recon, sender, udp_sender):
         cam_num = 23
         for file_id in range(0, 600):
             for cam_id in range(1, cam_num+1):
@@ -44,6 +53,10 @@ class TestManager:
                     skeletons_2d = json.load(mvmp_file)
                     recon.set_2d_skeletons_test(cam_id, skeletons_2d)
             keypoints3d = recon.get_3d_skeletons_test()
+            if self.args.keypoint is True and self.args.unity is False:
+                sender.send_3d_skeletons(keypoints3d)
+            elif self.args.unity is True:
+                udp_sender.send_3d_skeleton(keypoints3d)
             time.sleep(0.05)
             self.lock.acquire
             q.put(keypoints3d)

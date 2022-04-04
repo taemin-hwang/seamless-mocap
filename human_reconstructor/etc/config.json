@@ -3,6 +3,8 @@
     "server_port" : 50001,
     "gui_ip" : "127.0.0.1",
     "gui_port" : 9999,
+    "unity_ip" : "127.0.0.1",
+    "unity_port" : 50001,
     "cam_num" : 4,
     "min_cam" : 3,
     "max_frame" : 50,

@@ -9,11 +9,13 @@ parser.add_argument('-v', '--visual', action='store_true', help='Enable 2D visua
 parser.add_argument('-s', '--smpl', action='store_true', help='Reconstruct shape with SMPL')
 parser.add_argument('-k', '--keypoint', action='store_true', help='Reconstruct 3D keypoint wihtout SMPL')
 parser.add_argument('-t', '--test', action='store_true', help='Test with stored 2D skeletons')
+parser.add_argument('-u', '--unity', action='store_true', help='Test with Unity 3D')
 
 args = parser.parse_args()
 print('[OPTION] visual  : ', args.visual)
 print('[OPTION] smpl    : ', args.smpl)
 print('[OPTION] keypoint: ', args.keypoint)
+print('[OPTION] unity   : ', args.unity)
 
 if args.test is False:
     manager = mn.Manager(args)
