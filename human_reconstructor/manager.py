@@ -6,8 +6,7 @@ from queue import Queue
 import numpy as np
 from datetime import datetime
 
-from transfer import skeleton_server
-from transfer import skeleton_sender
+from transfer import skeleton_server, skeleton_sender, skeleton_udp_sender
 from visualizer import viewer_2d as v2d
 from config import config_parser as cp
 from reconstructor import reconstructor as recon
@@ -23,6 +22,7 @@ class Manager:
         self.lk_3d_skeleton = threading.Lock()
         self.config_parser = cp.ConfigParser(self.args.path + 'config.json')
         self.sender = skeleton_sender.SkeletonSender()
+        self.udp_sender = skeleton_udp_sender.UdpSocketSender()
 
     def initialize(self):
         # Read configuration
@@ -35,11 +35,14 @@ class Manager:
         self.buffer_size = self.config["buffer_size"]
         self.min_confidence = self.config["min_confidence"]
         self.reconstructor.initialize(self.args, self.config)
-        self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
         skeleton_server.execute(self.config["server_ip"], self.config["server_port"])
+        if self.args.unity is False:
+            self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
+        else:
+            self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
     def run(self):
-        t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
+        t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender, self.udp_sender))
         t2 = threading.Thread(target=self.work_get_smpl, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
         t3 = threading.Thread(target=self.sender.work_send_smpl)
 
@@ -54,7 +57,7 @@ class Manager:
             t1.start()
             t1.join()
 
-    def work_get_3dskeleton(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
+    def work_get_3dskeleton(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender, udp_sender):
     # A thread for reconstruct 3D human pose with multiple 2D skeletons
     # param1: mq_3d_skeleton is message queue for putting estimated 3D human pose
     # param2: lk_3d_skeleton is lock for avoding data missing
@@ -98,14 +101,17 @@ class Manager:
                 ret[:, 0] = ret[:, 1]
                 ret[:, 1] = tmp
                 ret[:, 2] = -1*ret[:, 2]
+                ret[:, 2] += 1.05
                 ret[:, 3][ret[:, 3] < self.min_confidence] = 0
                 lk_3d_skeleton.acquire()
                 mq_3d_skeleton.put(ret)
                 lk_3d_skeleton.release()
 
                 # Send and put 3D human pose to message queue
-                if self.args.keypoint:
+                if self.args.keypoint is True and self.args.unity is False:
                     sender.send_3d_skeletons(ret)
+                elif self.args.unity is True:
+                    udp_sender.send_3d_skeleton(ret)
             else:
                 print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])
 
