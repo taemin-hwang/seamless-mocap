@@ -11,9 +11,10 @@ public class MoveSkeleton : MonoBehaviour
     int _MaxFrame = 799;
 
     GameObject _Aim;
-    //GameObject _Stick;
-    //GameObject _LeftHandMiddle1;
+    ReceiveSkeleton _SkeletonReceiver;
     ReadSkeletonFromJson _SkeletonReader;
+    JsonElement _Skeletons;
+
     List<GameObject> _Spheres = new List<GameObject>(new GameObject[25]);
 
     // Start is called before the first frame update
@@ -22,6 +23,9 @@ public class MoveSkeleton : MonoBehaviour
         Debug.Log("Start Move Skeletons : " + EnableDisplay);
         MainAnimator = GetComponent<Animator>();
         _SkeletonReader = new ReadSkeletonFromJson();
+        _SkeletonReceiver = new ReceiveSkeleton("127.0.0.1", 50001);
+        _SkeletonReceiver.Initialize();
+        _SkeletonReceiver.SetMessageCallback(new CallbackMessage(ReceiveMessageHandler));
         InitializeGameObject();
         SetObjectRendering(EnableDisplay);
     }
@@ -69,6 +73,10 @@ public class MoveSkeleton : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (_Skeletons != null && _Skeletons.keypoints3d.Count > 0) {
+            Update3DPose(_Skeletons);
+        }
+
         if (Input.GetKey(KeyCode.RightArrow)) {
             if (_NowFrame <= _MaxFrame) {
                 string file_name = Application.dataPath + "/Data/keypoints3d/" + _NowFrame.ToString("D6") + ".json";
@@ -85,6 +93,10 @@ public class MoveSkeleton : MonoBehaviour
                 Update3DPose(skeletons);
             }
         }
+    }
+
+    void ReceiveMessageHandler(JsonElement skeletons) {
+        _Skeletons = skeletons;
     }
 
     void Update3DPose(JsonElement skeletons) {
