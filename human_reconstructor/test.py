@@ -25,9 +25,9 @@ class TestManager:
     def initialize(self):
         self.q = Queue()
         self.reconstructor.initialize(self.args, self.config)
-        if self.args.unity is False:
-            self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
-        else:
+        self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
+
+        if self.args.unity is True:
             self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
     def run(self):
@@ -46,16 +46,16 @@ class TestManager:
 
     def work_get_skeleton(self, q, recon, sender, udp_sender):
         cam_num = 23
-        for file_id in range(0, 600):
+        for file_id in range(0, 799):
             for cam_id in range(1, cam_num+1):
                 filename = str(file_id).zfill(6) + '_keypoints.json'
                 with open("./etc/mv1p_data/openpose/" + str(cam_id) + '/' + filename, "r") as mvmp_file:
                     skeletons_2d = json.load(mvmp_file)
                     recon.set_2d_skeletons_test(cam_id, skeletons_2d)
             keypoints3d = recon.get_3d_skeletons_test()
-            if self.args.keypoint is True and self.args.unity is False:
+            if self.args.keypoint is True:
                 sender.send_3d_skeletons(keypoints3d)
-            elif self.args.unity is True:
+            if self.args.unity is True:
                 udp_sender.send_3d_skeleton(keypoints3d)
             time.sleep(0.05)
             self.lock.acquire
