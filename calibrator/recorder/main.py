@@ -7,10 +7,10 @@ if __name__ == "__main__":
     print("Recording video with mp4")
     if len(sys.argv) is 1:
         print("Use Default filename : video00.mp4")
-        filename = "video00.mp4"
+        filename = "0.mp4"
     else:
         cam_id = sys.argv[1]
-        filename = "video0"+str(cam_id)+".mp4"
+        filename = str(cam_id)+".mp4"
 
     print("Filename : ", filename)
 
