@@ -11,6 +11,7 @@ public class MoveSkeleton : MonoBehaviour
     int _NowFrame = 0;
     int _MaxFrame = 799;
     float _AvatarLegLength = 0.0f;
+    float _MidHipYAxis = 0.0f;
 
     GameObject _Aim;
     ReceiveSkeleton _SkeletonReceiver;
@@ -30,6 +31,7 @@ public class MoveSkeleton : MonoBehaviour
         _SkeletonReceiver.SetMessageCallback(new CallbackMessage(ReceiveMessageHandler));
         _AvatarLegLength = GetAvatarLegLength();
         InitializeGameObject();
+        _MidHipYAxis = GameObject.Find("mixamorig:Hips").transform.position.y;
         SetObjectRendering(EnableDisplay);
     }
 
@@ -149,7 +151,8 @@ public class MoveSkeleton : MonoBehaviour
     }
 
     void ChangeAvatarPosition(Vector3 hip_pose) {
-        transform.position = Vector3.Scale(hip_pose, new Vector3(1.0f, 0.0f, 1.0f));
+        //transform.position = Vector3.Scale(hip_pose, new Vector3(1.0f, 0.0f, 1.0f));
+        transform.position = new Vector3(hip_pose.x, hip_pose.y-_MidHipYAxis, hip_pose.z);
     }
 
     void SetHeadAim(Vector3 head_pose, Vector3 nose_pose) {
@@ -180,16 +183,16 @@ public class MoveSkeleton : MonoBehaviour
         MainAnimator.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 1);
         MainAnimator.SetIKPosition(AvatarIKGoal.LeftFoot, _Spheres[14].transform.position);
 
-        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, 0.4f);
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, 0.2f);
         MainAnimator.SetIKHintPosition(AvatarIKHint.RightElbow, _Spheres[3].transform.position);
 
-        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightKnee, 0.4f);
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightKnee, 0.2f);
         MainAnimator.SetIKHintPosition(AvatarIKHint.RightKnee, _Spheres[10].transform.position);
 
-        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0.4f);
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0.2f);
         MainAnimator.SetIKHintPosition(AvatarIKHint.LeftElbow, _Spheres[6].transform.position);
 
-        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftKnee, 0.4f);
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftKnee, 0.2f);
         MainAnimator.SetIKHintPosition(AvatarIKHint.LeftKnee, _Spheres[13].transform.position);
     }
 }
