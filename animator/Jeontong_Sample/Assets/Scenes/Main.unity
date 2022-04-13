@@ -638,6 +638,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Avatar
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 108edd1846dcae241af48af00bf9d25e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1330755669629619180, guid: 108edd1846dcae241af48af00bf9d25e, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.039846882
@@ -1027,7 +1031,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 359926022}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.16234484, y: 0.33990026, z: -0.011821044}
   m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_Children: []
   m_Father: {fileID: 734152071}
@@ -2266,7 +2270,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1041525023}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0.5, z: 0.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 1434493126}
@@ -2705,7 +2709,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Weight: 1
-  m_Effectors: []
+  m_Effectors:
+  - m_Transform: {fileID: 1041525024}
+    m_Style:
+      shape: {fileID: 4300000, guid: e050c2b16fe384bd994474655a4b4968, type: 2}
+      color: {r: 1, g: 0, b: 0, a: 0.5}
+      size: 0.1
+      position: {x: 0, y: 0, z: 0}
+      rotation: {x: 0, y: 0, z: 0}
+    m_Visible: 1
 --- !u!4 &1434493126
 Transform:
   m_ObjectHideFlags: 0
@@ -3168,7 +3180,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Weight: 1
   m_Data:
-    m_ConstrainedObject: {fileID: 0}
+    m_ConstrainedObject: {fileID: 1882266064}
     m_SourceObjects:
       m_Length: 1
       m_Item0:
@@ -3209,7 +3221,7 @@ MonoBehaviour:
       y: 1
       z: 1
   m_SourceObjectsGUIToggle: 1
-  m_SettingsGUIToggle: 0
+  m_SettingsGUIToggle: 1
 --- !u!1 &1691122071
 GameObject:
   m_ObjectHideFlags: 0
@@ -3399,6 +3411,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MainAnimator: {fileID: 0}
   EnableDisplay: 1
+  _BodyRatio: 0.25
 --- !u!4 &1730806160 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -1864740628597940677, guid: 108edd1846dcae241af48af00bf9d25e, type: 3}
@@ -3526,7 +3539,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1802037060}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.16234484, y: 0.33990026, z: -0.011821044}
   m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_Children: []
   m_Father: {fileID: 734152071}
@@ -3924,7 +3937,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1886862600}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.16218801, y: 0.3399017, z: -0.010294971}
   m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_Children: []
   m_Father: {fileID: 734152071}
