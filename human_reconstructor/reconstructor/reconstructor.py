@@ -35,12 +35,16 @@ class Reconstructor:
         self.last_timestamp = 0.0
 
     def initialize(self, args, config):
-        if args.test is False:
-            self.cam_num = config["cam_num"]
-            self.cali.read_camera(self.cam_num, args.path)
-        else:
+        if args.test1 is True:
             self.cam_num = 23
             self.cali.read_camera(self.cam_num, './etc/mv1p_data')
+        elif args.test2 is True:
+            self.cam_num = 4
+            self.cali.read_camera(self.cam_num, './etc/keti_mv1p_data')
+        else:
+            self.cam_num = config["cam_num"]
+            self.cali.read_camera(self.cam_num, args.path)
+
         self.body_model = load_model(model_path='./easymocap/data/smplx')
 
     def get_cameras(self):
@@ -82,6 +86,12 @@ class Reconstructor:
         '''collect 2d skeletons'''
         annots = np.array(_skeletons['people'][0]['pose_keypoints_2d'])
         annots_reshape = np.reshape(annots, (25, 3))
+        self.skeletons_test[_cam_id] = {'annots' : annots_reshape}
+
+    # NOTE: ONLY FOR INTERNAL TEST
+    def set_2d_skeletons_test2(self, _cam_id, _skeletons):
+        '''collect 2d skeletons'''
+        annots_reshape = np.reshape(_skeletons, (25, 3))
         self.skeletons_test[_cam_id] = {'annots' : annots_reshape}
 
     # NOTE: ONLY FOR INTERNAL TEST

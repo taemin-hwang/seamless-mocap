@@ -36,9 +36,9 @@ class Manager:
         self.min_confidence = self.config["min_confidence"]
         self.reconstructor.initialize(self.args, self.config)
         skeleton_server.execute(self.config["server_ip"], self.config["server_port"])
-        if self.args.unity is False:
+        if self.args.visual is True:
             self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
-        else:
+        if self.args.unity is True:
             self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
     def run(self):
@@ -101,16 +101,16 @@ class Manager:
                 ret[:, 0] = ret[:, 1]
                 ret[:, 1] = tmp
                 ret[:, 2] = -1*ret[:, 2]
-                ret[:, 2] += 1.05
+                ret[:, 2] += 1.1
                 ret[:, 3][ret[:, 3] < self.min_confidence] = 0
                 lk_3d_skeleton.acquire()
                 mq_3d_skeleton.put(ret)
                 lk_3d_skeleton.release()
 
                 # Send and put 3D human pose to message queue
-                if self.args.keypoint is True and self.args.unity is False:
+                if self.args.keypoint is True and self.args.visual is True:
                     sender.send_3d_skeletons(ret)
-                elif self.args.unity is True:
+                if self.args.unity is True:
                     udp_sender.send_3d_skeleton(ret)
             else:
                 print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])

@@ -25,13 +25,17 @@ class TestManager:
     def initialize(self):
         self.q = Queue()
         self.reconstructor.initialize(self.args, self.config)
-        self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
+        if self.args.visual is True:
+            self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
 
         if self.args.unity is True:
             self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
     def run(self):
-        t1 = threading.Thread(target=self.work_get_skeleton, args=(self.q, self.reconstructor, self.sender, self.udp_sender))
+        if self.args.test1 is True:
+            t1 = threading.Thread(target=self.work_get_skeleton1, args=(self.q, self.reconstructor, self.sender, self.udp_sender))
+        elif self.args.test2 is True:
+            t1 = threading.Thread(target=self.work_get_skeleton2, args=(self.q, self.reconstructor, self.sender, self.udp_sender))
         t2 = threading.Thread(target=self.work_get_smpl, args=(self.q, self.reconstructor, self.sender))
         t3 = threading.Thread(target=self.sender.work_send_smpl)
 
@@ -44,7 +48,50 @@ class TestManager:
             t1.start()
             t1.join()
 
-    def work_get_skeleton(self, q, recon, sender, udp_sender):
+    def work_get_skeleton2(self, q, recon, sender, udp_sender):
+        cam_num = 4
+        for file_id in range(5, 1799):
+            for cam_id in range(1, cam_num+1):
+                filename = str(file_id).zfill(6) + '.json'
+                directory = './etc/keti_mv1p_data/annots/' + str(cam_id) + '/'
+                with open(directory+filename, "r") as json_file:
+                    json_data = json.load(json_file)
+                    keypoints = np.array(json_data['annots'][0]['keypoints'])
+                    recon.set_2d_skeletons_test2(cam_id, keypoints)
+            keypoints3d = recon.get_3d_skeletons_test()
+            keypoints3d[:, 2] = -1*keypoints3d[:, 2]
+            self.reverse_skeleton(keypoints3d)
+
+            if self.args.keypoint is True and self.args.visual is True:
+                sender.send_3d_skeletons(keypoints3d)
+            if self.args.unity is True:
+                udp_sender.send_3d_skeleton(keypoints3d)
+            time.sleep(0.05)
+            self.lock.acquire
+            q.put(keypoints3d)
+            self.lock.release
+
+    def reverse_skeleton(self, keypoints3d):
+        self.swap_skeleton(2, 5, keypoints3d)
+        self.swap_skeleton(3, 6, keypoints3d)
+        self.swap_skeleton(4, 7, keypoints3d)
+        self.swap_skeleton(9, 12, keypoints3d)
+        self.swap_skeleton(10, 13, keypoints3d)
+        self.swap_skeleton(11, 14, keypoints3d)
+        self.swap_skeleton(21, 24, keypoints3d)
+        self.swap_skeleton(22, 19, keypoints3d)
+        self.swap_skeleton(23, 20, keypoints3d)
+        self.swap_skeleton(15, 16, keypoints3d)
+        self.swap_skeleton(17, 18, keypoints3d)
+        return keypoints3d
+
+    def swap_skeleton(self, id1, id2, keypoints3d):
+        tmp = keypoints3d[id1, :].copy()
+        keypoints3d[id1, :] = keypoints3d[id2, :]
+        keypoints3d[id2, :] = tmp
+        return keypoints3d
+
+    def work_get_skeleton1(self, q, recon, sender, udp_sender):
         cam_num = 23
         for file_id in range(0, 799):
             for cam_id in range(1, cam_num+1):
@@ -53,7 +100,7 @@ class TestManager:
                     skeletons_2d = json.load(mvmp_file)
                     recon.set_2d_skeletons_test(cam_id, skeletons_2d)
             keypoints3d = recon.get_3d_skeletons_test()
-            if self.args.keypoint is True:
+            if self.args.keypoint is True and self.args.visual is True:
                 sender.send_3d_skeletons(keypoints3d)
             if self.args.unity is True:
                 udp_sender.send_3d_skeleton(keypoints3d)
