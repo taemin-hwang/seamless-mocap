@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class MoveSkeleton : MonoBehaviour
 {
@@ -8,11 +9,16 @@ public class MoveSkeleton : MonoBehaviour
     public bool EnableDisplay;
     public float _BodyRatio = 0.25f;
     public float _YOffset = 0.25f;
+    public ToggleGroup _RightToggle;
+    public ToggleGroup _LeftToggle;
 
     int _NowFrame = 0;
     int _MaxFrame = 799;
     float _AvatarLegLength = 0.0f;
     float _MidHipYAxis = 0.0f;
+
+    int _CurrentRightToggleState = 0;
+    int _CurrentLeftToggleState = 0;
 
     GameObject _Aim;
     ReceiveSkeleton _SkeletonReceiver;
@@ -92,6 +98,9 @@ public class MoveSkeleton : MonoBehaviour
             Update3DPose(_Skeletons);
         }
 
+        UpdateLeftHandAnimation();
+        UpdateRightHandAnimation();
+
         if (Input.GetKey(KeyCode.RightArrow)) {
             if (_NowFrame <= _MaxFrame) {
                 string file_name = Application.dataPath + "/Data/keypoints3d/" + _NowFrame.ToString("D6") + ".json";
@@ -106,6 +115,82 @@ public class MoveSkeleton : MonoBehaviour
                 string file_name = Application.dataPath + "/Data/keypoints3d/" + _NowFrame.ToString("D6") + ".json";
                 var skeletons = _SkeletonReader.Get3DSkeletonFromJson(file_name);
                 Update3DPose(skeletons);
+            }
+        }
+    }
+
+    void UpdateRightHandAnimation() {
+        int TmpRightToggleState = 0;
+
+        foreach( Toggle toggle in _RightToggle.ActiveToggles() ) {
+            if (toggle.gameObject.name == "RightHandIdleToggle") {
+                TmpRightToggleState = 0;
+            } else if (toggle.gameObject.name == "RightHandFistToggle") {
+                TmpRightToggleState = 1;
+            } else if (toggle.gameObject.name == "RightHandPointingToggle") {
+                TmpRightToggleState = 2;
+            } else {
+                TmpRightToggleState = 0;
+            }
+        }
+
+        if (_CurrentRightToggleState != TmpRightToggleState) {
+            _CurrentRightToggleState = TmpRightToggleState;
+            if (_CurrentRightToggleState == 0) {
+                MainAnimator.SetBool("IsRightIdle", true);
+                MainAnimator.SetBool("IsRightFist", false);
+                MainAnimator.SetBool("IsRightPointing", false);
+                Debug.Log("RightHandIdleToggle");
+            } else if (_CurrentRightToggleState == 1) {
+                MainAnimator.SetBool("IsRightIdle", false);
+                MainAnimator.SetBool("IsRightFist", true);
+                MainAnimator.SetBool("IsRightPointing", false);
+                Debug.Log("RightHandFistToggle");
+            } else if (_CurrentRightToggleState == 2) {
+                MainAnimator.SetBool("IsRightIdle", false);
+                MainAnimator.SetBool("IsRightFist", false);
+                MainAnimator.SetBool("IsRightPointing", true);
+                Debug.Log("RightHandPointingToggle");
+            } else {
+                MainAnimator.SetBool("IsRightIdle", true);
+            }
+        }
+    }
+
+    void UpdateLeftHandAnimation() {
+        int TmpLeftToggleState = 0;
+
+        foreach( Toggle toggle in _LeftToggle.ActiveToggles() ) {
+            if (toggle.gameObject.name == "LeftHandIdleToggle") {
+                TmpLeftToggleState = 0;
+            } else if (toggle.gameObject.name == "LeftHandFistToggle") {
+                TmpLeftToggleState = 1;
+            } else if (toggle.gameObject.name == "LeftHandPointingToggle") {
+                TmpLeftToggleState = 2;
+            } else {
+                TmpLeftToggleState = 0;
+            }
+        }
+
+        if (_CurrentLeftToggleState != TmpLeftToggleState) {
+            _CurrentLeftToggleState = TmpLeftToggleState;
+            if (_CurrentLeftToggleState == 0) {
+                MainAnimator.SetBool("IsLeftIdle", true);
+                MainAnimator.SetBool("IsLeftFist", false);
+                MainAnimator.SetBool("IsLeftPointing", false);
+                Debug.Log("LeftHandIdleToggle");
+            } else if (_CurrentLeftToggleState == 1) {
+                MainAnimator.SetBool("IsLeftIdle", false);
+                MainAnimator.SetBool("IsLeftFist", true);
+                MainAnimator.SetBool("IsLeftPointing", false);
+                Debug.Log("LeftHandFistToggle");
+            } else if (_CurrentLeftToggleState == 2) {
+                MainAnimator.SetBool("IsLeftIdle", false);
+                MainAnimator.SetBool("IsLeftFist", false);
+                MainAnimator.SetBool("IsLeftPointing", true);
+                Debug.Log("LeftHandPointingToggle");
+            } else {
+                MainAnimator.SetBool("IsLeftIdle", true);
             }
         }
     }
