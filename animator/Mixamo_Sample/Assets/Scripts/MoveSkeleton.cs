@@ -6,9 +6,13 @@ public class MoveSkeleton : MonoBehaviour
 {
     public Animator MainAnimator;
     public bool EnableDisplay;
+    public float _BodyRatio = 0.25f;
+    public float _YOffset = 0.25f;
 
     int _NowFrame = 0;
     int _MaxFrame = 799;
+    float _AvatarLegLength = 0.0f;
+    float _MidHipYAxis = 0.0f;
 
     GameObject _Aim;
     ReceiveSkeleton _SkeletonReceiver;
@@ -23,15 +27,26 @@ public class MoveSkeleton : MonoBehaviour
         Debug.Log("Start Move Skeletons : " + EnableDisplay);
         MainAnimator = GetComponent<Animator>();
         _SkeletonReader = new ReadSkeletonFromJson();
-        _SkeletonReceiver = new ReceiveSkeleton("127.0.0.1", 50001);
+        _SkeletonReceiver = new ReceiveSkeleton("127.0.0.1", 50002);
         _SkeletonReceiver.Initialize();
         _SkeletonReceiver.SetMessageCallback(new CallbackMessage(ReceiveMessageHandler));
+        _AvatarLegLength = GetAvatarLegLength();
         InitializeGameObject();
+        _MidHipYAxis = GameObject.Find("mixamorig:Hips").transform.position.y + _YOffset;
         SetObjectRendering(EnableDisplay);
     }
 
+    float GetAvatarLegLength() {
+        // Vector3 UpLegPose = GameObject.Find("mixamorig:LeftUpLeg").transform.position;
+        // Vector3 LegPose = GameObject.Find("mixamorig:LeftLeg").transform.position;
+        // return Vector3.Distance(UpLegPose, LegPose);
+        Vector3 ForeArmPose = GameObject.Find("mixamorig:LeftForeArm").transform.position;
+        Vector3 HandPose = GameObject.Find("mixamorig:LeftHand").transform.position;
+        return Vector3.Distance(ForeArmPose, HandPose);
+    }
+
     void InitializeGameObject() {
-        _Aim = GameObject.Find("AimTarget");
+        _Aim = GameObject.Find("HeadTarget");
         //_Stick = GameObject.Find("Stick");
         //_LeftHandMiddle1 = GameObject.Find("mixamorig:LeftHandMiddle1");
         _Spheres[0] = GameObject.Find("sphere_nose");
@@ -100,10 +115,8 @@ public class MoveSkeleton : MonoBehaviour
     }
 
     void Update3DPose(JsonElement skeletons) {
-        for (int i = 0; i < skeletons.keypoints3d.Count; i++) {
-            Vector3 pos = new Vector3((float)skeletons.keypoints3d[i][0], (float)skeletons.keypoints3d[i][2], (float)skeletons.keypoints3d[i][1]);
-            _Spheres[i].transform.position = pos * 0.9f;
-        }
+        // sphere
+        UpdateSpherePosition(skeletons);
 
         // position
         ChangeAvatarPosition(_Spheres[8].transform.position);
@@ -117,14 +130,30 @@ public class MoveSkeleton : MonoBehaviour
         Vector3 head_pose = (_Spheres[17].transform.position + _Spheres[18].transform.position) * 0.5f;
         Vector3 nose_pose = _Spheres[0].transform.position;
         SetHeadAim(head_pose, nose_pose);
+    }
 
-        // stick position and rotation
-        //_Stick.transform.position = _LeftHandMiddle1.transform.position;
-        //_Stick.transform.rotation = Quaternion.Euler(new Vector3(_LeftHandMiddle1.transform.localRotation.x, _LeftHandMiddle1.transform.localRotation.y, _LeftHandMiddle1.transform.localRotation.z + 90));
+    void UpdateSpherePosition(JsonElement skeletons){
+        for (int i = 0; i < skeletons.keypoints3d.Count; i++) {
+            Vector3 pos = new Vector3((float)skeletons.keypoints3d[i][0], (float)skeletons.keypoints3d[i][2], (float)skeletons.keypoints3d[i][1]);
+            _Spheres[i].transform.position = pos * _BodyRatio;
+        }
+    }
+
+    float GetBodyRatio(JsonElement skeletons) {
+        // Vector3 UpLegPose = new Vector3((float)skeletons.keypoints3d[12][0], (float)skeletons.keypoints3d[12][2], (float)skeletons.keypoints3d[12][1]);
+        // Vector3 LegPose = new Vector3((float)skeletons.keypoints3d[13][0], (float)skeletons.keypoints3d[13][2], (float)skeletons.keypoints3d[13][1]);
+        // float SkeletonLegLength = Vector3.Distance(UpLegPose, LegPose);
+
+        Vector3 ForeArmPose = new Vector3((float)skeletons.keypoints3d[6][0], (float)skeletons.keypoints3d[6][2], (float)skeletons.keypoints3d[6][1]);
+        Vector3 HandPose = new Vector3((float)skeletons.keypoints3d[7][0], (float)skeletons.keypoints3d[7][2], (float)skeletons.keypoints3d[7][1]);
+        float SkeletonLegLength = Vector3.Distance(ForeArmPose, HandPose);
+
+        return _AvatarLegLength / SkeletonLegLength;
     }
 
     void ChangeAvatarPosition(Vector3 hip_pose) {
-        transform.position = Vector3.Scale(hip_pose, new Vector3(1.0f, 0.0f, 1.0f));
+        //transform.position = Vector3.Scale(hip_pose, new Vector3(1.0f, 0.0f, 1.0f));
+        transform.position = new Vector3(hip_pose.x, hip_pose.y-_MidHipYAxis, hip_pose.z);
     }
 
     void SetHeadAim(Vector3 head_pose, Vector3 nose_pose) {
@@ -136,12 +165,13 @@ public class MoveSkeleton : MonoBehaviour
         Vector3 body_axis = Vector3.Scale(right_hip_pose - left_hip_pose, new Vector3(1.0f, 0.0f, 1.0f));
         Vector3 z_axis = new Vector3(1.0f, 0.0f, 0.0f);
         float rotation_angle = Vector3.SignedAngle(body_axis, z_axis, new Vector3(0.0f, 1.0f, 0.0f));
+        //Debug.Log("Right Hip : " + right_hip_pose + ", Left Hip : " + left_hip_pose + ", Angle : " + -rotation_angle);
         Debug.Log("Angle : " + -rotation_angle);
         transform.rotation = Quaternion.Euler(new Vector3(0, -rotation_angle, 0));
     }
 
     void OnAnimatorIK(int layerIndex) {
-        //Debug.Log("Right Hand Pose : " + right_hand_pose.x + ", " + right_hand_pose.y + ", " + right_hand_pose.z);
+        //Debug.Log("Right Hand Pose : " + _Spheres[4].transform.position.x + ", " + _Spheres[4].transform.position.y + ", " + _Spheres[4].transform.position.z);
         MainAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, 1);
         MainAnimator.SetIKPosition(AvatarIKGoal.RightHand, _Spheres[4].transform.position);
 
@@ -154,16 +184,16 @@ public class MoveSkeleton : MonoBehaviour
         MainAnimator.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 1);
         MainAnimator.SetIKPosition(AvatarIKGoal.LeftFoot, _Spheres[14].transform.position);
 
-        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, 0.7f);
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, 0.2f);
         MainAnimator.SetIKHintPosition(AvatarIKHint.RightElbow, _Spheres[3].transform.position);
 
-        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightKnee, 0.7f);
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.RightKnee, 0.2f);
         MainAnimator.SetIKHintPosition(AvatarIKHint.RightKnee, _Spheres[10].transform.position);
 
-        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0.7f);
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0.2f);
         MainAnimator.SetIKHintPosition(AvatarIKHint.LeftElbow, _Spheres[6].transform.position);
 
-        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftKnee, 0.7f);
+        MainAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftKnee, 0.2f);
         MainAnimator.SetIKHintPosition(AvatarIKHint.LeftKnee, _Spheres[13].transform.position);
     }
 }

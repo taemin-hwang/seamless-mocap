@@ -16,7 +16,7 @@ public delegate void CallbackMessage(JsonElement message);
 public class ReceiveSkeleton
 {
     public string _IpAddr = "127.0.0.1";
-    public int _Port = 50001;
+    public int _Port = 50002;
     CallbackMessage _CallbackMessage;
 
 
