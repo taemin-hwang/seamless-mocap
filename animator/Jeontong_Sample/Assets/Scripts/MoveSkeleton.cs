@@ -7,11 +7,18 @@ public class MoveSkeleton : MonoBehaviour
     public Animator MainAnimator;
     public bool EnableDisplay;
     public float _BodyRatio = 0.25f;
+    public float _MidHipOffset = 0.0f;
 
     int _NowFrame = 0;
-    int _MaxFrame = 799;
+    int _MaxFrame = 7774;
     float _AvatarLegLength = 0.0f;
     float _MidHipYAxis = 0.0f;
+
+    int _AverageCnt = 0;
+    Queue<List<List<double>>> _SkeletonData = new Queue<List<List<double>>>();
+
+    private bool spawned = false;
+    private float decay;
 
     GameObject _Aim;
     ReceiveSkeleton _SkeletonReceiver;
@@ -31,7 +38,7 @@ public class MoveSkeleton : MonoBehaviour
         _SkeletonReceiver.SetMessageCallback(new CallbackMessage(ReceiveMessageHandler));
         _AvatarLegLength = GetAvatarLegLength();
         InitializeGameObject();
-        _MidHipYAxis = GameObject.Find("mixamorig:Hips").transform.position.y;
+        _MidHipYAxis = GameObject.Find("mixamorig:Hips").transform.position.y + _MidHipOffset;
         SetObjectRendering(EnableDisplay);
     }
 
@@ -45,7 +52,7 @@ public class MoveSkeleton : MonoBehaviour
     }
 
     void InitializeGameObject() {
-        _Aim = GameObject.Find("AimTarget");
+        _Aim = GameObject.Find("HeadTarget");
         //_Stick = GameObject.Find("Stick");
         //_LeftHandMiddle1 = GameObject.Find("mixamorig:LeftHandMiddle1");
         _Spheres[0] = GameObject.Find("sphere_nose");
@@ -91,21 +98,37 @@ public class MoveSkeleton : MonoBehaviour
             Update3DPose(_Skeletons);
         }
 
-        if (Input.GetKey(KeyCode.RightArrow)) {
-            if (_NowFrame <= _MaxFrame) {
-                string file_name = Application.dataPath + "/Data/keypoints3d/" + _NowFrame.ToString("D6") + ".json";
-                var skeletons = _SkeletonReader.Get3DSkeletonFromJson(file_name);
-                Update3DPose(skeletons);
-                _NowFrame++;
+        Reset();
+
+        if (!spawned) {
+            decay = 0.025f;
+            spawned = true;
+            if (Input.GetKey(KeyCode.RightArrow)) {
+                if (_NowFrame <= _MaxFrame) {
+                    string file_name = Application.dataPath + "/Data/keypoints3d4/" + _NowFrame.ToString("D6") + ".json";
+                    var skeletons = _SkeletonReader.Get3DSkeletonFromJson(file_name);
+                    Update3DPose(skeletons);
+                    _NowFrame++;
+                }
+            }
+            if (Input.GetKey(KeyCode.LeftArrow)) {
+                if (_NowFrame > 0) {
+                    _NowFrame--;
+                    string file_name = Application.dataPath + "/Data/keypoints3d4/" + _NowFrame.ToString("D6") + ".json";
+                    var skeletons = _SkeletonReader.Get3DSkeletonFromJson(file_name);
+                    Update3DPose(skeletons);
+                }
             }
         }
-        if (Input.GetKey(KeyCode.LeftArrow)) {
-            if (_NowFrame > 0) {
-                _NowFrame--;
-                string file_name = Application.dataPath + "/Data/keypoints3d/" + _NowFrame.ToString("D6") + ".json";
-                var skeletons = _SkeletonReader.Get3DSkeletonFromJson(file_name);
-                Update3DPose(skeletons);
-            }
+    }
+
+    private void Reset() {
+        if(spawned && decay > 0) {
+            decay -= Time.deltaTime;
+        }
+        if(decay < 0) {
+            decay = 0;
+            spawned = false;
         }
     }
 
@@ -114,8 +137,50 @@ public class MoveSkeleton : MonoBehaviour
     }
 
     void Update3DPose(JsonElement skeletons) {
+        // pre-processing
+        JsonElement unity_skeletons = skeletons;
+        for (int i = 0; i < skeletons.keypoints3d.Count; i++) {
+            unity_skeletons.keypoints3d[i][2] = -1 * unity_skeletons.keypoints3d[i][2];
+        }
+        SwapLeftRight(ref unity_skeletons, 2, 5);
+        SwapLeftRight(ref unity_skeletons, 3, 6);
+        SwapLeftRight(ref unity_skeletons, 4, 7);
+        SwapLeftRight(ref unity_skeletons, 9, 12);
+        SwapLeftRight(ref unity_skeletons, 10, 13);
+        SwapLeftRight(ref unity_skeletons, 11, 14);
+        SwapLeftRight(ref unity_skeletons, 21, 24);
+        SwapLeftRight(ref unity_skeletons, 22, 19);
+        SwapLeftRight(ref unity_skeletons, 23, 20);
+        SwapLeftRight(ref unity_skeletons, 15, 16);
+        SwapLeftRight(ref unity_skeletons, 17, 18);
+
+        JsonElement average_skeleton = unity_skeletons;
+        List<List<double>> average_keypoint = new List<List<double>>();
+        for (int i = 0; i < 25; i++) {
+            List<double> init = new List<double>();
+            for (int j = 0; j < 3; j++) {
+                init.Add(0);
+            }
+            average_keypoint.Add(init);
+        }
+
+        _SkeletonData.Enqueue(unity_skeletons.keypoints3d);
+        if (_AverageCnt < 10) {
+            _AverageCnt += 1;
+        } else {
+            var last_keypoints3d = _SkeletonData.Dequeue();
+            foreach (var keypoints3d in _SkeletonData) {
+                for (int i = 0; i < keypoints3d.Count; i++) {
+                    average_keypoint[i][0] += keypoints3d[i][0]/10;
+                    average_keypoint[i][1] += keypoints3d[i][1]/10;
+                    average_keypoint[i][2] += keypoints3d[i][2]/10;
+                }
+            }
+        }
+        average_skeleton.keypoints3d = average_keypoint;
+
         // sphere
-        UpdateSpherePosition(skeletons);
+        UpdateSpherePosition(average_skeleton);
 
         // position
         ChangeAvatarPosition(_Spheres[8].transform.position);
@@ -131,10 +196,20 @@ public class MoveSkeleton : MonoBehaviour
         SetHeadAim(head_pose, nose_pose);
     }
 
+    void SwapLeftRight(ref JsonElement skeletons, int left, int right) {
+        var tmp = skeletons.keypoints3d[left];
+        skeletons.keypoints3d[left] = skeletons.keypoints3d[right];
+        skeletons.keypoints3d[right] = tmp;
+        return;
+    }
+
     void UpdateSpherePosition(JsonElement skeletons){
         for (int i = 0; i < skeletons.keypoints3d.Count; i++) {
-            Vector3 pos = new Vector3((float)skeletons.keypoints3d[i][0], (float)skeletons.keypoints3d[i][2], (float)skeletons.keypoints3d[i][1]);
-            _Spheres[i].transform.position = pos * _BodyRatio;
+            if ((float)skeletons.keypoints3d[i][2] > 0.05f) {
+                _Spheres[i].transform.position = new Vector3((float)skeletons.keypoints3d[i][0], (float)skeletons.keypoints3d[i][2], (float)skeletons.keypoints3d[i][1]) * _BodyRatio;
+            }
+            // Vector3 pos = new Vector3((float)skeletons.keypoints3d[i][0], (float)skeletons.keypoints3d[i][2], (float)skeletons.keypoints3d[i][1]);
+            // _Spheres[i].transform.position = pos * _BodyRatio;
         }
     }
 
