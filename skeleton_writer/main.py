@@ -1,4 +1,4 @@
-import skeleton_parser as sp
+import skeleton_writer as sw
 import argparse
 
 parser = argparse.ArgumentParser(description="Estimate 2D skeleton")
@@ -10,6 +10,6 @@ args = parser.parse_args()
 print('[OPTION] visual  : ', args.visual)
 print('[OPTION] camera  : ', args.camera)
 
-skeleton_parser = sp.SkeletonParser(args)
-skeleton_parser.initialize()
-skeleton_parser.run()
+skeleton_writer = sw.SkeletonWriter(args)
+skeleton_writer.initialize()
+skeleton_writer.run()
