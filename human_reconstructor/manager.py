@@ -41,6 +41,8 @@ class Manager:
         if self.args.unity is True:
             self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
+        self.frame_buffer_2d = np.ones((self.cam_num, self.buffer_size, 25, 3))
+
     def run(self):
         t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender, self.udp_sender))
         t2 = threading.Thread(target=self.work_get_smpl, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
@@ -101,11 +103,13 @@ class Manager:
                 ret[:, 0] = ret[:, 1]
                 ret[:, 1] = tmp
                 ret[:, 2] = -1*ret[:, 2]
-                ret[:, 2] += 1.1
+                #ret[:, 2] += 1.1
                 ret[:, 3][ret[:, 3] < self.min_confidence] = 0
                 lk_3d_skeleton.acquire()
                 mq_3d_skeleton.put(ret)
                 lk_3d_skeleton.release()
+
+                self.reverse_skeleton(ret)
 
                 # Send and put 3D human pose to message queue
                 if self.args.keypoint is True and self.args.visual is True:
@@ -119,6 +123,27 @@ class Manager:
             t = self.reset_time(t)
 
             pause.until(t_sleep.timestamp() + self.time_delta/1000)
+
+
+    def reverse_skeleton(self, keypoints3d):
+        self.swap_skeleton(2, 5, keypoints3d)
+        self.swap_skeleton(3, 6, keypoints3d)
+        self.swap_skeleton(4, 7, keypoints3d)
+        self.swap_skeleton(9, 12, keypoints3d)
+        self.swap_skeleton(10, 13, keypoints3d)
+        self.swap_skeleton(11, 14, keypoints3d)
+        self.swap_skeleton(21, 24, keypoints3d)
+        self.swap_skeleton(22, 19, keypoints3d)
+        self.swap_skeleton(23, 20, keypoints3d)
+        self.swap_skeleton(15, 16, keypoints3d)
+        self.swap_skeleton(17, 18, keypoints3d)
+        return keypoints3d
+
+    def swap_skeleton(self, id1, id2, keypoints3d):
+        tmp = keypoints3d[id1, :].copy()
+        keypoints3d[id1, :] = keypoints3d[id2, :]
+        keypoints3d[id2, :] = tmp
+        return keypoints3d
 
     def work_get_smpl(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
         print('Worker: GET SMPL')
@@ -201,23 +226,27 @@ class Manager:
                 json_data = mq_2d_skeleton.get()
                 data = json.loads(json_data)
 
-                t = data['timestamp']
-                if t < t_start:
-                    continue
-                elif t > t_end:
-                    mq_2d_skeleton.put(json.dumps(data))
-                else:
-                    cam_id = data['id']
-                    timestamp = data['timestamp']
-                    keypoints = np.array(data['annots'][0]['keypoints'])
-                    if self.args.visual:
-                        self.viewer.render_2d(data)
+                #print('data id {}'.format(data['id']))
 
-                    keypoints_25 = utils.convert_25_from_34(keypoints)
+                #t = data['timestamp']
+                #if t < t_start:
+                #    continue
+                #elif t > t_end:
+                #    mq_2d_skeleton.put(json.dumps(data))
+                #else:
+                cam_id = data['id']
+                timestamp = data['timestamp']
+                keypoints = np.array(data['annots'][0]['keypoints'])
 
-                    matching_table[str(cam_id)]['is_valid'] = True
-                    matching_table[str(cam_id)]['timestamp'] = timestamp
-                    matching_table[str(cam_id)]['keypoint'] = keypoints_25
+                keypoints_25 = utils.convert_25_from_34(keypoints)
+                self.frame_buffer_2d[cam_id], keypoints_25 = self.smooth_2d_pose(self.frame_buffer_2d[cam_id], np.array(keypoints_25))
+
+                if self.args.visual:
+                    self.viewer.render_2d(data)
+
+                matching_table[str(cam_id)]['is_valid'] = True
+                matching_table[str(cam_id)]['timestamp'] = timestamp
+                matching_table[str(cam_id)]['keypoint'] = keypoints_25
 
         lk_2d_skeleton.release()
         return (t_start, t_end, t_diff)
@@ -256,6 +285,35 @@ class Manager:
             t_start = t_end
             t_end = t_start + self.time_delta
         return (t_start, t_end, t_diff)
+
+
+    def smooth_2d_pose(self, frame_buffer_2d, out):
+    # Smooth estimated 2D pose
+    # - Store 2D pose data to frame_buffer
+    # - Apply average filter by using weight, which is confidence
+    # param1: frame buffer is a buffer to store 2D poses
+    # param2: out is 2D pose from current frame
+    # return: ret is averaged 2D pose
+        ret = np.zeros((25, 3))
+        # moving average
+        frame_buffer_2d = np.roll(frame_buffer_2d, -1, axis=0)
+        frame_buffer_2d[self.buffer_size-1] = out
+
+        for i in range(out.shape[0]):
+            parts = frame_buffer_2d[:, i, :]
+            xdata = parts[:, 0]
+            ydata = parts[:, 1]
+            cdata = parts[:, 2]
+
+            if np.sum(cdata) < 0.01:
+                break
+
+            x_avg = np.average(xdata, weights=cdata * range(1, self.buffer_size+1))
+            y_avg = np.average(ydata, weights=cdata)
+            c_avg = np.average(cdata, weights=cdata)
+            ret[i] = [x_avg, y_avg, c_avg]
+
+        return frame_buffer_2d, ret
 
     def smooth_3d_pose(self, frame_buffer, out):
     # Smooth estimated 3D pose

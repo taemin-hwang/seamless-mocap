@@ -46,11 +46,6 @@ class Viewer2d:
         display_id = self.cam_id_list.index(cam_id)
         self.display_list[display_id] = np.zeros((self.height, self.width, 3), np.uint8)
         display = self.display_list[display_id]
-        #self.set_background_color(self.display_list[0], 51, 0, 25)
-        #self.set_background_color(self.display_list[1], 51, 0, 25)
-        #self.set_background_color(self.display_list[2], 51, 0, 25)
-        #self.set_background_color(self.display_list[3], 51, 0, 25)
-
         for person in annots:
             bbox = person['bbox']
             person_id = person['personID']
@@ -60,9 +55,7 @@ class Viewer2d:
 
             keypoints = person['keypoints']
 
-            #print('Received keypoint length : ', len(keypoints))
             keypoints = convert_25_from_34(np.array(keypoints))
-            #print('Converted keypoint length : ', len(keypoints))
 
             if len(keypoints) == 18:
                 #print('keypoint format: 18')
@@ -107,6 +100,41 @@ class Viewer2d:
                     and kp_a[0] > 0 and kp_a[1] > 0 and kp_b[0] > 0 and kp_b[1] > 0 ):
                         cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 1, cv2.LINE_AA)
 
+                color_left = generate_color_id_u(person_id + 4)
+                color_right = generate_color_id_u(person_id + 5)
+
+                for part in BODY_PARTS_POSE_25:
+                    if part is BODY_PARTS_POSE_25.LAST:
+                        break
+                    kp = keypoints[part.value]
+                    # Check that the keypoints are inside the image
+                    if(kp[0] < display.shape[1] and kp[1] < display.shape[0]):
+                        if (part == BODY_PARTS_POSE_25.LEFT_SHOULDER or
+                                part == BODY_PARTS_POSE_25.LEFT_ELBOW or
+                                part == BODY_PARTS_POSE_25.LEFT_WRIST or
+                                part == BODY_PARTS_POSE_25.LEFT_HIP or
+                                part == BODY_PARTS_POSE_25.LEFT_KNEE or
+                                part == BODY_PARTS_POSE_25.LEFT_ANKLE or
+                                part == BODY_PARTS_POSE_25.LEFT_FOOT or
+                                part == BODY_PARTS_POSE_25.LEFT_HEEL or
+                                part == BODY_PARTS_POSE_25.LEFT_EYE or
+                                part == BODY_PARTS_POSE_25.LEFT_EAR):
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 5, color_left, -1)
+                        elif (part == BODY_PARTS_POSE_25.RIGHT_SHOULDER or
+                                part == BODY_PARTS_POSE_25.RIGHT_ELBOW or
+                                part == BODY_PARTS_POSE_25.RIGHT_WRIST or
+                                part == BODY_PARTS_POSE_25.RIGHT_HIP or
+                                part == BODY_PARTS_POSE_25.RIGHT_KNEE or
+                                part == BODY_PARTS_POSE_25.RIGHT_ANKLE or
+                                part == BODY_PARTS_POSE_25.RIGHT_FOOT or
+                                part == BODY_PARTS_POSE_25.RIGHT_HEEL or
+                                part == BODY_PARTS_POSE_25.RIGHT_EYE or
+                                part == BODY_PARTS_POSE_25.RIGHT_EAR):
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 5, color_right, -1)
+                        else:
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 5, color, -1)
+
+
             elif len(keypoints) == 34:
                 #print('keypoint format: 34')
                 # Draw skeleton bones
@@ -119,9 +147,45 @@ class Viewer2d:
                     and kp_a[0] > 0 and kp_a[1] > 0 and kp_b[0] > 0 and kp_b[1] > 0 ):
                         cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 1, cv2.LINE_AA)
 
-            for kp in keypoints:
-                if(kp[0] < display.shape[1] and kp[1] < display.shape[0]):
-                    cv2.circle(display, (int(kp[0]), int(kp[1])), 3, color, -1)
+                color_left = generate_color_id_u(person_id + 4)
+                color_right = generate_color_id_u(person_id + 5)
+
+                for part in BODY_PARTS_POSE_34:
+                    kp = keypoints[part.value]
+                    # Check that the keypoints are inside the image
+                    if(kp[0] < display.shape[1] and kp[1] < display.shape[0]):
+                        if (part == BODY_PARTS_POSE_34.LEFT_CLAVICLE or
+                                part == BODY_PARTS_POSE_34.LEFT_SHOULDER or
+                                part == BODY_PARTS_POSE_34.LEFT_ELBOW or
+                                part == BODY_PARTS_POSE_34.LEFT_WRIST or
+                                part == BODY_PARTS_POSE_34.LEFT_HAND or
+                                part == BODY_PARTS_POSE_34.LEFT_HANDTIP or
+                                part == BODY_PARTS_POSE_34.LEFT_THUMB or
+                                part == BODY_PARTS_POSE_34.LEFT_HIP or
+                                part == BODY_PARTS_POSE_34.LEFT_KNEE or
+                                part == BODY_PARTS_POSE_34.LEFT_ANKLE or
+                                part == BODY_PARTS_POSE_34.LEFT_FOOT or
+                                part == BODY_PARTS_POSE_34.LEFT_HEEL or
+                                part == BODY_PARTS_POSE_34.LEFT_EYE or
+                                part == BODY_PARTS_POSE_34.LEFT_EAR):
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 3, color_left, -1)
+                        elif (part == BODY_PARTS_POSE_34.RIGHT_CLAVICLE or
+                                part == BODY_PARTS_POSE_34.RIGHT_SHOULDER or
+                                part == BODY_PARTS_POSE_34.RIGHT_ELBOW or
+                                part == BODY_PARTS_POSE_34.RIGHT_WRIST or
+                                part == BODY_PARTS_POSE_34.RIGHT_HAND or
+                                part == BODY_PARTS_POSE_34.RIGHT_HANDTIP or
+                                part == BODY_PARTS_POSE_34.RIGHT_THUMB or
+                                part == BODY_PARTS_POSE_34.RIGHT_HIP or
+                                part == BODY_PARTS_POSE_34.RIGHT_KNEE or
+                                part == BODY_PARTS_POSE_34.RIGHT_ANKLE or
+                                part == BODY_PARTS_POSE_34.RIGHT_FOOT or
+                                part == BODY_PARTS_POSE_34.RIGHT_HEEL or
+                                part == BODY_PARTS_POSE_34.RIGHT_EYE or
+                                part == BODY_PARTS_POSE_34.RIGHT_EAR):
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 3, color_right, -1)
+                        else:
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 3, color, -1)
 
         merged_display = self.merge_display()
 
