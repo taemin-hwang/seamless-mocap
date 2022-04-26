@@ -174,7 +174,7 @@ int ZedTracker::EnableBodyTracking() {
     // object_detection_parameters_.body_format = BODY_FORMAT::POSE_18; // selects the 34 keypoints body model for SDK outputs
 
     // Set runtime parameters
-    object_detection_runtime_parameters_.detection_confidence_threshold = 40;
+    object_detection_runtime_parameters_.detection_confidence_threshold = 10;
 
     auto returned_state = zed_.enableObjectDetection(object_detection_parameters_);
     if (returned_state != ERROR_CODE::SUCCESS) {
