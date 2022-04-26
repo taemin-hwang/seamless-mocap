@@ -41,7 +41,7 @@ class Manager:
         if self.args.unity is True:
             self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
-        self.frame_buffer_2d = np.ones((self.cam_num, self.buffer_size, 25, 3))
+        self.frame_buffer_2d = np.ones((self.cam_num+1, self.buffer_size, 25, 3))
 
     def run(self):
         t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender, self.udp_sender))
@@ -104,7 +104,9 @@ class Manager:
                 ret[:, 1] = tmp
                 ret[:, 2] = -1*ret[:, 2]
                 #ret[:, 2] += 1.1
-                ret[:, 3][ret[:, 3] < self.min_confidence] = 0
+                #ret[:, 3][ret[:, 3] < self.min_confidence] = 0
+
+                # Put 3D human pose into message queue
                 lk_3d_skeleton.acquire()
                 mq_3d_skeleton.put(ret)
                 lk_3d_skeleton.release()
@@ -239,14 +241,15 @@ class Manager:
                 keypoints = np.array(data['annots'][0]['keypoints'])
 
                 keypoints_25 = utils.convert_25_from_34(keypoints)
-                self.frame_buffer_2d[cam_id], keypoints_25 = self.smooth_2d_pose(self.frame_buffer_2d[cam_id], np.array(keypoints_25))
+                keypoints_25[:, 2] /= 100
+                self.frame_buffer_2d[cam_id], keypoints_25 = self.smooth_2d_pose(self.frame_buffer_2d[cam_id], keypoints_25)
 
                 if self.args.visual:
                     self.viewer.render_2d(data)
 
                 matching_table[str(cam_id)]['is_valid'] = True
                 matching_table[str(cam_id)]['timestamp'] = timestamp
-                matching_table[str(cam_id)]['keypoint'] = keypoints_25
+                matching_table[str(cam_id)]['keypoint'] = keypoints_25.tolist()
 
         lk_2d_skeleton.release()
         return (t_start, t_end, t_diff)

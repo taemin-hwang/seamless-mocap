@@ -239,4 +239,4 @@ def convert_25_from_34(parts_34):
     parts_25[BODY_PARTS_POSE_25.RIGHT_FOOT.value] = parts_34[BODY_PARTS_POSE_34.RIGHT_FOOT.value]
     parts_25[BODY_PARTS_POSE_25.RIGHT_TOE.value] = parts_34[BODY_PARTS_POSE_34.RIGHT_FOOT.value]
     parts_25[BODY_PARTS_POSE_25.RIGHT_HEEL.value] = parts_34[BODY_PARTS_POSE_34.RIGHT_HEEL.value]
-    return parts_25.tolist()
+    return parts_25

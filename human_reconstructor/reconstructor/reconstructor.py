@@ -1,7 +1,7 @@
 
 #from easymocap.dataset import CONFIG, MV1PMF
 from easymocap.mytools.camera_utils import read_camera, get_fundamental_matrix, Undistort
-from easymocap.mytools.reconstruction import simple_recon_person
+from easymocap.mytools.reconstruction import simple_recon_person, batch_triangulate
 from easymocap.pipeline import smpl_from_keypoints3d2d, smpl_from_keypoints3d
 from easymocap.smplmodel import check_keypoints, load_model, select_nf
 
@@ -52,7 +52,8 @@ class Reconstructor:
 
     def get_3d_skeletons(self, keypoints_use, p_use):
         '''reconstruct 3d human from 2d skeletons'''
-        keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
+        #keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
+        keypoints3d = batch_triangulate(keypoints_use, p_use)
         return keypoints3d
 
     def get_smpl_bunch(self, kp3ds):
