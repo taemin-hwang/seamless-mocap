@@ -200,25 +200,25 @@ class Manager:
 
                 #print('data id {}'.format(data['id']))
 
-                #t = data['timestamp']
-                #if t < t_start:
-                #    continue
-                #elif t > t_end:
-                #    mq_2d_skeleton.put(json.dumps(data))
-                #else:
-                cam_id = data['id']
-                timestamp = data['timestamp']
-                person_id = len(data['annots'])-1 # TODO: check if it is correct
-                keypoints_34 = np.array(data['annots'][person_id]['keypoints'])
-                keypoints_25 = utils.convert_25_from_34(keypoints_34)
-                self.frame_buffer_2d[cam_id], avg_keypoints_25 = pre.smooth_2d_pose(self.frame_buffer_2d[cam_id], keypoints_25)
+                t = data['timestamp']
+                if t < t_start:
+                   continue
+                elif t > t_end:
+                   mq_2d_skeleton.put(json.dumps(data))
+                else:
+                    cam_id = data['id']
+                    timestamp = data['timestamp']
+                    person_id = len(data['annots'])-1 # TODO: check if it is correct
+                    keypoints_34 = np.array(data['annots'][person_id]['keypoints'])
+                    keypoints_25 = utils.convert_25_from_34(keypoints_34)
+                    self.frame_buffer_2d[cam_id], avg_keypoints_25 = pre.smooth_2d_pose(self.frame_buffer_2d[cam_id], keypoints_25)
 
-                if self.args.visual:
-                    self.viewer.render_2d(data)
+                    if self.args.visual:
+                        self.viewer.render_2d(data)
 
-                matching_table[str(cam_id)]['is_valid'] = True
-                matching_table[str(cam_id)]['timestamp'] = timestamp
-                matching_table[str(cam_id)]['keypoint'] = avg_keypoints_25.tolist()
+                    matching_table[str(cam_id)]['is_valid'] = True
+                    matching_table[str(cam_id)]['timestamp'] = timestamp
+                    matching_table[str(cam_id)]['keypoint'] = avg_keypoints_25.tolist()
 
         lk_2d_skeleton.release()
         return (t_start, t_end, t_diff)
