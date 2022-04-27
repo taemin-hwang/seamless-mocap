@@ -212,7 +212,6 @@ def generate_color_id_u(idx):
     return arr
 
 def convert_25_from_34(parts_34):
-    #parts_3d = np.array(parts_34)
     parts_25 = np.zeros((25, 3))
     parts_25[BODY_PARTS_POSE_25.NOSE.value] = parts_34[BODY_PARTS_POSE_34.NOSE.value]
     parts_25[BODY_PARTS_POSE_25.NECK.value] = parts_34[BODY_PARTS_POSE_34.NECK.value]

@@ -8,6 +8,8 @@ from transfer import gui_sender, unity_sender
 from visualizer import viewer_2d as v2d
 from reconstructor import reconstructor as recon
 from config import config_parser as cp
+from reconstructor import preprocessor as pre
+from reconstructor import postprocessor as post
 
 class TestManager:
     def __init__(self, args):
@@ -60,7 +62,7 @@ class TestManager:
                     recon.set_2d_skeletons_test2(cam_id, keypoints)
             keypoints3d = recon.get_3d_skeletons_test()
             keypoints3d[:, 2] = -1*keypoints3d[:, 2]
-            self.reverse_skeleton(keypoints3d)
+            keypoints3d = pre.reverse_skeleton(keypoints3d)
 
             if self.args.keypoint is True and self.args.visual is True:
                 gui_sender.send_3d_skeletons(keypoints3d)
@@ -70,26 +72,6 @@ class TestManager:
             self.lock.acquire
             q.put(keypoints3d)
             self.lock.release
-
-    def reverse_skeleton(self, keypoints3d):
-        self.swap_skeleton(2, 5, keypoints3d)
-        self.swap_skeleton(3, 6, keypoints3d)
-        self.swap_skeleton(4, 7, keypoints3d)
-        self.swap_skeleton(9, 12, keypoints3d)
-        self.swap_skeleton(10, 13, keypoints3d)
-        self.swap_skeleton(11, 14, keypoints3d)
-        self.swap_skeleton(21, 24, keypoints3d)
-        self.swap_skeleton(22, 19, keypoints3d)
-        self.swap_skeleton(23, 20, keypoints3d)
-        self.swap_skeleton(15, 16, keypoints3d)
-        self.swap_skeleton(17, 18, keypoints3d)
-        return keypoints3d
-
-    def swap_skeleton(self, id1, id2, keypoints3d):
-        tmp = keypoints3d[id1, :].copy()
-        keypoints3d[id1, :] = keypoints3d[id2, :]
-        keypoints3d[id2, :] = tmp
-        return keypoints3d
 
     def work_get_skeleton1(self, q, recon, sender, udp_sender):
         cam_num = 23
