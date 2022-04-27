@@ -1,12 +1,12 @@
 import numpy as np
 
 def smooth_3d_pose(frame_buffer_3d, keypoints3d):
-# Smooth estimated 3D pose
-# - Store 3D pose data to frame_buffer_3d
-# - Apply average filter by using weight, which is confidence
-# param1: frame buffer is a buffer to store 3D poses
-# param2: keypoints3d is 3D pose from current frame
-# return: ret is averaged 3D pose
+    # Smooth estimated 3D pose
+    # - Store 3D pose data to frame_buffer_3d
+    # - Apply average filter by using weight, which is confidence
+    # param1: frame buffer is a buffer to store 3D poses
+    # param2: keypoints3d is 3D pose from current frame
+    # return: ret is averaged 3D pose
     avg_keypoints3d = np.zeros((25, 4))
     # moving average
     frame_buffer_3d = np.roll(frame_buffer_3d, -1, axis=0)

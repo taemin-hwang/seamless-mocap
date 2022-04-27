@@ -2,12 +2,12 @@ import numpy as np
 import copy
 
 def smooth_2d_pose(frame_buffer_2d, keypoints2d):
-# Smooth estimated 2D pose
-# - Store 2D pose data to frame_buffer
-# - Apply average filter by using weight, which is confidence
-# param1: frame buffer is a buffer to store 2D poses
-# param2: keypoints2d is 2D pose from current frame
-# return: ret is averaged 2D pose
+    # Smooth estimated 2D pose
+    # - Store 2D pose data to frame_buffer
+    # - Apply average filter by using weight, which is confidence
+    # param1: frame buffer is a buffer to store 2D poses
+    # param2: keypoints2d is 2D pose from current frame
+    # return: ret is averaged 2D pose
     avg_keypoints2d = np.zeros((25, 3))
     # moving average
     frame_buffer_2d = np.roll(frame_buffer_2d, -1, axis=0)

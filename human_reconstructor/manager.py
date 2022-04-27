@@ -198,11 +198,13 @@ class Manager:
                 json_data = mq_2d_skeleton.get()
                 data = json.loads(json_data)
 
-                #print('data id {}'.format(data['id']))
-
                 t = data['timestamp']
                 if t < t_start:
                    continue
+                elif t > t_end + 1000:
+                    t_start = t
+                    t_end = t + self.time_delta
+                    t_diff = datetime.now().timestamp()*1000 - t_start
                 elif t > t_end:
                    mq_2d_skeleton.put(json.dumps(data))
                 else:
