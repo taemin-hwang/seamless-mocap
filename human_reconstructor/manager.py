@@ -202,6 +202,7 @@ class Manager:
                 if t < t_start:
                    continue
                 elif t > t_end + 1000:
+                    print('t exceed t_end + 1000')
                     t_start = t
                     t_end = t + self.time_delta
                     t_diff = datetime.now().timestamp()*1000 - t_start

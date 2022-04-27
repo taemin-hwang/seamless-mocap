@@ -50,10 +50,22 @@ class Reconstructor:
     def get_cameras(self):
         return self.cali.cameras
 
+    def check_repro_error(self, keypoints3d, kpts_repro, keypoints2d, P, MAX_REPRO_ERROR=100):
+        #square_diff = (keypoints2d[:, :, :2] - kpts_repro[:, :, :2])**2
+        conf = keypoints3d[None, :, -1:]
+        conf = (keypoints3d[None, :, -1:] > 0) * (keypoints2d[:, :, -1:] > 0)
+        dist = np.sqrt((((kpts_repro[..., :2] - keypoints2d[..., :2])*conf)**2).sum(axis=-1))
+        vv, jj = np.where(dist > MAX_REPRO_ERROR)
+        if vv.shape[0] > 0:
+            keypoints2d[vv, jj, -1] = 0.
+            keypoints3d, kpts_repro = simple_recon_person(keypoints2d, P)
+        return keypoints3d, kpts_repro
+
     def get_3d_skeletons(self, keypoints_use, p_use):
         '''reconstruct 3d human from 2d skeletons'''
-        #keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
-        keypoints3d = batch_triangulate(keypoints_use, p_use)
+        keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
+        keypoints3d, kpts_repro = self.check_repro_error(keypoints3d, kpts_repro, keypoints_use, p_use, 100)
+        #keypoints3d = batch_triangulate(keypoints_use, p_use)
         return keypoints3d
 
     def get_smpl_bunch(self, kp3ds):
