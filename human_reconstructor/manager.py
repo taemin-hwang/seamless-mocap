@@ -97,7 +97,7 @@ class Manager:
                 # Fit XYZ coordinates
                 keypoints3d = reconstructor.get_3d_skeletons(valid_keypoint, valid_p)
                 frame_buffer_3d, avg_keypoints3d = post.smooth_3d_pose(frame_buffer_3d, keypoints3d)
-                avg_keypoints3d = post.xyz_to_xzy(avg_keypoints3d)
+                #avg_keypoints3d = post.xyz_to_xzy(avg_keypoints3d)
 
                 # Put 3D human pose into message queue
                 lk_3d_skeleton.acquire()
@@ -202,7 +202,7 @@ class Manager:
                 if t < t_start:
                    continue
                 elif t > t_end + 1000:
-                    print('t exceed t_end + 1000')
+                    print('WARNING: t exceed t_end + 1000')
                     t_start = t
                     t_end = t + self.time_delta
                     t_diff = datetime.now().timestamp()*1000 - t_start

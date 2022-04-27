@@ -64,7 +64,7 @@ class Reconstructor:
     def get_3d_skeletons(self, keypoints_use, p_use):
         '''reconstruct 3d human from 2d skeletons'''
         keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
-        keypoints3d, kpts_repro = self.check_repro_error(keypoints3d, kpts_repro, keypoints_use, p_use, 100)
+        #keypoints3d, kpts_repro = self.check_repro_error(keypoints3d, kpts_repro, keypoints_use, p_use, 100)
         #keypoints3d = batch_triangulate(keypoints_use, p_use)
         return keypoints3d
 
@@ -112,5 +112,6 @@ class Reconstructor:
         '''reconstruct 3d human from 2d skeletons'''
         keypoints_use = np.stack([self.skeletons_test[id]['annots'] for id in self.skeletons_test ])
         p_use = self.cali.Pall
-        keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
+        #keypoints3d, kpts_repro = simple_recon_person(keypoints_use, p_use)
+        keypoints3d = batch_triangulate(keypoints_use, p_use)
         return keypoints3d
