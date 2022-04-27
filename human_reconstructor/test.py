@@ -4,7 +4,7 @@ import time
 from queue import Queue
 import numpy as np
 
-from transfer import skeleton_sender, skeleton_udp_sender
+from transfer import gui_sender, unity_sender
 from visualizer import viewer_2d as v2d
 from reconstructor import reconstructor as recon
 from config import config_parser as cp
@@ -17,8 +17,8 @@ class TestManager:
         self.lock = threading.Lock()
         self.config_parser = cp.ConfigParser('./etc/config.json')
         self.config = self.config_parser.GetConfig()
-        self.sender = skeleton_sender.SkeletonSender()
-        self.udp_sender = skeleton_udp_sender.UdpSocketSender()
+        self.gui_sender = gui_sender.GuiSender()
+        self.unity_sender = unity_sender.UnitySender()
         self.max_frame = 50
         self.args = args
 
@@ -26,18 +26,18 @@ class TestManager:
         self.q = Queue()
         self.reconstructor.initialize(self.args, self.config)
         if self.args.visual is True:
-            self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
+            self.gui_sender.initialize(self.config["gui_ip"], self.config["gui_port"])
 
         if self.args.unity is True:
-            self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
+            self.unity_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
     def run(self):
         if self.args.test1 is True:
-            t1 = threading.Thread(target=self.work_get_skeleton1, args=(self.q, self.reconstructor, self.sender, self.udp_sender))
+            t1 = threading.Thread(target=self.work_get_skeleton1, args=(self.q, self.reconstructor, self.gui_sender, self.unity_sender))
         elif self.args.test2 is True:
-            t1 = threading.Thread(target=self.work_get_skeleton2, args=(self.q, self.reconstructor, self.sender, self.udp_sender))
-        t2 = threading.Thread(target=self.work_get_smpl, args=(self.q, self.reconstructor, self.sender))
-        t3 = threading.Thread(target=self.sender.work_send_smpl)
+            t1 = threading.Thread(target=self.work_get_skeleton2, args=(self.q, self.reconstructor, self.gui_sender, self.unity_sender))
+        t2 = threading.Thread(target=self.work_get_smpl, args=(self.q, self.reconstructor, self.gui_sender))
+        t3 = threading.Thread(target=self.gui_sender.work_send_smpl)
 
         if self.args.smpl is True:
             t1.start()
@@ -48,7 +48,7 @@ class TestManager:
             t1.start()
             t1.join()
 
-    def work_get_skeleton2(self, q, recon, sender, udp_sender):
+    def work_get_skeleton2(self, q, recon, gui_sender, unity_sender):
         cam_num = 4
         for file_id in range(5, 1799):
             for cam_id in range(1, cam_num+1):
@@ -63,9 +63,9 @@ class TestManager:
             self.reverse_skeleton(keypoints3d)
 
             if self.args.keypoint is True and self.args.visual is True:
-                sender.send_3d_skeletons(keypoints3d)
+                gui_sender.send_3d_skeletons(keypoints3d)
             if self.args.unity is True:
-                udp_sender.send_3d_skeleton(keypoints3d)
+                unity_sender.send_3d_skeleton(keypoints3d)
             time.sleep(0.05)
             self.lock.acquire
             q.put(keypoints3d)
@@ -119,12 +119,12 @@ class TestManager:
         if smpl:
             sender.send_smpl_bunch(smpl)
 
-    def work_get_smpl(self, q, recon, sender):
+    def work_get_smpl(self, q, recon, gui_sender):
         while True:
             qsize = q.qsize()
             if qsize > self.max_frame:
                 self.lock.acquire
-                t = threading.Thread(target=self.send_smpl, args=(q, recon, sender))
+                t = threading.Thread(target=self.send_smpl, args=(q, recon, gui_sender))
                 t.start()
                 self.lock.release
             time.sleep(0.01)

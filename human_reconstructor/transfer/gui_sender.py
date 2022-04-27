@@ -5,7 +5,7 @@ import time
 import threading
 from queue import Queue
 
-class SkeletonSender:
+class GuiSender:
     def __init__(self):
         self.lock = threading.Lock()
         self.mq = Queue()

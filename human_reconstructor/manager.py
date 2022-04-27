@@ -5,8 +5,9 @@ import pause
 from queue import Queue
 import numpy as np
 from datetime import datetime
+import copy
 
-from transfer import skeleton_server, skeleton_sender, skeleton_udp_sender
+from transfer import gui_sender, skeleton_server, unity_sender
 from visualizer import viewer_2d as v2d
 from config import config_parser as cp
 from reconstructor import reconstructor as recon
@@ -21,8 +22,8 @@ class Manager:
         self.mq_3d_skeleton = Queue()
         self.lk_3d_skeleton = threading.Lock()
         self.config_parser = cp.ConfigParser(self.args.path + 'config.json')
-        self.sender = skeleton_sender.SkeletonSender()
-        self.udp_sender = skeleton_udp_sender.UdpSocketSender()
+        self.gui_sender = gui_sender.GuiSender()
+        self.unity_sender = unity_sender.UnitySender()
 
     def initialize(self):
         # Read configuration
@@ -37,16 +38,16 @@ class Manager:
         self.reconstructor.initialize(self.args, self.config)
         skeleton_server.execute(self.config["server_ip"], self.config["server_port"])
         if self.args.visual is True:
-            self.sender.initialize(self.config["gui_ip"], self.config["gui_port"])
+            self.gui_sender.initialize(self.config["gui_ip"], self.config["gui_port"])
         if self.args.unity is True:
-            self.udp_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
+            self.unity_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
 
         self.frame_buffer_2d = np.ones((self.cam_num+1, self.buffer_size, 25, 3))
 
     def run(self):
-        t1 = threading.Thread(target=self.work_get_3dskeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender, self.udp_sender))
-        t2 = threading.Thread(target=self.work_get_smpl, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.sender))
-        t3 = threading.Thread(target=self.sender.work_send_smpl)
+        t1 = threading.Thread(target=self.work_get_skeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.gui_sender, self.unity_sender))
+        t2 = threading.Thread(target=self.work_get_smpl, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.gui_sender))
+        t3 = threading.Thread(target=self.gui_sender.work_send_smpl)
 
         if self.args.smpl is True:
             # Launch work threads for SMPL reconstruction
@@ -59,7 +60,7 @@ class Manager:
             t1.start()
             t1.join()
 
-    def work_get_3dskeleton(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender, udp_sender):
+    def work_get_skeleton(self, mq_3d_skeleton, lk_3d_skeleton, reconstructor, gui_sender, unity_sender):
     # A thread for reconstruct 3D human pose with multiple 2D skeletons
     # param1: mq_3d_skeleton is message queue for putting estimated 3D human pose
     # param2: lk_3d_skeleton is lock for avoding data missing
@@ -70,7 +71,7 @@ class Manager:
         mq_2d_skeleton = skeleton_server.message_queue
 
         # Get initial parameters
-        cams = recon.get_cameras()
+        cams = reconstructor.get_cameras()
         matching_table = self.get_initial_matching_table(cams)
         t = self.get_initial_time()
 
@@ -94,7 +95,7 @@ class Manager:
                 valid_p = np.stack(valid_dlt_element['valid_P'], axis=0)
 
                 # Get 3D human pose by using valid 2D keypoints and Camera parameter Ps
-                out = recon.get_3d_skeletons(valid_keypoint, valid_p)
+                out = reconstructor.get_3d_skeletons(valid_keypoint, valid_p)
                 # Smooth 3D human pose with weighted average filter
                 frame_buffer, ret = self.smooth_3d_pose(frame_buffer, out)
 
@@ -111,13 +112,13 @@ class Manager:
                 mq_3d_skeleton.put(ret)
                 lk_3d_skeleton.release()
 
-                self.reverse_skeleton(ret)
+                #self.reverse_skeleton(ret)
 
                 # Send and put 3D human pose to message queue
                 if self.args.keypoint is True and self.args.visual is True:
-                    sender.send_3d_skeletons(ret)
+                    gui_sender.send_3d_skeletons(ret)
                 if self.args.unity is True:
-                    udp_sender.send_3d_skeleton(ret)
+                    unity_sender.send_3d_skeleton(ret)
             else:
                 print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])
 
@@ -142,30 +143,30 @@ class Manager:
         return keypoints3d
 
     def swap_skeleton(self, id1, id2, keypoints3d):
-        tmp = keypoints3d[id1, :].copy()
+        tmp = copy.deepcopy(keypoints3d[id1, :])
         keypoints3d[id1, :] = keypoints3d[id2, :]
         keypoints3d[id2, :] = tmp
         return keypoints3d
 
-    def work_get_smpl(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
+    def work_get_smpl(self, mq_3d_skeleton, lk_3d_skeleton, reconstructor, gui_sender):
         print('Worker: GET SMPL')
         while True:
             qsize = mq_3d_skeleton.qsize()
             if qsize >= self.max_frame:
-                t = threading.Thread(target=self.send_smpl, args=(mq_3d_skeleton, lk_3d_skeleton, recon, sender))
+                t = threading.Thread(target=self.send_smpl, args=(mq_3d_skeleton, lk_3d_skeleton, reconstructor, gui_sender))
                 t.start()
             time.sleep(0.01)
 
-    def send_smpl(self, mq_3d_skeleton, lk_3d_skeleton, recon, sender):
+    def send_smpl(self, mq_3d_skeleton, lk_3d_skeleton, reconstructor, gui_sender):
         lk_3d_skeleton.acquire
         qsize = mq_3d_skeleton.qsize()
-        kp3ds = np.empty((0, 25, 4))
+        keypoints3d_all = np.empty((0, 25, 4))
         for i in range(qsize):
             keypoints3d = mq_3d_skeleton.get()
-            kp3ds = np.append(kp3ds, keypoints3d.reshape(1, 25, 4), axis=0)
-        smpl = recon.get_smpl_bunch(kp3ds)
+            keypoints3d_all = np.append(keypoints3d_all, keypoints3d.reshape(1, 25, 4), axis=0)
+        smpl = reconstructor.get_smpl_bunch(keypoints3d_all)
         if smpl:
-            sender.send_smpl_bunch(smpl)
+            gui_sender.send_smpl_bunch(smpl)
         lk_3d_skeleton.release
 
     def get_initial_matching_table(self, cams):
@@ -238,10 +239,9 @@ class Manager:
                 #else:
                 cam_id = data['id']
                 timestamp = data['timestamp']
-                keypoints = np.array(data['annots'][0]['keypoints'])
-
-                keypoints_25 = utils.convert_25_from_34(keypoints)
-                keypoints_25[:, 2] /= 100
+                person_id = len(data['annots'])-1 # TODO: check if it is correct
+                keypoints_34 = np.array(data['annots'][person_id]['keypoints'])
+                keypoints_25 = utils.convert_25_from_34(keypoints_34)
                 self.frame_buffer_2d[cam_id], keypoints_25 = self.smooth_2d_pose(self.frame_buffer_2d[cam_id], keypoints_25)
 
                 if self.args.visual:
@@ -288,7 +288,6 @@ class Manager:
             t_start = t_end
             t_end = t_start + self.time_delta
         return (t_start, t_end, t_diff)
-
 
     def smooth_2d_pose(self, frame_buffer_2d, out):
     # Smooth estimated 2D pose
