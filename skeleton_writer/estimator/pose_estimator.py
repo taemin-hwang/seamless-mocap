@@ -8,9 +8,9 @@ class PoseEstimator:
     def __init__(self):
         self.pose = mp_pose.Pose(
             smooth_landmarks=True,
-            model_complexity=2,
-            static_image_mode=True,
-            enable_segmentation=True,
+            #model_complexity=2,
+            #static_image_mode=True,
+            #enable_segmentation=True,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5)
 

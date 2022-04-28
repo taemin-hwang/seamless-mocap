@@ -66,10 +66,10 @@ class SkeletonWriter:
         image.flags.writeable = False
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         pose_results = self.pose_estimator.get_2d_pose_from_image(image)
-        #hand_results = self.hand_estimator.get_2d_hand_from_image(image)
+        hand_results = self.hand_estimator.get_2d_hand_from_image(image)
 
         image.flags.writeable = True
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         image = self.pose_estimator.get_pose_image(image, pose_results)
-        #image = self.hand_estimator.get_hand_image(image, hand_results)
+        image = self.hand_estimator.get_hand_image(image, hand_results)
         return image
