@@ -5,14 +5,20 @@ mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 
 class PoseEstimator:
-    def __init__(self):
-        self.pose = mp_pose.Pose(
-            smooth_landmarks=True,
-            model_complexity=2,
-            static_image_mode=True,
-            enable_segmentation=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5)
+    def __init__(self, args):
+        if args.camera:
+            self.pose = mp_pose.Pose(
+                model_complexity=1,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5)
+        else:
+            self.pose = mp_pose.Pose(
+                smooth_landmarks=True,
+                model_complexity=2,
+                static_image_mode=True,
+                enable_segmentation=True,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5)
 
     def get_2d_pose_from_image(self, image):
         image.flags.writeable = False

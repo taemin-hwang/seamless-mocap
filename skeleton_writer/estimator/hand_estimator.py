@@ -5,11 +5,20 @@ mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 
 class HandEstimator:
-    def __init__(self):
-        self.hands = mp_hands.Hands(
-            model_complexity=0,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5)
+    def __init__(self, args):
+        if args.camera:
+            self.hands = mp_hands.Hands(
+                model_complexity=0,
+                max_num_hands=2,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5)
+        else:
+            self.hands = mp_hands.Hands(
+                static_image_mode=True,
+                model_complexity=1,
+                max_num_hands=2,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5)
 
     def get_2d_hand_from_image(self, image):
         image.flags.writeable = False
