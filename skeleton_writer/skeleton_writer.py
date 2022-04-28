@@ -3,6 +3,7 @@ import time
 import numpy as np
 import datetime
 import glob, os
+from tqdm import tqdm
 
 import mediapipe as mp
 import pyzed.sl as sl
@@ -25,7 +26,8 @@ class SkeletonWriter:
         self.args = args
 
     def __del__(self):
-        self.zed.close()
+        if args.camera:
+            self.zed.close()
 
     def initialize(self):
         self.pose_estimator = pe.PoseEstimator(self.args)
@@ -62,18 +64,24 @@ class SkeletonWriter:
         vc = cv2.VideoCapture(video_file)
         if self.args.write:
             fourcc, self.video_writer = self.create_video_writer(int(vc.get(3)), int(vc.get(4)), path, name)
-        while True:
+        idx = 0
+        i = 1
+        frame_count = int(vc.get(cv2.CAP_PROP_FRAME_COUNT))
+        pbar = tqdm(total = frame_count)
+        while frame_count > idx:
             ret, image = vc.read()
             if ret is True:
-                image = self.get_2d_skeleton_from_image(image)
-
+                image, pose_results = self.get_2d_skeleton_from_image(image)
+                pbar.update(i)
                 if self.args.visual:
                     cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+                    if cv2.waitKey(5) & 0xFF == 27:
+                        break
                 if self.args.write:
                     self.write_image_to_mp4(image, self.video_writer)
+                    self.json_writer.write_2d_pose_skeleton(path, idx, pose_results, int(vc.get(3)), int(vc.get(4)))
+                    idx += 1
 
-                if cv2.waitKey(5) & 0xFF == 27:
-                    break
         if self.args.write:
             self.video_writer.release()
 
@@ -89,7 +97,7 @@ class SkeletonWriter:
             image = image.get_data()[:,:,:3]
             current_fps = self.zed.get_current_fps()
             print('Current FPS : {}'.format(current_fps))
-            image = self.get_2d_skeleton_from_image(image)
+            image, pose_result = self.get_2d_skeleton_from_image(image)
 
             if self.args.visual:
                 cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
@@ -126,7 +134,7 @@ class SkeletonWriter:
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         image = self.pose_estimator.get_pose_image(image, pose_results)
         image = self.hand_estimator.get_hand_image(image, hand_results)
-        return image
+        return image, pose_results
 
     def write_image_to_mp4(self, image, video_writer):
         if self.args.write:
