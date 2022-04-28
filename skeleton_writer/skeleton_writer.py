@@ -1,6 +1,7 @@
 import cv2
 import time
 import numpy as np
+import datetime
 
 import mediapipe as mp
 import pyzed.sl as sl
@@ -21,11 +22,26 @@ class SkeletonWriter:
             if err != sl.ERROR_CODE.SUCCESS:
                 exit(1)
         self.args = args
+        if args.write:
+            fourcc, self.video_writer = self.create_video_writer(1280, 720)
+
+    def __del__(self):
+        if self.args.write:
+            self.video_writer.release()
+        self.zed.close()
 
     def initialize(self):
-        self.pose_estimator = pe.PoseEstimator()
-        self.hand_estimator = he.HandEstimator()
+        self.pose_estimator = pe.PoseEstimator(self.args)
+        self.hand_estimator = he.HandEstimator(self.args)
         self.json_writer = jw.JsonWriter()
+
+    def create_video_writer(self, width, height):
+        fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+        now = datetime.datetime.now()
+        filename = './' + now.strftime('%Y-%m-%d-%H-%M-%S') + '.mp4'
+
+        video_writer = cv2.VideoWriter(filename, fourcc, 30.0, (int(width), int(height)))
+        return fourcc, video_writer
 
     def run(self):
         if self.args.camera is False:
@@ -39,7 +55,11 @@ class SkeletonWriter:
             ret, image = vc.read()
             image = self.get_2d_skeleton_from_image(image)
 
-            cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+            if self.args.visual:
+                cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+            if self.args.write:
+                self.write_image_to_mp4(image, self.video_writer)
+
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 
@@ -54,11 +74,14 @@ class SkeletonWriter:
             print('Current FPS : {}'.format(current_fps))
             image = self.get_2d_skeleton_from_image(image)
 
-            cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+            if self.args.visual:
+                cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+            if self.args.write:
+                self.write_image_to_mp4(image, self.video_writer)
+
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 
-        self.zed.close()
         image.free(sl.MEM.CPU)
 
     def get_2d_skeleton_from_image(self, image):
@@ -73,3 +96,8 @@ class SkeletonWriter:
         image = self.pose_estimator.get_pose_image(image, pose_results)
         image = self.hand_estimator.get_hand_image(image, hand_results)
         return image
+
+    def write_image_to_mp4(self, image, video_writer):
+        if self.args.write:
+            if self.video_writer.isOpened():
+                video_writer.write(image)
