@@ -41,6 +41,9 @@ class Reconstructor:
         elif args.test2 is True:
             self.cam_num = 4
             self.cali.read_camera(self.cam_num, './etc/keti_mv1p_data')
+        elif args.test3 is True:
+            self.cam_num = 4
+            self.cali.read_camera(self.cam_num, './etc/sgu_mv1p_data')
         else:
             self.cam_num = config["cam_num"]
             self.cali.read_camera(self.cam_num, args.path)
@@ -103,6 +106,12 @@ class Reconstructor:
 
     # NOTE: ONLY FOR INTERNAL TEST
     def set_2d_skeletons_test2(self, _cam_id, _skeletons):
+        '''collect 2d skeletons'''
+        annots_reshape = np.reshape(_skeletons, (25, 3))
+        self.skeletons_test[_cam_id] = {'annots' : annots_reshape}
+
+    # NOTE: ONLY FOR INTERNAL TEST
+    def set_2d_skeletons_test3(self, _cam_id, _skeletons):
         '''collect 2d skeletons'''
         annots_reshape = np.reshape(_skeletons, (25, 3))
         self.skeletons_test[_cam_id] = {'annots' : annots_reshape}

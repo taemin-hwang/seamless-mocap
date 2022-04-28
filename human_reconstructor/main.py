@@ -10,6 +10,7 @@ parser.add_argument('-s', '--smpl', action='store_true', help='Reconstruct shape
 parser.add_argument('-k', '--keypoint', action='store_true', help='Reconstruct 3D keypoint wihtout SMPL')
 parser.add_argument('-t1', '--test1', action='store_true', help='Test 1 with stored 2D skeletons')
 parser.add_argument('-t2', '--test2', action='store_true', help='Test 2 with stored 2D skeletons')
+parser.add_argument('-t3', '--test3', action='store_true', help='Test 3 with stored 2D skeletons')
 parser.add_argument('-u', '--unity', action='store_true', help='Test with Unity 3D')
 
 args = parser.parse_args()
@@ -18,7 +19,7 @@ print('[OPTION] smpl    : ', args.smpl)
 print('[OPTION] keypoint: ', args.keypoint)
 print('[OPTION] unity   : ', args.unity)
 
-if args.test1 is False and args.test2 is False:
+if args.test1 is False and args.test2 is False and args.test3 is False:
     manager = mn.Manager(args)
     manager.initialize()
     manager.run()
