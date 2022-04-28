@@ -2,6 +2,7 @@ import cv2
 import time
 import numpy as np
 import datetime
+import glob, os
 
 import mediapipe as mp
 import pyzed.sl as sl
@@ -22,12 +23,8 @@ class SkeletonWriter:
             if err != sl.ERROR_CODE.SUCCESS:
                 exit(1)
         self.args = args
-        if args.write:
-            fourcc, self.video_writer = self.create_video_writer(1280, 720)
 
     def __del__(self):
-        if self.args.write:
-            self.video_writer.release()
         self.zed.close()
 
     def initialize(self):
@@ -35,35 +32,55 @@ class SkeletonWriter:
         self.hand_estimator = he.HandEstimator(self.args)
         self.json_writer = jw.JsonWriter()
 
-    def create_video_writer(self, width, height):
-        fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-        now = datetime.datetime.now()
-        filename = './' + now.strftime('%Y-%m-%d-%H-%M-%S') + '.mp4'
-
-        video_writer = cv2.VideoWriter(filename, fourcc, 30.0, (int(width), int(height)))
-        return fourcc, video_writer
-
     def run(self):
         if self.args.camera is False:
-            self.read_2d_skeleton_from_video('./etc/cam1.mp4')
+            filepath = './etc/'
+            outpath = './out/'
+            filename_all = self.get_mp4_array(filepath)
+            fileid_all = [filename.replace('.mp4', '') for filename in filename_all]
+
+            for i in range(len(fileid_all)):
+                fileid = fileid_all[i]
+                filename = filename_all[i]
+                mp4path = outpath + fileid + '/'
+                if not os.path.exists(mp4path):
+                    print('DEBUG: Create new directory : ', mp4path)
+                    os.makedirs(mp4path, exist_ok=True)
+                self.read_2d_skeleton_from_video(filepath + filename, mp4path, fileid)
         else:
             self.read_2d_skeleton_from_camera()
 
-    def read_2d_skeleton_from_video(self, video_file):
+    def get_mp4_array(self, path):
+        filename_all = []
+        for file in os.listdir(path):
+            if file.endswith(".mp4"):
+                filename_all.append(file)
+        return filename_all
+
+    def read_2d_skeleton_from_video(self, video_file, path, name):
+        print('INFO: Read 2D skeleton from Video : ', video_file)
         vc = cv2.VideoCapture(video_file)
+        if self.args.write:
+            fourcc, self.video_writer = self.create_video_writer(int(vc.get(3)), int(vc.get(4)), path, name)
         while True:
             ret, image = vc.read()
-            image = self.get_2d_skeleton_from_image(image)
+            if ret is True:
+                image = self.get_2d_skeleton_from_image(image)
 
-            if self.args.visual:
-                cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
-            if self.args.write:
-                self.write_image_to_mp4(image, self.video_writer)
+                if self.args.visual:
+                    cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+                if self.args.write:
+                    self.write_image_to_mp4(image, self.video_writer)
 
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
+                if cv2.waitKey(5) & 0xFF == 27:
+                    break
+        if self.args.write:
+            self.video_writer.release()
 
     def read_2d_skeleton_from_camera(self):
+        print('INFO: Read 2D skeleton from Camera')
+        if self.args.write:
+            fourcc, self.video_writer = self.create_video_writer(1280, 720)
         while True:
             if self.zed.grab() != sl.ERROR_CODE.SUCCESS:
                 exit(1)
@@ -82,7 +99,21 @@ class SkeletonWriter:
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 
+        if self.args.write:
+            self.video_writer.release()
         image.free(sl.MEM.CPU)
+
+    def create_video_writer(self, width, height, path='./', name='default'):
+        fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+        now = datetime.datetime.now()
+        if name == 'default':
+            filename = './' + now.strftime('%Y-%m-%d-%H-%M-%S') + '.mp4'
+        else:
+            filename = path + name + '.mp4'
+
+        print('INFO: Create Video : ', filename)
+        video_writer = cv2.VideoWriter(filename, fourcc, 30.0, (int(width), int(height)))
+        return fourcc, video_writer
 
     def get_2d_skeleton_from_image(self, image):
         # To improve performance, optionally mark the image as not writeable to pass by reference.
