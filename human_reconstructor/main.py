@@ -1,5 +1,5 @@
 import manager as mn
-import test as ts
+import tester as ts
 import argparse
 
 parser = argparse.ArgumentParser(description="Reconstruct 3D pose and shape with SMPL model")

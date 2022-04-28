@@ -179,11 +179,28 @@ BODY_BONES_POSE_34 = [
                 (BODY_PARTS_POSE_34.LEFT_HEEL, BODY_PARTS_POSE_34.LEFT_FOOT),
                 (BODY_PARTS_POSE_34.RIGHT_HEEL, BODY_PARTS_POSE_34.RIGHT_FOOT)]
 
-ID_COLORS = [(232, 176,59)
-            ,(175, 208,25)
-            ,(102, 205,105)
-            ,(185, 0,255)
-            ,(99, 107,252)]
+ID_COLORS = [(143, 126, 19)
+            ,(84, 204, 255)
+            ,(118, 87, 255)
+            ,(76, 24, 56)
+            ,(167, 227, 77)
+            ,(59, 176, 232)
+            ,(175, 208, 25)
+            ,(102, 205, 105)
+            ,(185, 0, 255)
+            ,(99, 107, 252)
+            ,(1, 146, 103)
+            ,(0, 200, 151)
+            ,(255, 211, 101)
+            ,(83, 62, 133)
+            ,(72, 143, 177)
+            ,(79, 211, 196)
+            ,(193, 248, 207)
+            ,(25, 25, 25)
+            ,(45, 66, 99)
+            ,(200, 75, 49)
+            ,(236, 219, 186)
+            ]
 
 def generate_color_id_u(idx):
     arr = []
@@ -195,7 +212,6 @@ def generate_color_id_u(idx):
     return arr
 
 def convert_25_from_34(parts_34):
-    #parts_3d = np.array(parts_34)
     parts_25 = np.zeros((25, 3))
     parts_25[BODY_PARTS_POSE_25.NOSE.value] = parts_34[BODY_PARTS_POSE_34.NOSE.value]
     parts_25[BODY_PARTS_POSE_25.NECK.value] = parts_34[BODY_PARTS_POSE_34.NECK.value]
@@ -222,4 +238,4 @@ def convert_25_from_34(parts_34):
     parts_25[BODY_PARTS_POSE_25.RIGHT_FOOT.value] = parts_34[BODY_PARTS_POSE_34.RIGHT_FOOT.value]
     parts_25[BODY_PARTS_POSE_25.RIGHT_TOE.value] = parts_34[BODY_PARTS_POSE_34.RIGHT_FOOT.value]
     parts_25[BODY_PARTS_POSE_25.RIGHT_HEEL.value] = parts_34[BODY_PARTS_POSE_34.RIGHT_HEEL.value]
-    return parts_25.tolist()
+    return parts_25

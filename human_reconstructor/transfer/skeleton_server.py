@@ -22,7 +22,7 @@ def run_server(server_socket):
                 if message_queue.qsize() > 30:
                     print('WARNING: Message queue size exceeds 30, current size is ', message_queue.qsize())
             else:
-                print( 'Message queue size exceeds 1000, cannot receive anymore')
+                print( 'ERROR: Message queue size exceeds 1000, cannot receive anymore')
             lock.release() # lock release
         else:
             break
