@@ -34,7 +34,7 @@ public class MoveSkeleton : MonoBehaviour
     List<Quaternion> _DifferentRotation = new List<Quaternion>(new Quaternion[24]);
     List<Quaternion> _InverseRotation = new List<Quaternion>(new Quaternion[24]);
 
-    string _JsonPath = "/plask";
+    string _JsonPath = "/plask/";
 
     // Start is called before the first frame update
     async void Start()
@@ -291,10 +291,19 @@ public class MoveSkeleton : MonoBehaviour
         Debug.Log("HipPosition : " + _Skeleton[0].transform.position);
         _HipPosition = new Vector3(_Skeleton[0].transform.position.x, _Skeleton[0].transform.position.y, _Skeleton[0].transform.position.z);
         for (int i = 0; i < 24; i++) {
-            Quaternion CurrentRotation = new Quaternion(_Skeleton[i].transform.localRotation.x,
-            _Skeleton[i].transform.localRotation.y,
-            _Skeleton[i].transform.localRotation.z,
-            _Skeleton[i].transform.localRotation.w);
+            Quaternion CurrentRotation = new Quaternion(0f, 0f, 0f, 0f);
+            if (i == 0) {
+                CurrentRotation = new Quaternion(_Skeleton[i].transform.rotation.x,
+                    _Skeleton[i].transform.rotation.y,
+                    _Skeleton[i].transform.rotation.z,
+                    _Skeleton[i].transform.rotation.w);
+            } else {
+                CurrentRotation = new Quaternion(_Skeleton[i].transform.localRotation.x,
+                    _Skeleton[i].transform.localRotation.y,
+                    _Skeleton[i].transform.localRotation.z,
+                    _Skeleton[i].transform.localRotation.w);
+            }
+
             _DifferentRotation[i] = CurrentRotation * _InverseRotation[i];
             // Debug.Log("Rotation " + i + " : " + _DifferentRotation[i]);
         }
