@@ -23,6 +23,7 @@ public class MoveSkeleton : MonoBehaviour
     GameObject _Aim;
     ReceiveSkeleton _SkeletonReceiver;
     ReadSkeletonFromJson _SkeletonReader;
+    SendRotation _RotationSender;
     JsonElement _Skeletons;
 
     List<GameObject> _Skeleton = new List<GameObject>(new GameObject[24]);
@@ -33,6 +34,8 @@ public class MoveSkeleton : MonoBehaviour
     List<Quaternion> _DifferentRotation = new List<Quaternion>(new Quaternion[24]);
     List<Quaternion> _InverseRotation = new List<Quaternion>(new Quaternion[24]);
 
+    string _JsonPath = "/plask";
+
     // Start is called before the first frame update
     async void Start()
     {
@@ -40,12 +43,14 @@ public class MoveSkeleton : MonoBehaviour
         MainAnimator = GetComponent<Animator>();
         _SkeletonReader = new ReadSkeletonFromJson();
         _SkeletonReceiver = new ReceiveSkeleton("127.0.0.1", 50002);
+        _RotationSender = new SendRotation();
         _SkeletonReceiver.Initialize();
         _SkeletonReceiver.SetMessageCallback(new CallbackMessage(ReceiveMessageHandler));
         _AvatarLegLength = GetAvatarLegLength();
         InitializeGameObject();
         _MidHipYAxis = GameObject.Find("mixamorig:Hips").transform.position.y + _YOffset;
         SetObjectRendering(EnableDisplay);
+        Debug.Log("Json Path : " + Application.persistentDataPath + _JsonPath);
     }
 
     float GetAvatarLegLength() {
@@ -293,6 +298,8 @@ public class MoveSkeleton : MonoBehaviour
             _DifferentRotation[i] = CurrentRotation * _InverseRotation[i];
             // Debug.Log("Rotation " + i + " : " + _DifferentRotation[i]);
         }
+
+        _RotationSender.SaveJsonStringFromRotation(Application.persistentDataPath + _JsonPath, 0, _HipPosition, _DifferentRotation);
     }
 
     void UpdateSpherePosition(JsonElement skeletons){
