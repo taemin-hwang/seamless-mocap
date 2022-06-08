@@ -46,6 +46,7 @@ public class MoveSkeleton : MonoBehaviour
         _SkeletonReceiver = new ReceiveSkeleton("127.0.0.1", 50002);
         _RotationSender = new SendRotation();
         _SkeletonReceiver.Initialize();
+        _RotationSender.Initialize();
         _SkeletonReceiver.SetMessageCallback(new CallbackMessage(ReceiveMessageHandler));
         InitializeGameObject();
         _MidHipYAxis = GameObject.Find("Bip001 Pelvis").transform.position.y + _MidHipOffset;
