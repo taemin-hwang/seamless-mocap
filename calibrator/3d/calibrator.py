@@ -81,18 +81,8 @@ class calibrator:
                     #image_out.write(image_left_ocv)
                     if len(bodies.object_list) == 1 and len(bodies.object_list[0].keypoint_2d) > 0:
                         person = bodies.object_list[0]
-                        x_pixel = person.keypoint_2d[0][0] # pelvis-x
-                        y_pixel = person.keypoint_2d[0][1] # pelvis-y
-                        depth_value = depth_map.get_value(x_pixel,y_pixel)[1] # (result, m)
 
-                        x = float(x_pixel - cx) * float(depth_value) / fx # meter
-                        y = float(y_pixel - cy) * float(depth_value) / fy # meter
-                        z = float(depth_value) # meter
-
-                        print("Pelvis(2d) : [{}, {}, {}]".format(x, y, z))
-                        #print("Pelvis(3d) : [{}, {}, {}]".format(person.keypoint[0][0], person.keypoint[0][1], person.keypoint[0][2]))
-
-                        data = utils.get_keypoint_3d(person.keypoint_2d, person.confidence, depth_map, cx, cy, fx, fy)
+                        data = utils.get_keypoint_3d(person.keypoint_2d, person.confidence, int(image_size.width), int(image_size.height), depth_map, cx, cy, fx, fy)
                         self.__send_keypoint_3d(data)
 
                 else:
