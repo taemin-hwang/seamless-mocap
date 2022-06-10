@@ -2,6 +2,7 @@ import cv2
 import sys
 import pyzed.sl as sl
 import numpy as np
+import utils
 
 class calibrator:
     def __init__(self):
@@ -55,7 +56,7 @@ class calibrator:
 
         image_size = self.__zed.get_camera_information().camera_resolution
         fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-        image_out = cv2.VideoWriter(self.__image_filename, fourcc, 30.0, (int(image_size.width), int(image_size.height)))
+        image_out = cv2.VideoWriter(self.__image_filename, fourcc, 10.0, (int(image_size.width), int(image_size.height)))
 
         print((image_size.width, image_size.height))
         image = sl.Mat()
@@ -73,12 +74,11 @@ class calibrator:
                 self.__zed.retrieve_objects(bodies, obj_runtime_param)
 
                 image_left_ocv = image.get_data()[:,:,:3]
-                cv2.imshow("self.__ZED | 2D View", image_left_ocv)
-                cv2.imshow("self.__ZED | DEPTH View", depth_display.get_data()[:,:,:3])
-                #print(image_left_ocv)
-                if image_out.isOpened():
-                    # image_out.write(image_left_ocv)
+                cv2.imshow("ZED | 2D View", image_left_ocv)
+                cv2.imshow("ZED | DEPTH View", depth_display.get_data()[:,:,:3])
 
+                if image_out.isOpened():
+                    #image_out.write(image_left_ocv)
                     if len(bodies.object_list) == 1 and len(bodies.object_list[0].keypoint_2d) > 0:
                         person = bodies.object_list[0]
                         x_pixel = person.keypoint_2d[0][0] # pelvis-x
@@ -89,7 +89,11 @@ class calibrator:
                         y = float(y_pixel - cy) * float(depth_value) / fy # meter
                         z = float(depth_value) # meter
 
-                        print("Pelvis : [{}, {}, {}]".format(x, y, z))
+                        print("Pelvis(2d) : [{}, {}, {}]".format(x, y, z))
+                        #print("Pelvis(3d) : [{}, {}, {}]".format(person.keypoint[0][0], person.keypoint[0][1], person.keypoint[0][2]))
+
+                        data = utils.get_keypoint_3d(person.keypoint_2d, person.confidence, depth_map, cx, cy, fx, fy)
+                        self.__send_keypoint_3d(data)
 
                 else:
                     print('File open failed')
@@ -100,3 +104,6 @@ class calibrator:
         image_out.release()
         self.__zed.close()
         image.free(sl.MEM.CPU)
+
+    def set_send_keypoint_3d(self, send_keypoint_3d_func):
+        self.__send_keypoint_3d = send_keypoint_3d_func
