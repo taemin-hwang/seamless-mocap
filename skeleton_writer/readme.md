@@ -1,0 +1,2 @@
+## pre-requisite
+* mediapipe
