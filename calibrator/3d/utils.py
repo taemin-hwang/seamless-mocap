@@ -168,10 +168,9 @@ def smooth_3d_pose(frame_buffer_3d, keypoint_3d):
 
     return frame_buffer_3d, avg_keypoint_3d
 
-def get_udp_message(keypoint_3d):
-    data = []
+def append_keypoint_3d(data, i, id, keypoint_3d):
     data.append({})
-    data[0]['id'] = 0
-    data[0]['keypoints3d'] = keypoint_3d
+    data[i]['id'] = id
+    data[i]['keypoints3d'] = keypoint_3d
 
     return data

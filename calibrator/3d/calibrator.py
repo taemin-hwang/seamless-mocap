@@ -66,7 +66,7 @@ class calibrator:
         bodies = sl.Objects()
 
         frame_number = 0
-        frame_buffer_3d = np.zeros((5, 25, 4))
+        frame_buffer_3d = np.zeros((10, 5, 25, 4))
         while True:
             # Grab an image
             if self.__zed.grab() == sl.ERROR_CODE.SUCCESS:
@@ -78,17 +78,20 @@ class calibrator:
                 image_left_ocv = image.get_data()[:,:,:3]
                 #cv2.imshow("ZED | 2D View", image_left_ocv)
                 depth_left_ocv = depth_display.get_data()[:,:,:3]
-                if len(bodies.object_list) == 1 and len(bodies.object_list[0].keypoint_2d) > 0:
-                    person = bodies.object_list[0]
+
+                data = []
+                for i in range(len(bodies.object_list)):
+                    person = bodies.object_list[i]
 
                     keypoint_3d_34 = utils.get_keypoint_3d(person.keypoint_2d, person.keypoint_confidence, int(image_size.width), int(image_size.height), depth_map, cx, cy, fx, fy)
                     keypoint_3d_25 = utils.convert_25_from_34(keypoint_3d_34)
-                    frame_buffer_3d, avg_keypoint_3d = utils.smooth_3d_pose(frame_buffer_3d, keypoint_3d_25)
+                    frame_buffer_3d[person.id], avg_keypoint_3d = utils.smooth_3d_pose(frame_buffer_3d[person.id], keypoint_3d_25)
                     overlay = viewer.render_2D(depth_left_ocv, bodies.object_list, self.__obj_param.enable_tracking, self.__obj_param.body_format)
 
-                    data = utils.get_udp_message(avg_keypoint_3d)
-                    if len(data) > 0:
-                        self.__send_keypoint_3d(data)
+                    data = utils.append_keypoint_3d(data, i, person.id, avg_keypoint_3d)
+
+                if len(data) > 0:
+                    self.__send_keypoint_3d(data)
 
                 cv2.imshow("ZED | DEPTH View", overlay)
 
