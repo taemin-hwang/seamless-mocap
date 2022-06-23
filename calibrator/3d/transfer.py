@@ -31,5 +31,4 @@ class GuiSender:
         self.client = BaseSocketClient(ipaddr, port)
 
     def send_3d_skeleton(self, data):
-        print(data)
         self.client.send(data)
