@@ -11,4 +11,8 @@ else
   fi
 fi
 
+if [ $# -eq 2 ]; then
+  python3 apps/vis/vis_server.py --cfg config/vis3d/o3d_scene.yml host $1 port $2
+fi
+
 popd
