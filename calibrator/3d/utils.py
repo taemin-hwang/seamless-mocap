@@ -1,6 +1,7 @@
 import numpy as np
 import pyzed.sl as sl
 from enum import Enum
+import os
 
 class BODY_PARTS_POSE_25(Enum):
     NOSE = 0
@@ -168,9 +169,21 @@ def smooth_3d_pose(frame_buffer_3d, keypoint_3d):
 
     return frame_buffer_3d, avg_keypoint_3d
 
-def append_keypoint_3d(data, i, id, keypoint_3d):
+def append_udp_data(data, i, id, keypoint_3d):
     data.append({})
     data[i]['id'] = id
     data[i]['keypoints3d'] = keypoint_3d
-
     return data
+
+def append_json_data(data, i, id, keypoint_3d):
+    data.append({})
+    data[i]['id'] = id
+    data[i]['keypoints3d'] = keypoint_3d.tolist()
+    return data
+
+def create_directory(directory):
+    try:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    except OSError:
+        print("Error: Failed to create the directory.")

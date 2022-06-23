@@ -4,17 +4,20 @@ import pyzed.sl as sl
 import numpy as np
 import utils
 import viewer
+import json
 
 class calibrator:
     def __init__(self):
         print("calibrator constructor")
+        self.__send_keypoint_3d = None
         pass
 
-    def initialize(self, cam_id):
+    def initialize(self, args):
         print("Recording video with mp4")
-
-        self.__image_filename = str(cam_id)+".mp4"
-        print("Filename : ", self.__image_filename)
+        self.__args = args
+        self.__cam_id = args.number
+        self.__path = "./out/"
+        utils.create_directory(self.__path)
 
         self.__zed = sl.Camera()
 
@@ -56,8 +59,6 @@ class calibrator:
         obj_runtime_param.detection_confidence_threshold = 20
 
         image_size = self.__zed.get_camera_information().camera_resolution
-        fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-        image_out = cv2.VideoWriter(self.__image_filename, fourcc, 10.0, (int(image_size.width), int(image_size.height)))
 
         print((image_size.width, image_size.height))
         image = sl.Mat()
@@ -66,7 +67,7 @@ class calibrator:
         bodies = sl.Objects()
 
         frame_number = 0
-        frame_buffer_3d = np.zeros((10, 5, 25, 4))
+        frame_buffer_3d = np.zeros((10, 5, 25, 4)) # person id, buffer size, 25 keypoints, (x, y, z, c)
         while True:
             # Grab an image
             if self.__zed.grab() == sl.ERROR_CODE.SUCCESS:
@@ -76,10 +77,12 @@ class calibrator:
                 self.__zed.retrieve_objects(bodies, obj_runtime_param)
 
                 image_left_ocv = image.get_data()[:,:,:3]
+
                 #cv2.imshow("ZED | 2D View", image_left_ocv)
                 depth_left_ocv = depth_display.get_data()[:,:,:3]
 
-                data = []
+                udp_data = []
+                json_data = []
                 for i in range(len(bodies.object_list)):
                     person = bodies.object_list[i]
 
@@ -88,23 +91,25 @@ class calibrator:
                     frame_buffer_3d[person.id], avg_keypoint_3d = utils.smooth_3d_pose(frame_buffer_3d[person.id], keypoint_3d_25)
                     overlay = viewer.render_2D(depth_left_ocv, bodies.object_list, self.__obj_param.enable_tracking, self.__obj_param.body_format)
 
-                    data = utils.append_keypoint_3d(data, i, person.id, avg_keypoint_3d)
+                    udp_data = utils.append_udp_data(udp_data, i, person.id, avg_keypoint_3d)
+                    json_data = utils.append_json_data(json_data, i, person.id, avg_keypoint_3d)
 
-                if len(data) > 0:
-                    self.__send_keypoint_3d(data)
+                if len(udp_data) > 0 and len(json_data) > 0:
+                    if self.__send_keypoint_3d is not None:
+                        self.__send_keypoint_3d(udp_data)
 
-                cv2.imshow("ZED | DEPTH View", overlay)
+                    # example : "./out/cam1_000000.json"
+                    file_path = self.__path + "cam" + str(self.__cam_id) + "_" + str(frame_number).zfill(6) + ".json"
+                    with open(file_path, 'w') as outfile:
+                        json.dump(json_data, outfile)
+                    frame_number += 1
 
-                if image_out.isOpened():
-                    pass
-                    #image_out.write(image_left_ocv)
-                else:
-                    print('File open failed')
+                if self.__args.visual is True:
+                    cv2.imshow("ZED | DEPTH View", overlay)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
-        image_out.release()
         self.__zed.close()
         image.free(sl.MEM.CPU)
 
