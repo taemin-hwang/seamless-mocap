@@ -7,7 +7,8 @@ import numpy as np
 from datetime import datetime
 import copy
 
-from transfer import gui_sender, skeleton_server, unity_sender
+from format import face_format, hand_format
+from transfer import gui_sender, skeleton_server, facehand_server, unity_sender
 from visualizer import viewer_2d as v2d
 from config import config_parser as cp
 from reconstructor import reconstructor as recon
@@ -37,11 +38,13 @@ class Manager:
         self.buffer_size = self.config["buffer_size"]
         self.min_confidence = self.config["min_confidence"]
         self.reconstructor.initialize(self.args, self.config)
-        skeleton_server.execute(self.config["server_ip"], self.config["server_port"])
+        skeleton_server.execute(self.config["server_ip"], self.config["skeleton_port"])
         if self.args.visual is True:
             self.gui_sender.initialize(self.config["gui_ip"], self.config["gui_port"])
         if self.args.unity is True:
             self.unity_sender.initialize(self.config["unity_ip"], self.config["unity_port"])
+        if self.args.face is True:
+            facehand_server.execute(self.config["server_ip"], self.config["facehand_port"])
 
         self.frame_buffer_2d = np.ones((self.cam_num+1, self.buffer_size, 25, 3))
 
@@ -59,6 +62,11 @@ class Manager:
         print('Worker: GET SKELETON')
         lk_2d_skeleton = skeleton_server.lock
         mq_2d_skeleton = skeleton_server.message_queue
+        lk_facehand = facehand_server.lock
+        mq_facehand = facehand_server.message_queue
+
+        face_status = face_format.FACE_STATUS.CLOSED
+        hand_status = hand_format.HAND_STATUS.OPEN
 
         # Get initial parameters
         cams = reconstructor.get_cameras()
@@ -70,6 +78,12 @@ class Manager:
         # Loop for reconstruct 3D human pose
         while True:
             t_sleep = datetime.now()
+
+            if self.args.face is True:
+                # Read face hand status from clients
+                face_status, hand_status = self.get_facehand_status(lk_facehand, mq_facehand, face_status, hand_status)
+                print("[FACE STATUS] ", face_status)
+                print("[HAND STATUS] ", hand_status)
 
             # Time-synchronization between multiple 2D skeletons with timestamp
             # Read data from matching table if there are time-synchronized 2D skeletons
@@ -107,6 +121,23 @@ class Manager:
             t = self.reset_time(t)
 
             pause.until(t_sleep.timestamp() + self.time_delta/1000)
+
+    def get_facehand_status(self, lk_facehand, mq_facehand, face_status, hand_status):
+        lk_facehand.acquire()
+        qsize = mq_facehand.qsize()
+
+        for i in range(qsize):
+            json_data = mq_facehand.get()
+            data = json.loads(json_data)
+            for person in data["annots"]:
+                face_status_idx = person['faceStatus']
+                hand_status_idx = person['handStatus']
+                face_status = face_format.get_status_from_idx(face_status_idx)
+                hand_status = face_format.get_status_from_idx(hand_status_idx)
+                #print("[{}], {}, {}".format(person['personId'], face_status, hand_status))
+
+        lk_facehand.release()
+        return face_status, hand_status
 
     def get_initial_matching_table(self, cams):
         # Create initial table for time-sync
