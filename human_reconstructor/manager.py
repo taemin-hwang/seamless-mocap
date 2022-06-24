@@ -133,8 +133,8 @@ class Manager:
                 face_status_idx = person['faceStatus']
                 hand_status_idx = person['handStatus']
                 face_status = face_format.get_status_from_idx(face_status_idx)
-                hand_status = face_format.get_status_from_idx(hand_status_idx)
-                #print("[{}], {}, {}".format(person['personId'], face_status, hand_status))
+                hand_status = hand_format.get_status_from_idx(hand_status_idx)
+                #print("[{}], {}, {}".format(person['personID'], face_status, hand_status))
 
         lk_facehand.release()
         return face_status, hand_status
