@@ -11,6 +11,8 @@ import pyzed.sl as sl
 import estimator.hand_estimator as he
 import estimator.pose_estimator as pe
 import writer.json_writer as jw
+import transfer.udp_client as uc
+from utils import format
 
 class SkeletonWriter:
     def __init__(self, args):
@@ -33,6 +35,7 @@ class SkeletonWriter:
         self.pose_estimator = pe.PoseEstimator(self.args)
         self.hand_estimator = he.HandEstimator(self.args)
         self.json_writer = jw.JsonWriter()
+        self.udp_client = uc.UdpClient("127.0.0.1", 50002)
 
     def run(self):
         if self.args.camera is False:
@@ -98,6 +101,9 @@ class SkeletonWriter:
             current_fps = self.zed.get_current_fps()
             print('Current FPS : {}'.format(current_fps))
             image, pose_result = self.get_2d_skeleton_from_image(image)
+
+            # TODO
+            # self.udp_client.send_data(format.FACE_STATUS.CLOSED.value, format.HAND_STATUS.OPEN.value)
 
             if self.args.visual:
                 cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
