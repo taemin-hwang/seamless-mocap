@@ -40,17 +40,9 @@ class TestManager:
             t1 = threading.Thread(target=self.work_get_skeleton2, args=(self.q, self.reconstructor, self.gui_sender, self.unity_sender))
         elif self.args.test3 is True:
             t1 = threading.Thread(target=self.work_get_skeleton3, args=(self.q, self.reconstructor, self.gui_sender, self.unity_sender))
-        t2 = threading.Thread(target=self.work_get_smpl, args=(self.q, self.reconstructor, self.gui_sender))
-        t3 = threading.Thread(target=self.gui_sender.work_send_smpl)
 
-        if self.args.smpl is True:
-            t1.start()
-            t2.start()
-            t3.start()
-            t1.join()
-        else:
-            t1.start()
-            t1.join()
+        t1.start()
+        t1.join()
 
     def work_get_skeleton1(self, q, recon, sender, udp_sender):
         cam_num = 23
@@ -95,6 +87,8 @@ class TestManager:
 
     def work_get_skeleton3(self, q, recon, gui_sender, unity_sender):
         cam_num = 4
+        buffer_size = 10
+        frame_buffer_3d = np.ones((buffer_size, 25, 4))
         for file_id in range(5, 500):
             for cam_id in range(1, cam_num+1):
                 filename = str(file_id).zfill(6) + '.json'
@@ -110,6 +104,7 @@ class TestManager:
             keypoints3d = recon.get_3d_skeletons_test()
             keypoints3d[:, 2] = -1*keypoints3d[:, 2]
             keypoints3d = pre.reverse_skeleton(keypoints3d)
+            frame_buffer_3d, keypoints3d = post.smooth_3d_pose(frame_buffer_3d, keypoints3d)
 
             if self.args.keypoint is True and self.args.visual is True:
                 gui_sender.send_3d_skeletons(keypoints3d)
@@ -119,24 +114,3 @@ class TestManager:
             self.lock.acquire
             q.put(keypoints3d)
             self.lock.release
-
-    def send_smpl(self, q, recon, sender):
-        qsize = q.qsize()
-        kp3ds = np.empty((0, 25, 4))
-        for i in range(qsize):
-            keypoints3d = q.get()
-            kp3ds = np.append(kp3ds, keypoints3d.reshape(1, 25, 4), axis=0)
-        smpl = recon.get_smpl_bunch(kp3ds)
-        if smpl:
-            sender.send_smpl_bunch(smpl)
-
-    def work_get_smpl(self, q, recon, gui_sender):
-        while True:
-            qsize = q.qsize()
-            if qsize > self.max_frame:
-                self.lock.acquire
-                t = threading.Thread(target=self.send_smpl, args=(q, recon, gui_sender))
-                t.start()
-                self.lock.release
-            time.sleep(0.01)
-

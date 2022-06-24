@@ -47,17 +47,8 @@ class Manager:
 
     def run(self):
         t1 = threading.Thread(target=self.work_get_skeleton, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.gui_sender, self.unity_sender))
-        t2 = threading.Thread(target=self.work_get_smpl, args=(self.mq_3d_skeleton, self.lk_3d_skeleton, self.reconstructor, self.gui_sender))
-        t3 = threading.Thread(target=self.gui_sender.work_send_smpl)
-
-        if self.args.smpl is True:
-            t1.start()
-            t2.start()
-            t3.start()
-            t1.join()
-        else:
-            t1.start()
-            t1.join()
+        t1.start()
+        t1.join()
 
     def work_get_skeleton(self, mq_3d_skeleton, lk_3d_skeleton, reconstructor, gui_sender, unity_sender):
         # A thread for reconstruct 3D human pose with multiple 2D skeletons
@@ -116,27 +107,6 @@ class Manager:
             t = self.reset_time(t)
 
             pause.until(t_sleep.timestamp() + self.time_delta/1000)
-
-    def work_get_smpl(self, mq_3d_skeleton, lk_3d_skeleton, reconstructor, gui_sender):
-        print('Worker: GET SMPL')
-        while True:
-            qsize = mq_3d_skeleton.qsize()
-            if qsize >= self.max_frame:
-                t = threading.Thread(target=self.send_smpl, args=(mq_3d_skeleton, lk_3d_skeleton, reconstructor, gui_sender))
-                t.start()
-            time.sleep(0.01)
-
-    def send_smpl(self, mq_3d_skeleton, lk_3d_skeleton, reconstructor, gui_sender):
-        lk_3d_skeleton.acquire
-        qsize = mq_3d_skeleton.qsize()
-        keypoints3d_all = np.empty((0, 25, 4))
-        for i in range(qsize):
-            keypoints3d = mq_3d_skeleton.get()
-            keypoints3d_all = np.append(keypoints3d_all, keypoints3d.reshape(1, 25, 4), axis=0)
-        smpl = reconstructor.get_smpl_bunch(keypoints3d_all)
-        if smpl:
-            gui_sender.send_smpl_bunch(smpl)
-        lk_3d_skeleton.release
 
     def get_initial_matching_table(self, cams):
         # Create initial table for time-sync
@@ -198,30 +168,30 @@ class Manager:
                 json_data = mq_2d_skeleton.get()
                 data = json.loads(json_data)
 
-                t = data['timestamp']
-                if t < t_start:
-                   continue
-                elif t > t_end + 1000:
-                    print('WARNING: t exceed t_end + 1000')
-                    t_start = t
-                    t_end = t + self.time_delta
-                    t_diff = datetime.now().timestamp()*1000 - t_start
-                elif t > t_end:
-                   mq_2d_skeleton.put(json.dumps(data))
-                else:
-                    cam_id = data['id']
-                    timestamp = data['timestamp']
-                    person_id = len(data['annots'])-1 # TODO: check if it is correct
-                    keypoints_34 = np.array(data['annots'][person_id]['keypoints'])
-                    keypoints_25 = utils.convert_25_from_34(keypoints_34)
-                    self.frame_buffer_2d[cam_id], avg_keypoints_25 = pre.smooth_2d_pose(self.frame_buffer_2d[cam_id], keypoints_25)
+                #t = data['timestamp']
+                #if t < t_start:
+                #   continue
+                #elif t > t_end + 1000:
+                #    print('WARNING: t exceed t_end + 1000')
+                #    t_start = t
+                #    t_end = t + self.time_delta
+                #    t_diff = datetime.now().timestamp()*1000 - t_start
+                #elif t > t_end:
+                #   mq_2d_skeleton.put(json.dumps(data))
+                #else:
+                cam_id = data['id']
+                timestamp = data['timestamp']
+                person_id = len(data['annots'])-1 # TODO: check if it is correct
+                keypoints_34 = np.array(data['annots'][person_id]['keypoints'])
+                keypoints_25 = utils.convert_25_from_34(keypoints_34)
+                self.frame_buffer_2d[cam_id], avg_keypoints_25 = pre.smooth_2d_pose(self.frame_buffer_2d[cam_id], keypoints_25)
 
-                    if self.args.visual:
-                        self.viewer.render_2d(data)
+                if self.args.visual:
+                    self.viewer.render_2d(data)
 
-                    matching_table[str(cam_id)]['is_valid'] = True
-                    matching_table[str(cam_id)]['timestamp'] = timestamp
-                    matching_table[str(cam_id)]['keypoint'] = avg_keypoints_25.tolist()
+                matching_table[str(cam_id)]['is_valid'] = True
+                matching_table[str(cam_id)]['timestamp'] = timestamp
+                matching_table[str(cam_id)]['keypoint'] = avg_keypoints_25.tolist()
 
         lk_2d_skeleton.release()
         return (t_start, t_end, t_diff)
