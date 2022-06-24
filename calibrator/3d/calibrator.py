@@ -1,117 +1,92 @@
-import cv2
-import sys
-import pyzed.sl as sl
 import numpy as np
 import utils
-import viewer
 import json
+import os
 
 class calibrator:
-    def __init__(self):
-        print("calibrator constructor")
-        self.__send_keypoint_3d = None
+    def __init__(self, cam_num):
+        self.__ids = [utils.BODY_PARTS_POSE_25.NOSE.value,
+                      utils.BODY_PARTS_POSE_25.NECK.value,
+                      utils.BODY_PARTS_POSE_25.RIGHT_SHOULDER.value,
+                      utils.BODY_PARTS_POSE_25.LEFT_SHOULDER.value]
+        self.__num = cam_num
         pass
 
-    def initialize(self, args):
-        print("Recording video with mp4")
+    def initialize(self, args, path):
         self.__args = args
-        self.__cam_id = args.number
-        self.__path = "./out/"
-        utils.create_directory(self.__path)
-
-        self.__zed = sl.Camera()
-
-        init_params = sl.InitParameters()
-        init_params.camera_resolution = sl.RESOLUTION.HD720
-        init_params.coordinate_units = sl.UNIT.METER          # Set coordinate units
-        init_params.depth_mode = sl.DEPTH_MODE.ULTRA
-        init_params.coordinate_system = sl.COORDINATE_SYSTEM.RIGHT_HANDED_Y_UP
-
-        # Open the camera
-        print('Open zed cam')
-        err = self.__zed.open(init_params)
-        if err != sl.ERROR_CODE.SUCCESS:
-            exit(1)
-
-        # Enable Positional tracking (mandatory for object detection)
-        positional_tracking_parameters = sl.PositionalTrackingParameters()
-        # If the camera is static, uncomment the following line to have better performances and boxes sticked to the ground.
-        positional_tracking_parameters.set_as_static = True
-        self.__zed.enable_positional_tracking(positional_tracking_parameters)
-
-        self.__obj_param = sl.ObjectDetectionParameters()
-        self.__obj_param.enable_body_fitting = True            # Smooth skeleton move
-        self.__obj_param.enable_tracking = True                # Track people across images flow
-        self.__obj_param.detection_model = sl.DETECTION_MODEL.HUMAN_BODY_FAST
-        self.__obj_param.body_format = sl.BODY_FORMAT.POSE_34  # Choose the BODY_FORMAT you wish to use
-
-        # Enable Object Detection module
-        self.__zed.enable_object_detection(self.__obj_param)
+        self.__path = path
+        self.__out = "./out"
+        utils.create_directory(self.__out)
 
     def run(self):
-        left_calibration = self.__zed.get_camera_information().calibration_parameters.left_cam
-        fx = left_calibration.fx
-        fy = left_calibration.fy
-        cx = left_calibration.cx
-        cy = left_calibration.cy
+        matched_points_list = np.empty((self.__num, len(self.__ids), 4))
+        for i in range(self.__num):
+            cam_id = i
+            matched_points = self.__select_matched_points(self.__get_keypoints(cam_id+1))
+            matched_points_list[i] = matched_points
 
-        obj_runtime_param = sl.ObjectDetectionRuntimeParameters()
-        obj_runtime_param.detection_confidence_threshold = 20
+        transformation_matrix = np.empty((self.__num, self.__num, 4, 4))
+        for from_ in range(self.__num):
+            for to_ in range(self.__num):
+                if from_ == to_:
+                    transformation_matrix[from_][to_] = np.identity(4)
+                else:
+                    transformation_matrix[from_][to_] = self.__get_transformation_matrix_from_b(matched_points_list[from_], matched_points_list[to_])
 
-        image_size = self.__zed.get_camera_information().camera_resolution
+        print(transformation_matrix)
 
-        print((image_size.width, image_size.height))
-        image = sl.Mat()
-        depth_map = sl.Mat()
-        depth_display = sl.Mat()
-        bodies = sl.Objects()
+    def __get_keypoints(self, cam_id):
+        keypoints = []
+        keyword = 'cam' + str(cam_id) + '_'
+        for fname in os.listdir(self.__path):
+            if keyword in fname:
+                print(fname, "has the keyword")
+                with open(self.__path + fname, "r") as json_file:
+                    json_data = json.load(json_file)
+                    keypoints = np.array(json_data[0]['keypoints3d'])
+                break
+        return keypoints
 
-        frame_number = 0
-        frame_buffer_3d = np.zeros((10, 5, 25, 4)) # person id, buffer size, 25 keypoints, (x, y, z, c)
-        while True:
-            # Grab an image
-            if self.__zed.grab() == sl.ERROR_CODE.SUCCESS:
-                self.__zed.retrieve_image(image, sl.VIEW.LEFT, sl.MEM.CPU, image_size)
-                self.__zed.retrieve_image(depth_display, sl.VIEW.DEPTH)
-                self.__zed.retrieve_measure(depth_map, sl.MEASURE.DEPTH)
-                self.__zed.retrieve_objects(bodies, obj_runtime_param)
+    def __select_matched_points(self, keypoints):
+        matched_points = np.empty((len(self.__ids), 4))
+        i = 0
+        for id in self.__ids:
+            matched_points[i] = keypoints[id]
+            if matched_points[i, 3] < 0.00001:
+                print('[ERROR] low confidence {} of {}'.format(matched_points[i, 3], id))
+            i += 1
+        return matched_points
 
-                image_left_ocv = image.get_data()[:,:,:3]
+    def __get_transformation_matrix_from_b(self, b, a):
+        a_arr = np.stack([a[0][:3], a[1][:3], a[2][:3], a[3][:3]], axis=1)
+        b_arr = np.stack([b[0][:3], b[1][:3], b[2][:3], b[3][:3]], axis=1)
 
-                #cv2.imshow("ZED | 2D View", image_left_ocv)
-                depth_left_ocv = depth_display.get_data()[:,:,:3]
+        a_arr = np.concatenate([a_arr, np.ones_like(a_arr[:1])], axis=0)
+        b_arr = np.concatenate([b_arr, np.ones_like(b_arr[:1])], axis=0)
 
-                udp_data = []
-                json_data = []
-                for i in range(len(bodies.object_list)):
-                    person = bodies.object_list[i]
+        # make equation (a @ x = b)
+        n = a_arr.shape[1]
+        a_mat = np.zeros((3*n, 12), dtype=a_arr.dtype)
+        b_mat = np.zeros(3*n, dtype=a_arr.dtype)
 
-                    keypoint_3d_34 = utils.get_keypoint_3d(person.keypoint_2d, person.keypoint_confidence, int(image_size.width), int(image_size.height), depth_map, cx, cy, fx, fy)
-                    keypoint_3d_25 = utils.convert_25_from_34(keypoint_3d_34)
-                    frame_buffer_3d[person.id], avg_keypoint_3d = utils.smooth_3d_pose(frame_buffer_3d[person.id], keypoint_3d_25)
-                    overlay = viewer.render_2D(depth_left_ocv, bodies.object_list, self.__obj_param.enable_tracking, self.__obj_param.body_format)
+        a_mat[:n, 0] = a_arr[0]
+        a_mat[:n, 1] = a_arr[1]
+        a_mat[:n, 2] = a_arr[2]
+        a_mat[:n, 3] = a_arr[3]
+        b_mat[:n] = b_arr[0]
 
-                    udp_data = utils.append_udp_data(udp_data, i, person.id, avg_keypoint_3d)
-                    json_data = utils.append_json_data(json_data, i, person.id, avg_keypoint_3d)
-
-                if len(udp_data) > 0 and len(json_data) > 0:
-                    if self.__send_keypoint_3d is not None:
-                        self.__send_keypoint_3d(udp_data)
-
-                    # example : "./out/cam1_000000.json"
-                    file_path = self.__path + "cam" + str(self.__cam_id) + "_" + str(frame_number).zfill(6) + ".json"
-                    with open(file_path, 'w') as outfile:
-                        json.dump(json_data, outfile)
-                    frame_number += 1
-
-                if self.__args.visual is True:
-                    cv2.imshow("ZED | DEPTH View", overlay)
-
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-
-        self.__zed.close()
-        image.free(sl.MEM.CPU)
-
-    def set_send_keypoint_3d(self, send_keypoint_3d_func):
-        self.__send_keypoint_3d = send_keypoint_3d_func
+        a_mat[n:2 * n, 4] = a_arr[0]
+        a_mat[n:2 * n, 5] = a_arr[1]
+        a_mat[n:2 * n, 6] = a_arr[2]
+        a_mat[n:2 * n, 7] = a_arr[3]
+        b_mat[n:2 * n] = b_arr[1]
+        a_mat[2 * n:, 8] = a_arr[0]
+        a_mat[2 * n:, 9] = a_arr[1]
+        a_mat[2 * n:, 10] = a_arr[2]
+        a_mat[2 * n:, 11] = a_arr[3]
+        b_mat[2 * n:] = b_arr[2]
+        # Least-squares solution to equations
+        x = np.linalg.pinv(a_mat) @ b_mat
+        # Reshape into affine transformation matrix
+        m2 = np.concatenate([x.reshape(3, 4), [[0.0, 0.0, 0.0, 1.0]]], axis=0)
+        return m2
