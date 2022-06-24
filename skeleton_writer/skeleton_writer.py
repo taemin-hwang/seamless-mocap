@@ -26,7 +26,7 @@ class SkeletonWriter:
         self.args = args
 
     def __del__(self):
-        if args.camera:
+        if self.args.camera:
             self.zed.close()
 
     def initialize(self):
