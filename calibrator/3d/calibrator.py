@@ -31,9 +31,11 @@ class calibrator:
                 if from_ == to_:
                     transformation_matrix[from_][to_] = np.identity(4)
                 else:
-                    transformation_matrix[from_][to_] = self.__get_transformation_matrix_from_b(matched_points_list[from_], matched_points_list[to_])
+                    transformation_matrix[from_][to_] = self.__get_transformation_matrix(matched_points_list[from_], matched_points_list[to_])
 
-        print(transformation_matrix)
+        print("T12 : ", transformation_matrix[0][1])
+        print("T21 : ", transformation_matrix[1][0])
+        self.__save_transformation_matrix(transformation_matrix)
 
     def __get_keypoints(self, cam_id):
         keypoints = []
@@ -57,7 +59,7 @@ class calibrator:
             i += 1
         return matched_points
 
-    def __get_transformation_matrix_from_b(self, b, a):
+    def __get_transformation_matrix(self, a, b):
         a_arr = np.stack([a[0][:3], a[1][:3], a[2][:3], a[3][:3]], axis=1)
         b_arr = np.stack([b[0][:3], b[1][:3], b[2][:3], b[3][:3]], axis=1)
 
@@ -90,3 +92,12 @@ class calibrator:
         # Reshape into affine transformation matrix
         m2 = np.concatenate([x.reshape(3, 4), [[0.0, 0.0, 0.0, 1.0]]], axis=0)
         return m2
+
+    def __save_transformation_matrix(self, transformation_matrix):
+        data = {}
+        for _from in range(self.__num):
+            for _to in range(self.__num):
+                data["T{}{}".format(_from+1, _to+1)] = transformation_matrix[_from][_to].tolist()
+
+        with open(os.path.join(self.__out, "transformation.json"), "w") as f:
+            json.dump(data, f)
