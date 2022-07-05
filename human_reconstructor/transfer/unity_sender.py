@@ -16,7 +16,7 @@ class UnitySender:
         self.ipaddr = ipaddr
         self.port = port
 
-    def send_3d_skeleton(self, skeletons):
+    def send_3d_skeletons(self, skeletons):
         data = []
         data.append({})
         data[0]['id'] = 0
