@@ -13,7 +13,7 @@ namespace seamless
     using XYCoordinate = cv::Point2f;
     using PersonKeypoints = std::vector<XYCoordinate>;
     using PeopleKeypoints = std::vector<std::pair<ObjectId, PersonKeypoints>>;
-
+    using PersonDepthPoints = std::vector<std::vector<float>>;
     // Transfer 2D Skeleton (X, Y, Confidence)
     class PersonKeypointsWithConfidence {
      public:
@@ -25,6 +25,7 @@ namespace seamless
         inline int GetId() const { return object_id_; }
         inline std::vector<std::pair<float, float>> GetKeypoint() const { return xy_keypoint_; }
         inline std::vector<float> GetConfidence() const { return confidence_; }
+        inline PersonDepthPoints GetDepthPoints() const { return depth_points_; }
         inline void SetId(int id) { object_id_ = id; }
         inline void SetKeypointWithId(int id, std::pair<float, float> kp) {
             assert(xy_keypoint_.size() > id);
@@ -34,11 +35,13 @@ namespace seamless
             assert(confidence_.size() > id);
             confidence_[id] = confidence;
         }
+        inline void SetDepthPoint(PersonDepthPoints depth_points) { depth_points_ = depth_points; }
 
      public:
         int object_id_;
         std::vector<std::pair<float, float>> xy_keypoint_;
         std::vector<float> confidence_;
+        PersonDepthPoints depth_points_;
     };
 
     // Transfer bounded box

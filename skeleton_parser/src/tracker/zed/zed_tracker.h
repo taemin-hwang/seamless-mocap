@@ -30,6 +30,7 @@
 #include <tuple>
 #include <iostream>
 #include <deque>
+#include <vector>
 #include <math.h>
 
 #include <opencv2/opencv.hpp>
@@ -57,6 +58,7 @@ class ZedTracker {
     int OpenCamera();
     int EnablePositionalTracking();
     int EnableBodyTracking();
+    std::vector<std::vector<float>> GetDepthKeypoint(sl::ObjectData obj, sl::Mat depth_map, sl::Resolution display_resolution);
     std::tuple<cv::Mat, sl::float2> GetImageConfiguration();
     void Print(std::string msg_prefix, sl::ERROR_CODE err_code, std::string msg_suffix);
     template<typename T>
@@ -136,6 +138,10 @@ class ZedTracker {
        }
     }
 
+    inline void SetDepthKeypoints(seamless::PersonKeypointsWithConfidence& person_keypoints_with_confidence, std::vector<std::vector<float>> depth_keypoints) {
+       person_keypoints_with_confidence.SetDepthPoint(depth_keypoints);
+    }
+
     inline void SetPersonId(seamless::PersonKeypointsWithConfidence& person_keypoints_with_confidence, int id){
        person_keypoints_with_confidence.SetId(id);
     }
@@ -169,6 +175,10 @@ class ZedTracker {
     sl::ObjectDetectionParameters object_detection_parameters_;
     sl::ObjectDetectionRuntimeParameters object_detection_runtime_parameters_;
     bool is_playback_ = false;
+    float fx_ = 0.0;
+    float fy_ = 0.0;
+    float cx_ = 0.0;
+    float cy_ = 0.0;
 
    std::function<void(const cv::Mat&, const std::pair<float, float>&, const seamless::PeopleKeypoints&)> viewer_handler = nullptr;
    std::function<void(const seamless::PeopleSkeleton&)> transfer_handler = nullptr;

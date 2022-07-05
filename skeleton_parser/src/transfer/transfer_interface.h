@@ -36,8 +36,13 @@ class TransferInterface {
         for (auto& person_keypoint : people_keypoints) {
             auto kp = person_keypoint.GetKeypoint();
             auto c = person_keypoint.GetConfidence();
+            auto d = person_keypoint.GetDepthPoints();
             for(int i = 0; i < kp.size(); i++) {
                 std::cout << "[" << kp[i].first << ", " << kp[i].second << ", " << c[i] << std::endl;
+            }
+
+            for(int i = 0; i < d.size(); i++) {
+                std::cout << "[DEPTH][" << i << "]" << d[i][0] << ", " << d[i][1] << ", " << d[i][2] << ", " << d[i][3] << std::endl;
             }
         }
     }

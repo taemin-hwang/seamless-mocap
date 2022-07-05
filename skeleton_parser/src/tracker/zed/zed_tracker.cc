@@ -65,9 +65,16 @@ void ZedTracker::Run() {
     RuntimeParameters runtime_parameters;
     runtime_parameters.measure3D_reference_frame = sl::REFERENCE_FRAME::WORLD;
 
+    sl::CameraParameters left_calibration = zed_.getCameraInformation().calibration_parameters.left_cam;
+    fx_ = left_calibration.fx;
+    fy_ = left_calibration.fy;
+    cx_ = left_calibration.cx;
+    cy_ = left_calibration.cy;
+
     sl::Resolution camera_resolution = zed_.getCameraInformation().camera_configuration.resolution;
-    sl::Resolution display_resolution(min((int)camera_resolution.width, 1280), min((int)camera_resolution.height, 720));
+    sl::Resolution display_resolution = camera_resolution;
     cv::Mat image_ocv(display_resolution.height, display_resolution.width, CV_8UC4, 1);
+    sl::Mat depth_map(display_resolution, MAT_TYPE::U8_C4, image_ocv.data, image_ocv.step);
     sl::Mat image_zed(display_resolution, MAT_TYPE::U8_C4, image_ocv.data, image_ocv.step);
     sl::float2 image_scale(display_resolution.width / (float)camera_resolution.width, display_resolution.height / (float) camera_resolution.height);
 
@@ -94,6 +101,7 @@ void ZedTracker::Run() {
     while(!quit && key != 'q') {
         if (zed_.grab() == ERROR_CODE::SUCCESS) {
             zed_.retrieveImage(image_zed, sl::VIEW::LEFT, sl::MEM::CPU, display_resolution);
+            zed_.retrieveMeasure(depth_map, sl::MEASURE::DEPTH, sl::MEM::CPU, display_resolution);
             zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
             image_timestamp = zed_.getTimestamp(TIME_REFERENCE::IMAGE);
             timestamp_ms = image_timestamp.getMilliseconds();
@@ -108,6 +116,7 @@ void ZedTracker::Run() {
                     SetBoundingBox(person_bound_box, obj.bounding_box_2d, image_scale, obj.confidence);// set bounding box
                     SetKeypointPosition(person_keypoints, person_keypoints_with_confidence, obj.keypoint_2d, image_scale);// set skeleton joints
                     SetKeypointConfidence(person_keypoints, person_keypoints_with_confidence, obj.keypoint_confidence);// set skeleton joints
+                    SetDepthKeypoints(person_keypoints_with_confidence, GetDepthKeypoint(obj, depth_map, display_resolution)); // set depth keypoints
                     SetPersonId(person_keypoints_with_confidence, obj.id);// set person id
                 }
                 SetPeopleKeypoint(person_id, people_keypoints, obj.id, person_keypoints);
@@ -129,6 +138,82 @@ void ZedTracker::Run() {
     bodies.object_list.clear();
 }
 
+std::vector<std::vector<float>> ZedTracker::GetDepthKeypoint(sl::ObjectData obj, sl::Mat depth_map, sl::Resolution display_resolution) {
+    std::vector<std::vector<float>> ret;
+    std::vector<int> idx = {0, 1, 2, 5, 8, 11}; //Nose, Neck, R-Shoulder, L-Shoulder, R-Pelvis, L-Pelvis
+    ret.resize(idx.size());
+
+    //std::cout << cx_ << ", " << cy_ << ", " << fx_ << ", " << fy_ << std::endl;
+
+    if (fx_ <= 0.0) {
+        logError << "CameraCalibration is not initialized!";
+    } else {
+        int joint_id = 0;
+        for (int i = 0; i < idx.size(); i++) {
+            ret[i].resize(4); // x, y, z, c
+
+            auto kp = obj.keypoint_2d[idx[i]];
+            auto x_pixel = kp[0];
+            auto y_pixel = kp[1];
+
+            //std::cout << "(X, Y) : " << x_pixel << ", " << y_pixel << std::endl;
+
+            float depth = 0.0;
+            float avg_depth = 0.0;
+            int cnt = 0;
+
+            for (int i = -2; i < 3; i++) {
+                for (int j = -2; j < 3; j++) {
+                    if (x_pixel + i > 0 && x_pixel + i < display_resolution.width &&
+                        y_pixel + j > 0 && y_pixel + j < display_resolution.height) {
+                        auto err = depth_map.getValue(x_pixel, y_pixel, &depth);
+                        if (err == sl::ERROR_CODE::SUCCESS && std::isfinite(depth)) {
+                            avg_depth += depth;
+                            cnt += 1;
+                        }
+                    }
+                }
+            }
+
+            if (cnt > 0) {
+                avg_depth = avg_depth / cnt;
+            } else {
+                avg_depth = 0.0;
+            }
+
+            float x = (x_pixel - cx_) * (avg_depth) / fx_;
+            float y = (y_pixel - cy_) * (avg_depth) / fy_;
+            float z = avg_depth;
+            auto c = obj.keypoint_confidence[idx[i]];
+
+            if (std::isfinite(x) != true) {
+                std::cout << "x is not finite" << std::endl;
+                x = -100.0;
+            }
+            if (std::isfinite(y) != true) {
+                std::cout << "y is not finite" << std::endl;
+                y = -100.0;
+            }
+            if (std::isfinite(z) != true) {
+                std::cout << "z is not finite" << std::endl;
+                z = -100.0;
+            }
+
+            if (x <= -99.0 || y <= -99.0 || z <= -99.0) {
+                ret[i][3] = 0;
+            } else {
+                ret[i][3] = c;
+            }
+
+            ret[i][0] = -z;
+            ret[i][1] = x;
+            ret[i][2] = -y;
+        }
+    }
+
+    return ret;
+}
+
 void ZedTracker::Shutdown() {
     logDebug << __func__;
     zed_.disableObjectDetection();
@@ -141,6 +226,7 @@ int ZedTracker::OpenCamera() {
     InitParameters init_parameters;
     init_parameters.camera_resolution = RESOLUTION::HD720; //HD2K, HD1080, HD720, VGA
     // On Jetson the object detection combined with an heavy depth mode could reduce the frame rate too much
+    init_parameters.coordinate_units = UNIT::METER;
     init_parameters.depth_mode = DEPTH_MODE::PERFORMANCE;
     init_parameters.coordinate_system = COORDINATE_SYSTEM::RIGHT_HANDED_Y_UP;
 

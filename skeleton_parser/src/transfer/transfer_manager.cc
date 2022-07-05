@@ -22,6 +22,9 @@ void TransferManager::Initialize(const int& camid, const std::string& ip_addr, c
 }
 
 void TransferManager::SendPeopleKeypoints(const seamless::PeopleSkeleton& people_skeleton) {
+
+    PrintElement(people_skeleton);
+
     clock_t start, end;
     auto bbox = people_skeleton.GetPeopleBoundBox();
     auto people_keypoints = people_skeleton.GetPeopleKeypointsWithConfidence();
