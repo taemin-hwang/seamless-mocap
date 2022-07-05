@@ -158,8 +158,6 @@ class Reconstructor:
             if self.__args.visual:
                 self.viewer.render_2d(data)
 
-            print(data)
-
             cam_id = data['id']
             timestamp = data['timestamp']
             person_id = len(data['annots'])-1 # TODO: check if it is correct
