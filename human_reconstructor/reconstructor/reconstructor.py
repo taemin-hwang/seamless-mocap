@@ -3,8 +3,7 @@ import datetime
 import time
 import json
 import pause
-import threading
-from queue import Queue
+import asyncio
 
 from format import face_format, hand_format
 
@@ -58,17 +57,23 @@ class Reconstructor:
                 print("[HAND STATUS] ", hand_status)
 
             data = []
+            triangulate_param = {}
             valid_dlt_element = self.__get_valid_dlt_element()
             for person_id in range(0, self.__person_num):
                 if valid_dlt_element[person_id]['count'] >= self.__min_cam:
                     valid_keypoint = np.stack(valid_dlt_element[person_id]['valid_keypoint'], axis=0)
                     valid_p = np.stack(valid_dlt_element[person_id]['valid_P'], axis=0)
-                    out = self.__batch_triangulate(valid_keypoint, valid_p)
-                    frame_buffer[person_id], ret = post.smooth_3d_pose(frame_buffer[person_id], out)
-                    data.append({'id' : person_id, 'keypoints3d' : ret})
-                    #self.__reset_matching_table()
-                else:
-                    print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element[person_id]['count'])
+                    triangulate_param[person_id] = {}
+                    triangulate_param[person_id]['keypoint'] = valid_keypoint
+                    triangulate_param[person_id]['P'] = valid_p
+
+            reconstruction_list = asyncio.run(self.__reconstruct_3d_pose(triangulate_param))
+
+            for reconstruction in reconstruction_list:
+                person_id = reconstruction[0]
+                keypoint_3d = reconstruction[1]
+                frame_buffer[person_id], ret = post.smooth_3d_pose(frame_buffer[person_id], keypoint_3d)
+                data.append({'id' : person_id, 'keypoints3d' : ret})
 
             if len(data) > 0:
                 if self.__args.gui is True:
@@ -141,7 +146,14 @@ class Reconstructor:
 
         self.__skeleton_lk.release()
 
-    def __batch_triangulate(self, keypoints_, Pall):
+    async def __reconstruct_3d_pose(self, triangulate_param):
+        task = []
+        for person_id in triangulate_param:
+            task.append(self.__batch_triangulate(person_id, triangulate_param[person_id]['keypoint'], triangulate_param[person_id]['P']))
+        out = await asyncio.gather(*task)
+        return out
+
+    async def __batch_triangulate(self, person_id, keypoints_, Pall):
         v = (keypoints_[:, :, -1]>0).sum(axis=0)
         valid_joint = np.where(v > 1)[0]
         keypoints = keypoints_[:, valid_joint]
@@ -166,7 +178,7 @@ class Reconstructor:
         result = np.zeros((keypoints_.shape[1], 4))
         result[valid_joint, :3] = X[:, :3]
         result[valid_joint, 3] = conf3d
-        return result
+        return (person_id, result)
 
     def __get_facehand_status(self, lk_facehand, mq_facehand, face_status, hand_status):
         lk_facehand.acquire()
