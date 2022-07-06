@@ -19,7 +19,7 @@ ZED SDK 3.6 introduces a major improvement in the Object detection module, custo
 
 ## overview
 ### system architecture
-Skeleton parsers estimate 2D body keypoints from RGB image and transfer it to a human reconstructor via HTTP.
+Skeleton parsers estimate 2D body keypoints from RGB image and transfer it to a human reconstructor via UDP protocol.
 Then, the human reconstructor receives 2D body keypoints respectively and reconstruct 3D human model.
 
 ![overview](./doc/pic/overview.png)
