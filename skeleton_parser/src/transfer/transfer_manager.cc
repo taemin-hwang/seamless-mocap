@@ -23,7 +23,7 @@ void TransferManager::Initialize(const int& camid, const std::string& ip_addr, c
 
 void TransferManager::SendPeopleKeypoints(const seamless::PeopleSkeleton& people_skeleton) {
 
-    PrintElement(people_skeleton);
+    // PrintElement(people_skeleton);
 
     clock_t start, end;
     auto bbox = people_skeleton.GetPeopleBoundBox();
@@ -114,6 +114,22 @@ void TransferManager::SetObjectFromPersonKeypoint(rapidjson::Value& annots_eleme
         array_keypoints.PushBack(element_keypoints, allocator);
     }
     annots_element.AddMember("keypoints", array_keypoints, allocator);
+
+    auto depth_points = keypoint.GetDepthPoints();
+
+    rapidjson::Value array_depth(rapidjson::kArrayType);
+    for (int i = 0; i < depth_points.size(); i++) {
+        rapidjson::Value element_depth(rapidjson::kArrayType);
+        {
+            element_depth.PushBack(depth_points[i][0], allocator); // X
+            element_depth.PushBack(depth_points[i][1], allocator); // Y
+            element_depth.PushBack(depth_points[i][2], allocator); // Z
+            element_depth.PushBack(depth_points[i][3], allocator); // Confidence
+        }
+        array_depth.PushBack(element_depth, allocator);
+    }
+    annots_element.AddMember("position", array_depth, allocator);
+
     logDebug << "Done";
 }
 
