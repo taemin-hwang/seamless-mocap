@@ -15,9 +15,5 @@ class GuiSender:
         print("[GUI    PORT] : ", port)
         self.client = BaseSocketClient(host, port)
 
-    def send_3d_skeletons(self, skeletons):
-        data = []
-        data.append({})
-        data[0]['id'] = 0
-        data[0]['keypoints3d'] = skeletons
+    def send_3d_skeletons(self, data):
         self.client.send(data)

@@ -24,6 +24,7 @@ class Reconstructor:
 
     def initialize(self, config):
         self.__config = config
+        self.__person_num = 10
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -32,7 +33,7 @@ class Reconstructor:
         self.__max_frame = self.__config["max_frame"]
         self.__min_confidence = self.__config["min_confidence"]
         self.__matching_table = self.__get_initial_matching_table(self.__calibration)
-        self.__frame_buffer_2d = np.ones((self.__cam_num+1, self.__buffer_size, 25, 3))
+        self.__frame_buffer_2d = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
 
     def run(self, func_recv_skeleton, func_recv_handface, func_send_skeleton_gui, func_send_skeleton_unity):
         self.__skeleton_mq, self.__skeleton_lk = func_recv_skeleton(self.__config["server_ip"], self.__config["skeleton_port"])
@@ -45,13 +46,9 @@ class Reconstructor:
         face_status = face_format.FACE_STATUS.CLOSED
         hand_status = hand_format.HAND_STATUS.OPEN
 
-        t = (-1, -1, 0)
-        frame_buffer = np.ones((self.__buffer_size, 25, 4))
-        cnt = 0
+        frame_buffer = np.ones((self.__person_num, self.__buffer_size, 25, 4))
         while(True):
             t_sleep = datetime.datetime.now()
-            #     t = self.__sync_matching_table(t[0], t[1], t[2])
-            #     self.__use_previous_frame(t[0], t[1])
             self.__use_latest_matching_table()
 
             if self.__args.face is True:
@@ -60,23 +57,25 @@ class Reconstructor:
                 print("[FACE STATUS] ", face_status)
                 print("[HAND STATUS] ", hand_status)
 
+            data = []
             valid_dlt_element = self.__get_valid_dlt_element()
-            if valid_dlt_element['count'] >= self.__min_cam:
-                valid_keypoint = np.stack(valid_dlt_element['valid_keypoint'], axis=0)
-                valid_p = np.stack(valid_dlt_element['valid_P'], axis=0)
-                out = self.__batch_triangulate(valid_keypoint, valid_p)
-                frame_buffer, ret = post.smooth_3d_pose(frame_buffer, out)
+            for person_id in range(0, self.__person_num):
+                if valid_dlt_element[person_id]['count'] >= self.__min_cam:
+                    valid_keypoint = np.stack(valid_dlt_element[person_id]['valid_keypoint'], axis=0)
+                    valid_p = np.stack(valid_dlt_element[person_id]['valid_P'], axis=0)
+                    out = self.__batch_triangulate(valid_keypoint, valid_p)
+                    frame_buffer[person_id], ret = post.smooth_3d_pose(frame_buffer[person_id], out)
+                    data.append({'id' : person_id, 'keypoints3d' : ret})
+                    #self.__reset_matching_table()
+                else:
+                    print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element[person_id]['count'])
 
+            if len(data) > 0:
                 if self.__args.gui is True:
-                    self.__send_skeleton_gui(ret)
+                    self.__send_skeleton_gui(data)
                 if self.__args.unity is True:
-                    self.__send_skeleton_unity(ret)
-
-                self.__reset_matching_table()
-            else:
-                print('Skip to restore 3D pose, number of valid data is ', valid_dlt_element['count'])
+                    self.__send_skeleton_unity(data)
             self.__reset_matching_table()
-            t = self.__reset_time(t)
 
             pause.until(t_sleep.timestamp() + self.__system_interval/1000)
 
@@ -84,70 +83,37 @@ class Reconstructor:
         matching_table = {}
         for cam_id in range(1, self.__cam_num+1):
             matching_table[cam_id] = {}
-            matching_table[cam_id]['is_valid'] = False
-            matching_table[cam_id]['timestamp'] = 0
-            matching_table[cam_id]['keypoint'] = np.zeros((25, 3))
             matching_table[cam_id]['P'] = calibration[str(cam_id)]['P']
+            for person_id in range(0, self.__person_num):
+                matching_table[cam_id][person_id] = {}
+                matching_table[cam_id][person_id]['is_valid'] = False
+                matching_table[cam_id][person_id]['timestamp'] = 0
+                matching_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3))
         return matching_table
 
     def __reset_matching_table(self):
         for cam_id in range(1, self.__cam_num+1):
-            self.__matching_table[cam_id]['is_valid'] = False
-
-    def __reset_time(self, t):
-        t_start = t[0]
-        t_end = t[1]
-        t_diff = t[2]
-        if t_start != -1:
-            t_start = t_end
-            t_end = t_start + self.__system_interval/1000
-        return (t_start, t_end, t_diff)
+            for person_id in range(0, self.__person_num):
+                self.__matching_table[cam_id][person_id]['is_valid'] = False
 
     def __get_valid_dlt_element(self):
         valid_dlt_element = {}
-        valid_dlt_element['count'] = 0
-        valid_dlt_element['valid_timestamp'] = []
-        valid_dlt_element['valid_keypoint'] = []
-        valid_dlt_element['valid_P'] = []
-        for cam_id in range(1, self.__cam_num+1):
-            if self.__matching_table[cam_id]['is_valid'] is True:
-                valid_dlt_element['count'] += 1
-                valid_dlt_element['valid_timestamp'].append(self.__matching_table[cam_id]['timestamp'])
-                valid_dlt_element['valid_keypoint'].append(self.__matching_table[cam_id]['keypoint'])
-                valid_dlt_element['valid_P'].append(self.__matching_table[cam_id]['P'])
+        for person_id in range(0, self.__person_num):
+            valid_dlt_element[person_id] = {}
+            valid_dlt_element[person_id]['count'] = 0
+            valid_dlt_element[person_id]['valid_timestamp'] = []
+            valid_dlt_element[person_id]['valid_keypoint'] = []
+            valid_dlt_element[person_id]['valid_P'] = []
+
+        for person_id in range(0, self.__person_num):
+            for cam_id in range(1, self.__cam_num+1):
+                # TODO: person matching
+                if self.__matching_table[cam_id][person_id]['is_valid'] is True:
+                    valid_dlt_element[person_id]['count'] += 1
+                    valid_dlt_element[person_id]['valid_timestamp'].append(self.__matching_table[cam_id][person_id]['timestamp'])
+                    valid_dlt_element[person_id]['valid_keypoint'].append(self.__matching_table[cam_id][person_id]['keypoint'])
+                    valid_dlt_element[person_id]['valid_P'].append(self.__matching_table[cam_id]['P'])
         return valid_dlt_element
-
-    def __sync_matching_table(self, t_start, t_end, t_diff):
-        self.__skeleton_lk.acquire()
-        qsize = self.__skeleton_mq.qsize()
-        if qsize > self.__min_cam:
-            for i in range(qsize):
-                data = self.__skeleton_mq.get()
-                data = json.loads(data)
-                t = data[0]
-                if t_start == -1:
-                    t_start = data[0]
-                    t_end = data[0] + self.__system_interval/1000
-                    t_diff = datetime.datetime.now().timestamp() - t_start
-                elif t < t_start:
-                    continue
-                elif t > t_end:
-                    self.__skeleton_mq.put(data)
-                else:
-                    if self.__args.visual:
-                        self.viewer.render_2d(data)
-                    cam_id = data['id']
-                    timestamp = data['timestamp']
-                    person_id = len(data['annots'])-1 # TODO: check if it is correct
-                    keypoints_34 = np.array(data['annots'][person_id]['keypoints'])
-                    keypoints_25 = utils.convert_25_from_34(keypoints_34)
-                    self.self.__frame_buffer_2d[cam_id], avg_keypoints_25 = pre.smooth_2d_pose(self.self.__frame_buffer_2d[cam_id], keypoints_25)
-                    self.__matching_table[cam_id]['is_valid'] = True
-                    self.__matching_table[cam_id]['timestamp'] = timestamp
-                    self.__matching_table[cam_id]['keypoint'] = avg_keypoints_25.tolist()
-
-        self.__skeleton_lk.release()
-        return (t_start, t_end, t_diff)
 
     def __use_latest_matching_table(self):
         self.__skeleton_lk.acquire()
@@ -161,20 +127,19 @@ class Reconstructor:
 
             cam_id = data['id']
             timestamp = data['timestamp']
-            person_id = len(data['annots'])-1 # TODO: check if it is correct
-            keypoints_34 = np.array(data['annots'][person_id]['keypoints'])
-            keypoints_25 = utils.convert_25_from_34(keypoints_34)
-            self.__frame_buffer_2d[cam_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_2d[cam_id], keypoints_25)
-            self.__matching_table[cam_id]['is_valid'] = True
-            self.__matching_table[cam_id]['timestamp'] = timestamp
-            self.__matching_table[cam_id]['keypoint'] = avg_keypoints_25.tolist()
-        self.__skeleton_lk.release()
+            for person_data in data['annots']:
+                person_id = person_data['personID']
+                if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
+                    print('Invalid data : {}, {}'.format(cam_id, person_id))
+                    continue
+                keypoints_34 = np.array(person_data['keypoints'])
+                keypoints_25 = utils.convert_25_from_34(keypoints_34)
+                self.__frame_buffer_2d[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_2d[cam_id][person_id], keypoints_25)
+                self.__matching_table[cam_id][person_id]['is_valid'] = True
+                self.__matching_table[cam_id][person_id]['timestamp'] = timestamp
+                self.__matching_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
 
-    def __use_previous_frame(self, t_start, t_end):
-        for cam_id in range(1, self.__cam_num+1):
-            if self.__matching_table[cam_id]['is_valid'] is False:
-                if t_start - self.__matching_table[cam_id]['timestamp'] < self.__system_interval*4:
-                    self.__matching_table[cam_id]['is_valid'] = True
+        self.__skeleton_lk.release()
 
     def __batch_triangulate(self, keypoints_, Pall):
         v = (keypoints_[:, :, -1]>0).sum(axis=0)
