@@ -19,6 +19,7 @@ class Reconstructor:
     def __init__(self, args):
         self.__args = args
         self.__calibration = fs.read_camera('./etc/intri.yml', './etc/extri.yml')
+        self.__transformation = fs.read_transformation('./etc/transformation.json')
         self.viewer = v2d.Viewer2d()
 
     def initialize(self, config):

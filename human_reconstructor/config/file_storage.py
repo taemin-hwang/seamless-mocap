@@ -85,3 +85,13 @@ def print_camera_parameter(cams):
     print('   K  : ', cams[str(i)]['K'])
     print('   RT : ', cams[str(i)]['RT'])
     print('   P : ', cams[str(i)]['P'])
+
+
+import json
+def read_transformation(transformation_path):
+    assert os.path.exists(transformation_path), transformation_path
+
+    with open(transformation_path, "r") as json_file:
+        json_data = json.load(json_file)
+
+    return json_data
