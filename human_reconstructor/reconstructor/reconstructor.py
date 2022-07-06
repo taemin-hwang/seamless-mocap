@@ -23,7 +23,7 @@ class Reconstructor:
 
     def initialize(self, config):
         self.__config = config
-        self.__person_num = 10
+        self.__person_num = 30
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -92,8 +92,8 @@ class Reconstructor:
             for person_id in range(0, self.__person_num):
                 matching_table[cam_id][person_id] = {}
                 matching_table[cam_id][person_id]['is_valid'] = False
-                matching_table[cam_id][person_id]['timestamp'] = 0
                 matching_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3))
+                matching_table[cam_id][person_id]['position'] = np.zeros((6, 4))
         return matching_table
 
     def __reset_matching_table(self):
@@ -106,7 +106,6 @@ class Reconstructor:
         for person_id in range(0, self.__person_num):
             valid_dlt_element[person_id] = {}
             valid_dlt_element[person_id]['count'] = 0
-            valid_dlt_element[person_id]['valid_timestamp'] = []
             valid_dlt_element[person_id]['valid_keypoint'] = []
             valid_dlt_element[person_id]['valid_P'] = []
 
@@ -115,7 +114,6 @@ class Reconstructor:
                 # TODO: person matching
                 if self.__matching_table[cam_id][person_id]['is_valid'] is True:
                     valid_dlt_element[person_id]['count'] += 1
-                    valid_dlt_element[person_id]['valid_timestamp'].append(self.__matching_table[cam_id][person_id]['timestamp'])
                     valid_dlt_element[person_id]['valid_keypoint'].append(self.__matching_table[cam_id][person_id]['keypoint'])
                     valid_dlt_element[person_id]['valid_P'].append(self.__matching_table[cam_id]['P'])
         return valid_dlt_element
@@ -141,8 +139,8 @@ class Reconstructor:
                 keypoints_25 = utils.convert_25_from_34(keypoints_34)
                 self.__frame_buffer_2d[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_2d[cam_id][person_id], keypoints_25)
                 self.__matching_table[cam_id][person_id]['is_valid'] = True
-                self.__matching_table[cam_id][person_id]['timestamp'] = timestamp
                 self.__matching_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
+                self.__matching_table[cam_id][person_id]['position'] = np.array(person_data['position'])
 
         self.__skeleton_lk.release()
 
