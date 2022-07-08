@@ -20,6 +20,7 @@ class Reconstructor:
         self.__calibration = fs.read_camera('./etc/intri.yml', './etc/extri.yml')
         self.__transformation = fs.read_transformation('./etc/transformation.json')
         self.viewer = v2d.Viewer2d()
+        self.__frame_number = 0
 
     def initialize(self, config):
         self.__config = config
@@ -56,6 +57,11 @@ class Reconstructor:
                 print("[FACE STATUS] ", face_status)
                 print("[HAND STATUS] ", hand_status)
 
+            if self.__args.log is True:
+                file_path = "./log/" + str(self.__frame_number).zfill(6) + ".json"
+                with open(file_path, "w") as outfile:
+                    json.dump(self.__matching_table, outfile)
+
             data = []
             triangulate_param = {}
             valid_dlt_element = self.__get_valid_dlt_element()
@@ -82,18 +88,20 @@ class Reconstructor:
                     self.__send_skeleton_unity(data)
             self.__reset_matching_table()
 
+            self.__frame_number += 1
+
             pause.until(t_sleep.timestamp() + self.__system_interval/1000)
 
     def __get_initial_matching_table(self, calibration):
         matching_table = {}
         for cam_id in range(1, self.__cam_num+1):
             matching_table[cam_id] = {}
-            matching_table[cam_id]['P'] = calibration[str(cam_id)]['P']
+            matching_table[cam_id]['P'] = calibration[str(cam_id)]['P'].tolist()
             for person_id in range(0, self.__person_num):
                 matching_table[cam_id][person_id] = {}
                 matching_table[cam_id][person_id]['is_valid'] = False
-                matching_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3))
-                matching_table[cam_id][person_id]['position'] = np.zeros((6, 4))
+                matching_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
+                matching_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
         return matching_table
 
     def __reset_matching_table(self):
@@ -109,8 +117,14 @@ class Reconstructor:
             valid_dlt_element[person_id]['valid_keypoint'] = []
             valid_dlt_element[person_id]['valid_P'] = []
 
-        for person_id in range(0, self.__person_num):
-            for cam_id in range(1, self.__cam_num+1):
+        for cam_id in range(1, self.__cam_num+1):
+            transform = self.__transformation['T'+str(cam_id)+'1']
+            for person_id in range(0, self.__person_num):
+                # TODO: person matching
+                position = self.__matching_table[cam_id][person_id]['position']
+
+        for cam_id in range(1, self.__cam_num+1):
+            for person_id in range(0, self.__person_num):
                 # TODO: person matching
                 if self.__matching_table[cam_id][person_id]['is_valid'] is True:
                     valid_dlt_element[person_id]['count'] += 1
@@ -129,7 +143,6 @@ class Reconstructor:
                 self.viewer.render_2d(data)
 
             cam_id = data['id']
-            timestamp = data['timestamp']
             for person_data in data['annots']:
                 person_id = person_data['personID']
                 if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
@@ -140,7 +153,7 @@ class Reconstructor:
                 self.__frame_buffer_2d[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_2d[cam_id][person_id], keypoints_25)
                 self.__matching_table[cam_id][person_id]['is_valid'] = True
                 self.__matching_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
-                self.__matching_table[cam_id][person_id]['position'] = np.array(person_data['position'])
+                self.__matching_table[cam_id][person_id]['position'] = person_data['position']
 
         self.__skeleton_lk.release()
 
