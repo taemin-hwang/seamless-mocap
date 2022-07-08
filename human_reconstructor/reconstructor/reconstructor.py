@@ -32,7 +32,7 @@ class Reconstructor:
         self.__buffer_size = self.__config["buffer_size"]
         self.__max_frame = self.__config["max_frame"]
         self.__min_confidence = self.__config["min_confidence"]
-        self.__matching_table = self.__get_initial_matching_table(self.__calibration)
+        self.__skeleton_table = self.__get_initial_skeleton_table(self.__calibration)
         self.__frame_buffer_2d = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
 
     def run(self, func_recv_skeleton, func_recv_handface, func_send_skeleton_gui, func_send_skeleton_unity):
@@ -49,7 +49,7 @@ class Reconstructor:
         frame_buffer = np.ones((self.__person_num, self.__buffer_size, 25, 4))
         while(True):
             t_sleep = datetime.datetime.now()
-            self.__use_latest_matching_table()
+            self.__use_latest_skeleton_table()
 
             if self.__args.face is True:
                 # Read face hand status from clients
@@ -60,7 +60,7 @@ class Reconstructor:
             if self.__args.log is True:
                 file_path = "./log/" + str(self.__frame_number).zfill(6) + ".json"
                 with open(file_path, "w") as outfile:
-                    json.dump(self.__matching_table, outfile)
+                    json.dump(self.__skeleton_table, outfile)
 
             data = []
             triangulate_param = {}
@@ -86,28 +86,28 @@ class Reconstructor:
                     self.__send_skeleton_gui(data)
                 if self.__args.unity is True:
                     self.__send_skeleton_unity(data)
-            self.__reset_matching_table()
+            self.__reset_skeleton_table()
 
             self.__frame_number += 1
 
             pause.until(t_sleep.timestamp() + self.__system_interval/1000)
 
-    def __get_initial_matching_table(self, calibration):
-        matching_table = {}
+    def __get_initial_skeleton_table(self, calibration):
+        skeleton_table = {}
         for cam_id in range(1, self.__cam_num+1):
-            matching_table[cam_id] = {}
-            matching_table[cam_id]['P'] = calibration[str(cam_id)]['P'].tolist()
+            skeleton_table[cam_id] = {}
+            skeleton_table[cam_id]['P'] = calibration[str(cam_id)]['P'].tolist()
             for person_id in range(0, self.__person_num):
-                matching_table[cam_id][person_id] = {}
-                matching_table[cam_id][person_id]['is_valid'] = False
-                matching_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
-                matching_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
-        return matching_table
+                skeleton_table[cam_id][person_id] = {}
+                skeleton_table[cam_id][person_id]['is_valid'] = False
+                skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
+                skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
+        return skeleton_table
 
-    def __reset_matching_table(self):
+    def __reset_skeleton_table(self):
         for cam_id in range(1, self.__cam_num+1):
             for person_id in range(0, self.__person_num):
-                self.__matching_table[cam_id][person_id]['is_valid'] = False
+                self.__skeleton_table[cam_id][person_id]['is_valid'] = False
 
     def __get_valid_dlt_element(self):
         valid_dlt_element = {}
@@ -121,18 +121,18 @@ class Reconstructor:
             transform = self.__transformation['T'+str(cam_id)+'1']
             for person_id in range(0, self.__person_num):
                 # TODO: person matching
-                position = self.__matching_table[cam_id][person_id]['position']
+                position = self.__skeleton_table[cam_id][person_id]['position']
 
         for cam_id in range(1, self.__cam_num+1):
             for person_id in range(0, self.__person_num):
                 # TODO: person matching
-                if self.__matching_table[cam_id][person_id]['is_valid'] is True:
+                if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
                     valid_dlt_element[person_id]['count'] += 1
-                    valid_dlt_element[person_id]['valid_keypoint'].append(self.__matching_table[cam_id][person_id]['keypoint'])
-                    valid_dlt_element[person_id]['valid_P'].append(self.__matching_table[cam_id]['P'])
+                    valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_table[cam_id][person_id]['keypoint'])
+                    valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_table[cam_id]['P'])
         return valid_dlt_element
 
-    def __use_latest_matching_table(self):
+    def __use_latest_skeleton_table(self):
         self.__skeleton_lk.acquire()
         qsize = self.__skeleton_mq.qsize()
 
@@ -151,9 +151,9 @@ class Reconstructor:
                 keypoints_34 = np.array(person_data['keypoints'])
                 keypoints_25 = utils.convert_25_from_34(keypoints_34)
                 self.__frame_buffer_2d[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_2d[cam_id][person_id], keypoints_25)
-                self.__matching_table[cam_id][person_id]['is_valid'] = True
-                self.__matching_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
-                self.__matching_table[cam_id][person_id]['position'] = person_data['position']
+                self.__skeleton_table[cam_id][person_id]['is_valid'] = True
+                self.__skeleton_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
+                self.__skeleton_table[cam_id][person_id]['position'] = person_data['position']
 
         self.__skeleton_lk.release()
 
