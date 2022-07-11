@@ -134,64 +134,66 @@ class Reconstructor:
                 avg_y /= cnt
 
                 self.__person_table[person_id]['prev_position']=(avg_x, avg_y)
-                self.__person_table[person_id]['is_valid'] = False
-                self.__person_table[person_id]['count'] = 0
-                self.__person_table[person_id]['cam_person'] = []
-                self.__person_table[person_id]['position'] = []
+            self.__person_table[person_id]['is_valid'] = False
+            self.__person_table[person_id]['count'] = 0
+            self.__person_table[person_id]['cam_person'] = []
+            self.__person_table[person_id]['position'] = []
 
     def __update_person_table(self):
+        max_person_num = 0
+        position_idx = np.empty((0, 2)) # cam_id, person_id
+        position_arr = np.empty((0, 2)) # X, Y
+
         for cam_id in range(1, self.__cam_num+1):
             transform = self.__transformation['T'+str(cam_id)+'1']
+            person_num = 0
             for person_id in range(0, self.__person_num):
                 if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
-                    position = self.__skeleton_table[cam_id][person_id]['position']
-                    c = []
-                    position = np.array(position)
-                    transform = np.array(transform)
-                    for kp in position:
-                        k = (transform[:-1, :-1]@kp[:3] + transform[:-1, -1]).tolist()
-                        k.extend([kp[3]])
-                        c.append(k)
-                    c = np.array(c)
-                    # print("cam{} - person{}".format(cam_id, person_id))
-                    avg_x = np.average(c[:, 0])
-                    avg_y = np.average(c[:, 1])
-                    # print("({}, {})".format(avg_x, avg_y))
+                    person_num += 1
+                    average_position = self.__get_average_position(cam_id, person_id, transform)
+                    position_arr = np.append(position_arr, np.array([[average_position[0], average_position[1]]]), axis=0)
+                    position_idx = np.append(position_idx, np.array([[cam_id, person_id]]), axis=0)
 
-                    for i in range(0, self.__person_num):
-                        if self.__person_table[i]['is_valid'] is False:
-                            if(self.__person_table[i]['prev_position'][0] == 0 and self.__person_table[i]['prev_position'][1] == 0):
-                                self.__person_table[i]['is_valid'] = True
-                                self.__person_table[i]['count'] += 1
-                                self.__person_table[i]['cam_person'].append((cam_id, person_id))
-                                self.__person_table[i]['position'].append((avg_x, avg_y))
-                                break
-                            else:
-                                matched_position = np.array(self.__person_table[i]['prev_position'][0], self.__person_table[i]['prev_position'][1])
-                                matching_position = np.array(avg_x, avg_y)
-                                dist = np.linalg.norm(matched_position-matching_position)
-                                if dist < 0.6:
-                                    self.__person_table[i]['is_valid'] = True
-                                    self.__person_table[i]['count'] += 1
-                                    self.__person_table[i]['cam_person'].append((cam_id, person_id))
-                                    self.__person_table[i]['position'].append((avg_x, avg_y))
-                                    break
-                        else:
-                            is_matched = True
-                            for j in range(self.__person_table[i]['count']):
-                                matched_position = np.array(self.__person_table[i]['position'][j][0], self.__person_table[i]['position'][j][1])
-                                matching_position = np.array(avg_x, avg_y)
-                                dist = np.linalg.norm(matched_position-matching_position)
-                                # print("distance: ", dist)
-                                if dist > 0.6:
-                                    is_matched = False
-                            if is_matched is True:
-                                self.__person_table[i]['count'] += 1
-                                self.__person_table[i]['cam_person'].append((cam_id, person_id))
-                                self.__person_table[i]['position'].append((avg_x, avg_y))
-                                break
+            if max_person_num < person_num:
+                max_person_num = person_num
+
+        if max_person_num > 0:
+            cluster_arr = self.__get_cluster_arr(position_arr, max_person_num)
+            for i in range(len(cluster_arr)):
+                cluster_id = cluster_arr[i]
+                self.__person_table[cluster_id]['is_valid'] = True
+                self.__person_table[cluster_id]['count'] += 1
+                self.__person_table[cluster_id]['cam_person'].append(position_idx[i]) # cam_id, person_id
+                self.__person_table[cluster_id]['position'].append(position_arr[cluster_id]) # X, Y
+
+    def __get_average_position(self, cam_id, person_id, transform):
+        position = self.__skeleton_table[cam_id][person_id]['position']
+        c = []
+        position = np.array(position)
+        transform = np.array(transform)
+        for kp in position:
+            k = (transform[:-1, :-1]@kp[:3] + transform[:-1, -1]).tolist()
+            k.extend([kp[3]])
+            c.append(k)
+        c = np.array(c)
+        avg_x = np.average(c[:, 0])
+        avg_y = np.average(c[:, 1])
+        return (avg_x, avg_y)
+
+    def __get_cluster_arr(self, position_arr, max_person_num):
+        print("[INFO] Clustering... {} people".format(max_person_num))
+        print(position_arr)
+        if len(position_arr) <= max_person_num:
+            return []
+
+        from sklearn.cluster import AgglomerativeClustering
+
+        cluster = AgglomerativeClustering(n_clusters=max_person_num, affinity='euclidean', linkage='ward')
+        ret = cluster.fit_predict(position_arr)
+        return ret
 
     def __get_valid_dlt_element(self):
+        # print(self.__person_table)
         valid_dlt_element = {}
         for person_id in range(0, self.__person_num):
             valid_dlt_element[person_id] = {}

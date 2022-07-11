@@ -16,4 +16,5 @@ class GuiSender:
         self.client = BaseSocketClient(host, port)
 
     def send_3d_skeletons(self, data):
+        # print(data)
         self.client.send(data)
