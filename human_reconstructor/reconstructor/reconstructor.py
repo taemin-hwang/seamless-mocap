@@ -33,7 +33,9 @@ class Reconstructor:
         self.__max_frame = self.__config["max_frame"]
         self.__min_confidence = self.__config["min_confidence"]
         self.__skeleton_table = self.__get_initial_skeleton_table(self.__calibration)
+        self.__person_table = self.__get_initial_person_table()
         self.__frame_buffer_2d = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
+        self.__frame_buffer_pos = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
 
     def run(self, func_recv_skeleton, func_recv_handface, func_send_skeleton_gui, func_send_skeleton_unity):
         self.__skeleton_mq, self.__skeleton_lk = func_recv_skeleton(self.__config["server_ip"], self.__config["skeleton_port"])
@@ -49,18 +51,8 @@ class Reconstructor:
         frame_buffer = np.ones((self.__person_num, self.__buffer_size, 25, 4))
         while(True):
             t_sleep = datetime.datetime.now()
-            self.__use_latest_skeleton_table()
-
-            if self.__args.face is True:
-                # Read face hand status from clients
-                face_status, hand_status = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status)
-                print("[FACE STATUS] ", face_status)
-                print("[HAND STATUS] ", hand_status)
-
-            if self.__args.log is True:
-                file_path = "./log/" + str(self.__frame_number).zfill(6) + ".json"
-                with open(file_path, "w") as outfile:
-                    json.dump(self.__skeleton_table, outfile)
+            self.__update_skeleton_table()
+            self.__update_person_table()
 
             data = []
             triangulate_param = {}
@@ -81,12 +73,20 @@ class Reconstructor:
                 frame_buffer[person_id], ret = post.smooth_3d_pose(frame_buffer[person_id], keypoint_3d)
                 data.append({'id' : person_id, 'keypoints3d' : ret})
 
+            if self.__args.face is True:
+                # Read face hand status from clients
+                face_status, hand_status = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status)
+                print("[FACE STATUS] ", face_status)
+                print("[HAND STATUS] ", hand_status)
+
             if len(data) > 0:
                 if self.__args.gui is True:
                     self.__send_skeleton_gui(data)
                 if self.__args.unity is True:
                     self.__send_skeleton_unity(data)
+
             self.__reset_skeleton_table()
+            self.__reset_person_table()
 
             self.__frame_number += 1
 
@@ -109,6 +109,88 @@ class Reconstructor:
             for person_id in range(0, self.__person_num):
                 self.__skeleton_table[cam_id][person_id]['is_valid'] = False
 
+    def __get_initial_person_table(self):
+        person_table = {}
+        for person_id in range(0, self.__person_num):
+            person_table[person_id] = {}
+            person_table[person_id]['is_valid'] = False
+            person_table[person_id]['count'] = 0
+            person_table[person_id]['cam_person'] = []
+            person_table[person_id]['position'] = []
+            person_table[person_id]['prev_position'] = (0, 0)
+        return person_table
+
+    def __reset_person_table(self):
+        for person_id in range(0, self.__person_num):
+            if self.__person_table[person_id]['is_valid'] is True:
+                cnt = 0
+                avg_x = 0.0
+                avg_y = 0.0
+                for j in range(self.__person_table[person_id]['count']):
+                    avg_x += self.__person_table[person_id]['position'][j][0]
+                    avg_y += self.__person_table[person_id]['position'][j][1]
+                    cnt += 1
+                avg_x /= cnt
+                avg_y /= cnt
+
+                self.__person_table[person_id]['prev_position']=(avg_x, avg_y)
+                self.__person_table[person_id]['is_valid'] = False
+                self.__person_table[person_id]['count'] = 0
+                self.__person_table[person_id]['cam_person'] = []
+                self.__person_table[person_id]['position'] = []
+
+    def __update_person_table(self):
+        for cam_id in range(1, self.__cam_num+1):
+            transform = self.__transformation['T'+str(cam_id)+'1']
+            for person_id in range(0, self.__person_num):
+                if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
+                    position = self.__skeleton_table[cam_id][person_id]['position']
+                    c = []
+                    position = np.array(position)
+                    transform = np.array(transform)
+                    for kp in position:
+                        k = (transform[:-1, :-1]@kp[:3] + transform[:-1, -1]).tolist()
+                        k.extend([kp[3]])
+                        c.append(k)
+                    c = np.array(c)
+                    # print("cam{} - person{}".format(cam_id, person_id))
+                    avg_x = np.average(c[:, 0])
+                    avg_y = np.average(c[:, 1])
+                    # print("({}, {})".format(avg_x, avg_y))
+
+                    for i in range(0, self.__person_num):
+                        if self.__person_table[i]['is_valid'] is False:
+                            if(self.__person_table[i]['prev_position'][0] == 0 and self.__person_table[i]['prev_position'][1] == 0):
+                                self.__person_table[i]['is_valid'] = True
+                                self.__person_table[i]['count'] += 1
+                                self.__person_table[i]['cam_person'].append((cam_id, person_id))
+                                self.__person_table[i]['position'].append((avg_x, avg_y))
+                                break
+                            else:
+                                matched_position = np.array(self.__person_table[i]['prev_position'][0], self.__person_table[i]['prev_position'][1])
+                                matching_position = np.array(avg_x, avg_y)
+                                dist = np.linalg.norm(matched_position-matching_position)
+                                if dist < 0.6:
+                                    self.__person_table[i]['is_valid'] = True
+                                    self.__person_table[i]['count'] += 1
+                                    self.__person_table[i]['cam_person'].append((cam_id, person_id))
+                                    self.__person_table[i]['position'].append((avg_x, avg_y))
+                                    break
+                        else:
+                            is_matched = True
+                            for j in range(self.__person_table[i]['count']):
+                                matched_position = np.array(self.__person_table[i]['position'][j][0], self.__person_table[i]['position'][j][1])
+                                matching_position = np.array(avg_x, avg_y)
+                                dist = np.linalg.norm(matched_position-matching_position)
+                                # print("distance: ", dist)
+                                if dist > 0.6:
+                                    is_matched = False
+                            if is_matched is True:
+                                self.__person_table[i]['count'] += 1
+                                self.__person_table[i]['cam_person'].append((cam_id, person_id))
+                                self.__person_table[i]['position'].append((avg_x, avg_y))
+                                break
+
     def __get_valid_dlt_element(self):
         valid_dlt_element = {}
         for person_id in range(0, self.__person_num):
@@ -117,22 +199,18 @@ class Reconstructor:
             valid_dlt_element[person_id]['valid_keypoint'] = []
             valid_dlt_element[person_id]['valid_P'] = []
 
-        for cam_id in range(1, self.__cam_num+1):
-            transform = self.__transformation['T'+str(cam_id)+'1']
-            for person_id in range(0, self.__person_num):
-                # TODO: person matching
-                position = self.__skeleton_table[cam_id][person_id]['position']
+        for person_id in range(0, self.__person_num):
+            if self.__person_table[person_id]['is_valid'] is True:
+                valid_dlt_element[person_id]['count'] = self.__person_table[person_id]['count']
+                for i in range(self.__person_table[person_id]['count']):
+                    cid = self.__person_table[person_id]['cam_person'][i][0]
+                    pid = self.__person_table[person_id]['cam_person'][i][1]
+                    valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_table[cid][pid]['keypoint'])
+                    valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_table[cid]['P'])
 
-        for cam_id in range(1, self.__cam_num+1):
-            for person_id in range(0, self.__person_num):
-                # TODO: person matching
-                if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
-                    valid_dlt_element[person_id]['count'] += 1
-                    valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_table[cam_id][person_id]['keypoint'])
-                    valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_table[cam_id]['P'])
         return valid_dlt_element
 
-    def __use_latest_skeleton_table(self):
+    def __update_skeleton_table(self):
         self.__skeleton_lk.acquire()
         qsize = self.__skeleton_mq.qsize()
 
@@ -153,9 +231,15 @@ class Reconstructor:
                 self.__frame_buffer_2d[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_2d[cam_id][person_id], keypoints_25)
                 self.__skeleton_table[cam_id][person_id]['is_valid'] = True
                 self.__skeleton_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
-                self.__skeleton_table[cam_id][person_id]['position'] = person_data['position']
+                self.__frame_buffer_pos[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_pos[cam_id][person_id], person_data['position'])
+                self.__skeleton_table[cam_id][person_id]['position'] = avg_position
 
         self.__skeleton_lk.release()
+
+        if self.__args.log is True:
+            file_path = "./log/" + str(self.__frame_number).zfill(6) + ".json"
+            with open(file_path, "w") as outfile:
+                json.dump(self.__skeleton_table, outfile)
 
     async def __reconstruct_3d_pose(self, triangulate_param):
         task = []

@@ -30,6 +30,32 @@ def smooth_2d_pose(frame_buffer_2d, keypoints2d):
 
     return frame_buffer_2d, avg_keypoints2d
 
+def smooth_position(frame_buffer_pos, position):
+    position = np.array(position)
+    avg_position = np.zeros(position.shape)
+    # moving average
+    frame_buffer_pos = np.roll(frame_buffer_pos, -1, axis=0)
+    buffer_size = frame_buffer_pos.shape[0]
+    frame_buffer_pos[buffer_size-1] = position
+
+    for i in range(position.shape[0]):
+        parts = frame_buffer_pos[:, i, :]
+        xdata = parts[:, 0]
+        ydata = parts[:, 1]
+        zdata = parts[:, 2]
+        cdata = parts[:, 3]
+
+        if np.sum(cdata) < 0.01:
+            break
+
+        x_avg = np.average(xdata, weights=cdata * range(1, buffer_size+1))
+        y_avg = np.average(ydata, weights=cdata)
+        z_avg = np.average(zdata, weights=cdata)
+        c_avg = np.average(cdata, weights=cdata)
+        avg_position[i] = [x_avg, y_avg, z_avg, c_avg]
+
+    return frame_buffer_pos, avg_position
+
 def reverse_skeleton(keypoints3d):
     swap_skeleton(2, 5, keypoints3d)
     swap_skeleton(3, 6, keypoints3d)
