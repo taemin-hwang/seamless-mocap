@@ -54,6 +54,7 @@ def fix_3d_pose_recursively(keypoints3d, parents_part):
     for connected_part in connected_parts:
         dist = np.linalg.norm(keypoints3d[parents_part] - keypoints3d[connected_part])
         # print("{} -> {} : {}".format(parents_part, connected_part, dist))
+        # TODO: update constant variable according to the human body size (+ rotation)
         if parents_part in SMALL_PARTS:
             if dist > 0.15:
                 keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*0.15

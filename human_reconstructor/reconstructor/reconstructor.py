@@ -227,9 +227,12 @@ class Reconstructor:
             if self.__args.visual:
                 self.viewer.render_2d(data)
 
+            bboxes = {}
             cam_id = data['id']
             for person_data in data['annots']:
                 person_id = person_data['personID']
+                bbox = person_data['bbox']
+                bboxes[person_id] = np.array(bbox)
                 if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
                     print('Invalid data : {}, {}'.format(cam_id, person_id))
                     continue
@@ -238,8 +241,17 @@ class Reconstructor:
                 self.__frame_buffer_2d[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_2d[cam_id][person_id], keypoints_25)
                 self.__skeleton_table[cam_id][person_id]['is_valid'] = True
                 self.__skeleton_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
-                self.__frame_buffer_pos[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_pos[cam_id][person_id], person_data['position'])
-                self.__skeleton_table[cam_id][person_id]['position'] = avg_position
+
+            for person_data in data['annots']:
+                person_id = person_data['personID']
+                for prev_bbox in bboxes:
+                    if prev_bbox == person_id:
+                        continue
+                    if pre.is_bbox_overlapped(bboxes[prev_bbox], bboxes[person_id]):
+                        self.__skeleton_table[cam_id][person_id]['position'] = self.__frame_buffer_pos[cam_id][person_id][self.__buffer_size-1]
+                    else:
+                        self.__frame_buffer_pos[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_pos[cam_id][person_id], person_data['position'])
+                        self.__skeleton_table[cam_id][person_id]['position'] = avg_position
 
         self.__skeleton_lk.release()
 

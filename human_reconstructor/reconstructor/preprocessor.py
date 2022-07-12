@@ -56,6 +56,14 @@ def smooth_position(frame_buffer_pos, position):
 
     return frame_buffer_pos, avg_position
 
+def is_bbox_overlapped(bbox1, bbox2):
+    if bbox1[0] < bbox2[0] and bbox2[0] < bbox1[2] and bbox1[1] < bbox2[1] and bbox2[1] < bbox1[3]:
+        return True
+    elif bbox1[0] < bbox2[2] and bbox2[2] < bbox1[2] and bbox1[1] < bbox2[3] and bbox2[3] < bbox1[3]:
+        return True
+    else:
+        return False
+
 def reverse_skeleton(keypoints3d):
     swap_skeleton(2, 5, keypoints3d)
     swap_skeleton(3, 6, keypoints3d)
