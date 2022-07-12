@@ -70,6 +70,8 @@ class Reconstructor:
             for reconstruction in reconstruction_list:
                 person_id = reconstruction[0]
                 keypoint_3d = reconstruction[1]
+                keypoint_3d = post.fix_wrong_3d_pose(keypoint_3d)
+
                 frame_buffer[person_id], ret = post.smooth_3d_pose(frame_buffer[person_id], keypoint_3d)
                 data.append({'id' : person_id, 'keypoints3d' : ret})
 

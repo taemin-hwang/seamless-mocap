@@ -48,7 +48,7 @@ def smooth_position(frame_buffer_pos, position):
         if np.sum(cdata) < 0.01:
             break
 
-        x_avg = np.average(xdata, weights=cdata * range(1, buffer_size+1))
+        x_avg = np.average(xdata, weights=cdata)
         y_avg = np.average(ydata, weights=cdata)
         z_avg = np.average(zdata, weights=cdata)
         c_avg = np.average(cdata, weights=cdata)

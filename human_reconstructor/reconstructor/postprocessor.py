@@ -1,4 +1,67 @@
 import numpy as np
+import copy
+from visualizer import utils
+
+FORWARD_KINEMATICS = {
+    utils.BODY_PARTS_POSE_25.MID_HIP.value: [utils.BODY_PARTS_POSE_25.NECK.value, utils.BODY_PARTS_POSE_25.RIGHT_HIP.value, utils.BODY_PARTS_POSE_25.LEFT_HIP.value],
+    utils.BODY_PARTS_POSE_25.NECK.value: [utils.BODY_PARTS_POSE_25.NOSE.value, utils.BODY_PARTS_POSE_25.RIGHT_SHOULDER.value, utils.BODY_PARTS_POSE_25.LEFT_SHOULDER.value],
+    utils.BODY_PARTS_POSE_25.NOSE.value: [utils.BODY_PARTS_POSE_25.RIGHT_EYE.value, utils.BODY_PARTS_POSE_25.LEFT_EYE.value],
+    utils.BODY_PARTS_POSE_25.LEFT_EYE.value : [utils.BODY_PARTS_POSE_25.LEFT_EAR.value],
+    utils.BODY_PARTS_POSE_25.RIGHT_EYE.value : [utils.BODY_PARTS_POSE_25.RIGHT_EAR.value],
+    utils.BODY_PARTS_POSE_25.RIGHT_SHOULDER.value : [utils.BODY_PARTS_POSE_25.RIGHT_ELBOW.value],
+    utils.BODY_PARTS_POSE_25.RIGHT_ELBOW.value : [utils.BODY_PARTS_POSE_25.RIGHT_WRIST.value],
+    utils.BODY_PARTS_POSE_25.LEFT_SHOULDER.value : [utils.BODY_PARTS_POSE_25.LEFT_ELBOW.value],
+    utils.BODY_PARTS_POSE_25.LEFT_ELBOW.value : [utils.BODY_PARTS_POSE_25.LEFT_WRIST.value],
+    utils.BODY_PARTS_POSE_25.RIGHT_HIP.value : [utils.BODY_PARTS_POSE_25.RIGHT_KNEE.value],
+    utils.BODY_PARTS_POSE_25.RIGHT_KNEE.value : [utils.BODY_PARTS_POSE_25.RIGHT_ANKLE.value],
+    utils.BODY_PARTS_POSE_25.RIGHT_ANKLE.value : [utils.BODY_PARTS_POSE_25.RIGHT_FOOT.value, utils.BODY_PARTS_POSE_25.RIGHT_HEEL.value],
+    utils.BODY_PARTS_POSE_25.RIGHT_FOOT.value : [utils.BODY_PARTS_POSE_25.RIGHT_TOE.value],
+    utils.BODY_PARTS_POSE_25.LEFT_HIP.value : [utils.BODY_PARTS_POSE_25.LEFT_KNEE.value],
+    utils.BODY_PARTS_POSE_25.LEFT_KNEE.value : [utils.BODY_PARTS_POSE_25.LEFT_ANKLE.value],
+    utils.BODY_PARTS_POSE_25.LEFT_ANKLE.value : [utils.BODY_PARTS_POSE_25.LEFT_FOOT.value, utils.BODY_PARTS_POSE_25.LEFT_HEEL.value],
+    utils.BODY_PARTS_POSE_25.LEFT_FOOT.value : [utils.BODY_PARTS_POSE_25.LEFT_TOE.value]
+}
+
+SMALL_PARTS = [utils.BODY_PARTS_POSE_25.NOSE.value,
+               utils.BODY_PARTS_POSE_25.RIGHT_EYE.value,
+               utils.BODY_PARTS_POSE_25.LEFT_EYE.value,
+               utils.BODY_PARTS_POSE_25.RIGHT_ANKLE.value,
+               utils.BODY_PARTS_POSE_25.RIGHT_FOOT.value,
+               utils.BODY_PARTS_POSE_25.LEFT_ANKLE.value,
+               utils.BODY_PARTS_POSE_25.LEFT_FOOT.value]
+
+MID_PARTS = [utils.BODY_PARTS_POSE_25.NECK.value,
+               utils.BODY_PARTS_POSE_25.RIGHT_HIP.value,
+               utils.BODY_PARTS_POSE_25.LEFT_HIP.value,
+               utils.BODY_PARTS_POSE_25.RIGHT_ELBOW.value,
+               utils.BODY_PARTS_POSE_25.RIGHT_ELBOW.value,
+               utils.BODY_PARTS_POSE_25.RIGHT_KNEE.value,
+               utils.BODY_PARTS_POSE_25.LEFT_KNEE.value]
+
+def fix_wrong_3d_pose(keypoints3d):
+    # param1: keypoints3d is 3D pose from current frame
+    # return: ret is fixed 3D pose
+    fix_3d_pose_recursively(keypoints3d[:, :3], utils.BODY_PARTS_POSE_25.MID_HIP.value)
+    return keypoints3d
+
+def fix_3d_pose_recursively(keypoints3d, parents_part):
+    if parents_part not in FORWARD_KINEMATICS:
+        return
+
+    connected_parts = FORWARD_KINEMATICS[parents_part]
+    for connected_part in connected_parts:
+        dist = np.linalg.norm(keypoints3d[parents_part] - keypoints3d[connected_part])
+        print("{} -> {} : {}".format(parents_part, connected_part, dist))
+        if parents_part in SMALL_PARTS:
+            if dist > 0.15:
+                keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*0.15
+        elif parents_part in MID_PARTS:
+            if dist > 0.5:
+                keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*0.5
+        else:
+            if dist > 1.0:
+                keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*1.0
+        fix_3d_pose_recursively(keypoints3d, connected_part)
 
 def smooth_3d_pose(frame_buffer_3d, keypoints3d):
     # Smooth estimated 3D pose
@@ -23,7 +86,7 @@ def smooth_3d_pose(frame_buffer_3d, keypoints3d):
         if np.sum(cdata) < 0.01:
             break
 
-        x_avg = np.average(xdata, weights=cdata * range(1, buffer_size+1))
+        x_avg = np.average(xdata, weights=cdata)
         y_avg = np.average(ydata, weights=cdata)
         z_avg = np.average(zdata, weights=cdata)
         c_avg = np.average(cdata, weights=cdata)
