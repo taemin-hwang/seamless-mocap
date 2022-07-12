@@ -41,27 +41,34 @@ MID_PARTS = [utils.BODY_PARTS_POSE_25.NECK.value,
 def fix_wrong_3d_pose(keypoints3d):
     # param1: keypoints3d is 3D pose from current frame
     # return: ret is fixed 3D pose
-    fix_3d_pose_recursively(keypoints3d[:, :3], utils.BODY_PARTS_POSE_25.MID_HIP.value)
-    return keypoints3d
+    err_dist = fix_3d_pose_recursively(keypoints3d[:, :3], utils.BODY_PARTS_POSE_25.MID_HIP.value)
+    mean_err_dist = err_dist/24
+    return (mean_err_dist, keypoints3d)
 
 def fix_3d_pose_recursively(keypoints3d, parents_part):
     if parents_part not in FORWARD_KINEMATICS:
-        return
+        return 0
 
     connected_parts = FORWARD_KINEMATICS[parents_part]
+    err_dist = 0
     for connected_part in connected_parts:
         dist = np.linalg.norm(keypoints3d[parents_part] - keypoints3d[connected_part])
-        print("{} -> {} : {}".format(parents_part, connected_part, dist))
+        # print("{} -> {} : {}".format(parents_part, connected_part, dist))
         if parents_part in SMALL_PARTS:
             if dist > 0.15:
                 keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*0.15
+                err_dist += (dist - 0.15)
         elif parents_part in MID_PARTS:
             if dist > 0.5:
                 keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*0.5
+                err_dist += (dist - 0.5)
         else:
             if dist > 1.0:
                 keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*1.0
-        fix_3d_pose_recursively(keypoints3d, connected_part)
+                err_dist += (dist - 1.0)
+
+        err_dist += fix_3d_pose_recursively(keypoints3d, connected_part)
+    return err_dist
 
 def smooth_3d_pose(frame_buffer_3d, keypoints3d):
     # Smooth estimated 3D pose
