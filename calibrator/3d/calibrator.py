@@ -151,6 +151,9 @@ class calibrator:
     def __save_transformation_matrix(self, transformation_matrix):
         data = {}
         for _from in range(self.__num):
+            skeletons = self.__select_matched_points(self.__get_keypoints(_from+1))
+            print(skeletons)
+            data["C{}".format(_from+1)] = [np.average(skeletons[:, 0]), np.average(skeletons[:, 1]), np.average(skeletons[:, 2]), np.average(skeletons[:, 3])]
             for _to in range(self.__num):
                 data["T{}{}".format(_from+1, _to+1)] = transformation_matrix[_from][_to].tolist()
 
