@@ -72,11 +72,12 @@ class Reconstructor:
                 keypoint_3d = reconstruction[1]
                 (mean_err_dist, keypoint_3d) = post.fix_wrong_3d_pose(keypoint_3d)
 
-                if mean_err_dist < 0.5:
-                    frame_buffer[person_id], ret = post.smooth_3d_pose(frame_buffer[person_id], keypoint_3d)
-                    data.append({'id' : person_id, 'keypoints3d' : ret})
-                else:
+                if mean_err_dist >= 0.5:
                     print("SKIP THIS FRAME, TOO MUCH ERROR : ", mean_err_dist)
+                    continue
+
+                frame_buffer[person_id], ret = post.smooth_3d_pose(frame_buffer[person_id], keypoint_3d)
+                data.append({'id' : person_id, 'keypoints3d' : ret})
 
             if self.__args.face is True:
                 # Read face hand status from clients
@@ -154,16 +155,19 @@ class Reconstructor:
             person_num = 0
             for person_id in range(0, self.__person_num):
                 if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
-                    person_num += 1
                     average_position = self.__get_average_position(cam_id, person_id, transform)
-                    position_arr = np.append(position_arr, np.array([[average_position[0], average_position[1]]]), axis=0)
-                    position_idx = np.append(position_idx, np.array([[cam_id, person_id]]), axis=0)
+                    dist_from_cam1 = np.linalg.norm(np.array([average_position[0], average_position[1]]) - self.__transformation['C1'][:2])
+                    print("[DISTANCE] cam {}, person {} : {}".format(cam_id, person_id, dist_from_cam1))
+                    if dist_from_cam1 < 5:
+                        position_arr = np.append(position_arr, np.array([[average_position[0], average_position[1]]]), axis=0)
+                        position_idx = np.append(position_idx, np.array([[cam_id, person_id]]), axis=0)
+                        person_num += 1
 
             if max_person_num < person_num:
                 max_person_num = person_num
 
         if max_person_num > 0:
-            cluster_arr = self.__get_cluster_arr(position_arr, max_person_num)
+            cluster_arr = self.__get_cluster_arr(position_arr, position_idx, max_person_num)
             for i in range(len(cluster_arr)):
                 cluster_id = cluster_arr[i]
                 self.__person_table[cluster_id]['is_valid'] = True
@@ -185,26 +189,29 @@ class Reconstructor:
         avg_y = np.average(c[:, 1])
         return (avg_x, avg_y)
 
-    def __get_cluster_arr(self, position_arr, max_person_num):
+    def __get_cluster_arr(self, position_arr, position_idx, max_person_num):
+        from sklearn.cluster import AgglomerativeClustering
+
         print("[INFO] Clustering... {} people".format(max_person_num))
-        print(position_arr)
         if len(position_arr) <= max_person_num:
             return []
 
-        from sklearn.cluster import AgglomerativeClustering
-
         cluster = AgglomerativeClustering(n_clusters=max_person_num, affinity='euclidean', linkage='ward')
         ret = cluster.fit_predict(position_arr)
+
+        for i in range(len(ret)):
+            print("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
+
         return ret
 
     def __get_valid_dlt_element(self):
-        # print(self.__person_table)
         valid_dlt_element = {}
         for person_id in range(0, self.__person_num):
             valid_dlt_element[person_id] = {}
             valid_dlt_element[person_id]['count'] = 0
             valid_dlt_element[person_id]['valid_keypoint'] = []
             valid_dlt_element[person_id]['valid_P'] = []
+            valid_dlt_element[person_id]['cpid'] = []
 
         for person_id in range(0, self.__person_num):
             if self.__person_table[person_id]['is_valid'] is True:
@@ -214,6 +221,7 @@ class Reconstructor:
                     pid = self.__person_table[person_id]['cam_person'][i][1]
                     valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_table[cid][pid]['keypoint'])
                     valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_table[cid]['P'])
+                    valid_dlt_element[person_id]['cpid'].append(post.get_cpid(cid, pid))
 
         return valid_dlt_element
 
@@ -244,11 +252,15 @@ class Reconstructor:
 
             for person_data in data['annots']:
                 person_id = person_data['personID']
+                if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
+                    print('Invalid data : {}, {}'.format(cam_id, person_id))
+                    continue
                 for prev_bbox in bboxes:
                     if prev_bbox == person_id:
                         continue
                     if pre.is_bbox_overlapped(bboxes[prev_bbox], bboxes[person_id]):
                         self.__skeleton_table[cam_id][person_id]['position'] = self.__frame_buffer_pos[cam_id][person_id][self.__buffer_size-1]
+                        print("Bounding boxes overlapped : {} and {} from camera {} ".format(prev_bbox, person_id, cam_id))
                     else:
                         self.__frame_buffer_pos[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_pos[cam_id][person_id], person_data['position'])
                         self.__skeleton_table[cam_id][person_id]['position'] = avg_position

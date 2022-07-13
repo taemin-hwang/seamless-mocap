@@ -110,3 +110,12 @@ def xyz_to_xzy(keypoints3d):
     #ret[:, 2] += 1.1
     #ret[:, 3][ret[:, 3] < self.min_confidence] = 0
     return keypoints3d
+
+def get_cpid(cid, pid):
+    return cid*100 + pid
+
+def get_cam_id(cpid):
+    return int(cpid/100)
+
+def get_person_id(cpid):
+    return int(cpid%100)
