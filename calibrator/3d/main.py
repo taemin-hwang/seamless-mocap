@@ -24,6 +24,6 @@ if __name__ == "__main__":
             keypoint_parser.set_send_keypoint_3d(tran.send_3d_skeleton)
         keypoint_parser.run()
     else:
-        cali = cb.calibrator(2)
+        cali = cb.calibrator(4)
         cali.initialize(args, "./etc/")
         cali.run()

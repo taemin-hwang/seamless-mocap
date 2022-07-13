@@ -1,12 +1,25 @@
 import cv2
 import numpy as np
 import pyzed.sl as sl
+import utils
 
-ID_COLORS = [(232, 176,59)
-            ,(175, 208,25)
-            ,(102, 205,105)
-            ,(185, 0,255)
-            ,(99, 107,252)]
+ID_COLORS = [(232, 176, 59)
+            ,(175, 208, 25)
+            ,(102, 205, 105)
+            ,(185, 0, 255)
+            ,(99, 107, 252)
+            ,(1, 146, 103)
+            ,(0, 200, 151)
+            ,(255, 211, 101)
+            ,(83, 62, 133)
+            ,(72, 143, 177)
+            ,(79, 211, 196)
+            ,(193, 248, 207)
+            ,(25, 25, 25)
+            ,(45, 66, 99)
+            ,(200, 75, 49)
+            ,(236, 219, 186)
+            ]
 
 # Slightly differs from sl.BODY_BONES in order to draw the spine
 SKELETON_BONES = [ (sl.BODY_PARTS.NOSE, sl.BODY_PARTS.NECK),
@@ -39,8 +52,9 @@ def generate_color_id_u(idx):
     if(idx < 0):
         arr = [236,184,36,255]
     else:
-        color_idx = idx % 5
+        color_idx = idx % 16
         arr = [ID_COLORS[color_idx][0], ID_COLORS[color_idx][1], ID_COLORS[color_idx][2], 255]
+    return arr
 
 #----------------------------------------------------------------------
 #       2D VIEW
@@ -114,3 +128,22 @@ def render_2D(left_display, objects, is_tracking_on, body_format):
 
     return overlay
     #cv2.addWeighted(left_display, 0.9, overlay, 0.1, 0.0, left_display)
+
+
+def draw_3d_skeleton(ax, skeletons):
+    clr = generate_color_id_u(0)
+    plt_clr = [clr[0]/255, clr[1]/255, clr[2]/255]
+
+    for bone in utils.BODY_BONES_POSE_25:
+        kp_1 = skeletons[bone[0].value]
+        kp_2 = skeletons[bone[1].value]
+        if(kp_1[3] > 0.2 and kp_2[3] > 0.2):
+            ax.plot([kp_1[0], kp_2[0]], [kp_1[1], kp_2[1]], [kp_1[2], kp_2[2]], color=plt_clr)
+
+    for part in utils.BODY_PARTS_POSE_25:
+        if part.value < 25:
+            kp = skeletons[part.value]
+        if kp[3] > 0.2:
+            circle_color = generate_color_id_u(part.value)
+            plt_circle_clr = [circle_color[0]/255, circle_color[1]/255, circle_color[2]/255]
+            ax.scatter(kp[0], kp[1], kp[2], color=plt_circle_clr)

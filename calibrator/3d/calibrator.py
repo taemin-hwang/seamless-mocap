@@ -2,13 +2,19 @@ import numpy as np
 import utils
 import json
 import os
+import viewer
 
 class calibrator:
     def __init__(self, cam_num):
         self.__ids = [utils.BODY_PARTS_POSE_25.NOSE.value,
                       utils.BODY_PARTS_POSE_25.NECK.value,
                       utils.BODY_PARTS_POSE_25.RIGHT_SHOULDER.value,
-                      utils.BODY_PARTS_POSE_25.LEFT_SHOULDER.value]
+                      utils.BODY_PARTS_POSE_25.LEFT_SHOULDER.value,
+                      utils.BODY_PARTS_POSE_25.MID_HIP.value,
+                      utils.BODY_PARTS_POSE_25.RIGHT_KNEE.value,
+                      utils.BODY_PARTS_POSE_25.LEFT_KNEE.value,
+                      utils.BODY_PARTS_POSE_25.RIGHT_ANKLE.value,
+                      utils.BODY_PARTS_POSE_25.LEFT_ANKLE.value,]
         self.__num = cam_num
         pass
 
@@ -37,6 +43,55 @@ class calibrator:
         print("T21 : ", transformation_matrix[1][0])
         self.__save_transformation_matrix(transformation_matrix)
 
+        self.__show_results(transformation_matrix)
+
+    def __show_results(self, transformation_matrix):
+        from mpl_toolkits import mplot3d
+        import matplotlib.pyplot as plt
+
+        for i in range(self.__num):
+            fig = plt.figure()
+            plt.tight_layout()
+            skeletons = self.__get_keypoints(i+1)
+            # ax = fig.add_subplot(2, 2, i+1, projection='3d')
+            ax = plt.axes(projection='3d')
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+            plt.xlim(-2, 1)
+            plt.ylim(-2, 1)
+            ax.set_zlim(0, 1.5)
+            viewer.draw_3d_skeleton(ax, skeletons)
+            plt.show()
+
+        for i in range(self.__num):
+            transform = transformation_matrix[i][0]
+            skeletons = self.__get_keypoints(i+1)
+            transformed_keypoints = self.__get_transformed_keypoints(skeletons, transform)
+            fig = plt.figure()
+            plt.tight_layout()
+            # ax = fig.add_subplot(2, 2, i+1, projection='3d')
+            ax = plt.axes(projection='3d')
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+            plt.xlim(-2, 1)
+            plt.ylim(-2, 1)
+            ax.set_zlim(0, 1.5)
+            viewer.draw_3d_skeleton(ax, transformed_keypoints)
+            plt.show()
+
+    def __get_transformed_keypoints(self, keypoints, transform):
+        keypoints = np.array(keypoints)
+        transform = np.array(transform)
+        c = []
+        for kp in keypoints:
+            k = (transform[:-1, :-1]@kp[:3] + transform[:-1, -1]).tolist()
+            k.extend([kp[3]])
+            c.append(k)
+        c = np.array(c)
+        return c
+
     def __get_keypoints(self, cam_id):
         keypoints = []
         keyword = 'cam' + str(cam_id) + '_'
@@ -60,8 +115,8 @@ class calibrator:
         return matched_points
 
     def __get_transformation_matrix(self, a, b):
-        a_arr = np.stack([a[0][:3], a[1][:3], a[2][:3], a[3][:3]], axis=1)
-        b_arr = np.stack([b[0][:3], b[1][:3], b[2][:3], b[3][:3]], axis=1)
+        a_arr = np.stack([a[i][:3] for i in range(len(self.__ids))], axis=1)
+        b_arr = np.stack([b[i][:3] for i in range(len(self.__ids))], axis=1)
 
         a_arr = np.concatenate([a_arr, np.ones_like(a_arr[:1])], axis=0)
         b_arr = np.concatenate([b_arr, np.ones_like(b_arr[:1])], axis=0)
