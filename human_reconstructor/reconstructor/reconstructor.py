@@ -25,6 +25,7 @@ class Reconstructor:
     def initialize(self, config):
         self.__config = config
         self.__person_num = 30
+        self.__max_person_num = 2
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -34,6 +35,7 @@ class Reconstructor:
         self.__min_confidence = self.__config["min_confidence"]
         self.__skeleton_table = self.__get_initial_skeleton_table(self.__calibration)
         self.__person_table = self.__get_initial_person_table()
+        self.__tracking_table = self.__get_initial_tracking_table()
         self.__frame_buffer_2d = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
         self.__frame_buffer_pos = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
 
@@ -70,14 +72,31 @@ class Reconstructor:
             for reconstruction in reconstruction_list:
                 person_id = reconstruction[0]
                 keypoint_3d = reconstruction[1]
+                print("person_id:", person_id)
                 (mean_err_dist, keypoint_3d) = post.fix_wrong_3d_pose(keypoint_3d)
 
                 if mean_err_dist >= 0.5:
-                    print("SKIP THIS FRAME, TOO MUCH ERROR : ", mean_err_dist)
+                    print("SKIP THIS PERSON {}, TOO MUCH ERROR : {}".format(person_id, mean_err_dist))
                     continue
 
-                frame_buffer[person_id], ret = post.smooth_3d_pose(frame_buffer[person_id], keypoint_3d)
-                data.append({'id' : person_id, 'keypoints3d' : ret})
+                min_err = np.inf
+                min_id = -1
+                for tracking_id in range(self.__max_person_num):
+                    tracking_keypoints = self.__tracking_table[tracking_id]['keypoints3d']
+                    if tracking_keypoints is None:
+                        self.__tracking_table[tracking_id]['keypoints3d'] = keypoint_3d
+                        break
+
+                    err = post.get_distance_from_keypoints(keypoint_3d[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
+                    print("ERR : ", err)
+                    if err < min_err:
+                        min_err = err
+                        min_id = tracking_id
+
+                if min_id >= 0:
+                    frame_buffer[min_id], ret = post.smooth_3d_pose(frame_buffer[min_id], keypoint_3d)
+                    self.__tracking_table[min_id]['keypoints3d'] = ret
+                    data.append({'id' : min_id, 'keypoints3d' : ret})
 
             if self.__args.face is True:
                 # Read face hand status from clients
@@ -145,6 +164,14 @@ class Reconstructor:
             self.__person_table[person_id]['cam_person'] = []
             self.__person_table[person_id]['position'] = []
 
+    def __get_initial_tracking_table(self):
+        tracking_table = {}
+        for i in range(self.__max_person_num):
+            tracking_table[i] = {}
+            tracking_table[i]['cpid'] = []
+            tracking_table[i]['keypoints3d'] = None
+        return tracking_table
+
     def __update_person_table(self):
         max_person_num = 0
         position_idx = np.empty((0, 2)) # cam_id, person_id
@@ -158,7 +185,7 @@ class Reconstructor:
                     average_position = self.__get_average_position(cam_id, person_id, transform)
                     dist_from_cam1 = np.linalg.norm(np.array([average_position[0], average_position[1]]) - self.__transformation['C1'][:2])
                     print("[DISTANCE] cam {}, person {} : {}".format(cam_id, person_id, dist_from_cam1))
-                    if dist_from_cam1 < 5:
+                    if dist_from_cam1 < 10:
                         position_arr = np.append(position_arr, np.array([[average_position[0], average_position[1]]]), axis=0)
                         position_idx = np.append(position_idx, np.array([[cam_id, person_id]]), axis=0)
                         person_num += 1
