@@ -66,37 +66,69 @@ class Reconstructor:
                     triangulate_param[person_id] = {}
                     triangulate_param[person_id]['keypoint'] = valid_keypoint
                     triangulate_param[person_id]['P'] = valid_p
+                    triangulate_param[person_id]['cpid'] = valid_dlt_element[person_id]['cpid']
 
             reconstruction_list = asyncio.run(self.__reconstruct_3d_pose(triangulate_param))
 
-            for reconstruction in reconstruction_list:
-                person_id = reconstruction[0]
-                keypoint_3d = reconstruction[1]
-                print("person_id:", person_id)
-                (mean_err_dist, keypoint_3d) = post.fix_wrong_3d_pose(keypoint_3d)
-
+            for person_A in reconstruction_list:
+                is_too_closed = False
+                person_A_id = person_A[0]
+                person_A_keypoint = person_A[1]
+                (mean_err_dist, person_A_keypoint) = post.fix_wrong_3d_pose(person_A_keypoint)
                 if mean_err_dist >= 0.5:
-                    print("SKIP THIS PERSON {}, TOO MUCH ERROR : {}".format(person_id, mean_err_dist))
+                    print("SKIP THIS PERSON {}, TOO MUCH ERROR : {}".format(person_A_id, mean_err_dist))
                     continue
 
-                min_err = np.inf
-                min_id = -1
-                for tracking_id in range(self.__max_person_num):
-                    tracking_keypoints = self.__tracking_table[tracking_id]['keypoints3d']
-                    if tracking_keypoints is None:
-                        self.__tracking_table[tracking_id]['keypoints3d'] = keypoint_3d
-                        break
+                person_A_center_position = post.get_center_position(person_A_keypoint)
+                for person_B in reconstruction_list:
+                    person_B_id = person_B[0]
+                    if person_A_id == person_B_id:
+                        continue
+                    person_B_keypoint = person_B[1]
+                    person_B_center_position = post.get_center_position(person_B_keypoint)
+                    dist_between_A_and_B = np.linalg.norm(person_A_center_position - person_B_center_position)
 
-                    err = post.get_distance_from_keypoints(keypoint_3d[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
-                    print("ERR : ", err)
-                    if err < min_err:
-                        min_err = err
-                        min_id = tracking_id
+                    if dist_between_A_and_B <= 0.5:
+                        print("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
+                        is_too_closed = True
+                        continue
 
-                if min_id >= 0:
-                    frame_buffer[min_id], ret = post.smooth_3d_pose(frame_buffer[min_id], keypoint_3d)
-                    self.__tracking_table[min_id]['keypoints3d'] = ret
-                    data.append({'id' : min_id, 'keypoints3d' : ret})
+                if is_too_closed is False:
+                    min_err = np.inf
+                    min_id = -1
+                    for tracking_id in range(self.__max_person_num):
+                        tracking_keypoints = self.__tracking_table[tracking_id]['keypoints3d']
+                        if tracking_keypoints is None:
+                            self.__tracking_table[tracking_id]['keypoints3d'] = person_A_keypoint
+                            self.__tracking_table[tracking_id]['cpid'] = triangulate_param[tracking_id]['cpid']
+                            break
+
+                        err = post.get_distance_from_keypoints(person_A_keypoint[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
+                        print("ERR : ", err)
+                        if err < min_err:
+                            min_err = err
+                            min_id = tracking_id
+
+                    if min_id >= 0:
+                        frame_buffer[min_id], ret = post.smooth_3d_pose(frame_buffer[min_id], person_A_keypoint)
+                        self.__tracking_table[min_id]['keypoints3d'] = ret
+                        self.__tracking_table[min_id]['cpid'] = triangulate_param[person_A_id]['cpid']
+                        data.append({'id' : min_id, 'keypoints3d' : ret})
+                else:
+                    # Find tracking ID from cpid
+                    max_cnt = 0
+                    max_id = -1
+                    for tracking_id in range(self.__max_person_num):
+                        # Count same element between two list
+                        cnt = post.count_same_element_in_list(triangulate_param[person_A_id]['cpid'], self.__tracking_table[tracking_id]['cpid'])
+                        if cnt > max_cnt:
+                            max_cnt = cnt
+                            max_id = tracking_id
+                    if max_id >= 0:
+                        frame_buffer[max_id], ret = post.smooth_3d_pose(frame_buffer[max_id], person_A_keypoint)
+                        self.__tracking_table[max_id]['keypoints3d'] = ret
+                        self.__tracking_table[max_id]['cpid'] = triangulate_param[person_A_id]['cpid']
+                        data.append({'id' : max_id, 'keypoints3d' : ret})
 
             if self.__args.face is True:
                 # Read face hand status from clients
@@ -161,7 +193,7 @@ class Reconstructor:
                 self.__person_table[person_id]['prev_position']=(avg_x, avg_y)
             self.__person_table[person_id]['is_valid'] = False
             self.__person_table[person_id]['count'] = 0
-            self.__person_table[person_id]['cam_person'] = []
+            self.__person_table[person_id]['cpid'] = []
             self.__person_table[person_id]['position'] = []
 
     def __get_initial_tracking_table(self):
@@ -199,7 +231,7 @@ class Reconstructor:
                 cluster_id = cluster_arr[i]
                 self.__person_table[cluster_id]['is_valid'] = True
                 self.__person_table[cluster_id]['count'] += 1
-                self.__person_table[cluster_id]['cam_person'].append(position_idx[i]) # cam_id, person_id
+                self.__person_table[cluster_id]['cpid'].append(post.get_cpid(position_idx[i][0], position_idx[i][1])) # cam_id, person_id
                 self.__person_table[cluster_id]['position'].append(position_arr[cluster_id]) # X, Y
 
     def __get_average_position(self, cam_id, person_id, transform):
@@ -244,11 +276,12 @@ class Reconstructor:
             if self.__person_table[person_id]['is_valid'] is True:
                 valid_dlt_element[person_id]['count'] = self.__person_table[person_id]['count']
                 for i in range(self.__person_table[person_id]['count']):
-                    cid = self.__person_table[person_id]['cam_person'][i][0]
-                    pid = self.__person_table[person_id]['cam_person'][i][1]
+                    cpid = self.__person_table[person_id]['cpid'][i]
+                    cid = post.get_cam_id(cpid)
+                    pid = post.get_person_id(cpid)
+                    valid_dlt_element[person_id]['cpid'].append(cpid)
                     valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_table[cid][pid]['keypoint'])
                     valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_table[cid]['P'])
-                    valid_dlt_element[person_id]['cpid'].append(post.get_cpid(cid, pid))
 
         return valid_dlt_element
 

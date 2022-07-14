@@ -128,3 +128,11 @@ def get_cam_id(cpid):
 
 def get_person_id(cpid):
     return int(cpid%100)
+
+def get_center_position(keypoints3d):
+    avg_x = np.average(keypoints3d[:, 0])
+    avg_y = np.average(keypoints3d[:, 1])
+    return np.array([avg_x, avg_y])
+
+def count_same_element_in_list(list1, list2):
+    return len(set(list1) & set(list2))
