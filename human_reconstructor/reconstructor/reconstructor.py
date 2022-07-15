@@ -299,29 +299,25 @@ class Reconstructor:
                     continue
 
             if is_too_closed is False:
-                tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_keypoint)
-                if tracking_id >= 0:
-                    frame_buffer[tracking_id], ret = post.smooth_3d_pose(frame_buffer[tracking_id], person_A_keypoint)
-                    self.__tracking_table[tracking_id]['keypoints3d'] = ret
-                    self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
-                    data.append({'id' : tracking_id, 'keypoints3d' : ret})
+                tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
             else:
                 tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_A_id)
-                if tracking_id >= 0:
-                    frame_buffer[tracking_id], ret = post.smooth_3d_pose(frame_buffer[tracking_id], person_A_keypoint)
-                    self.__tracking_table[tracking_id]['keypoints3d'] = ret
-                    self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
-                    data.append({'id' : tracking_id, 'keypoints3d' : ret})
+
+            if tracking_id >= 0:
+                frame_buffer[tracking_id], ret = post.smooth_3d_pose(frame_buffer[tracking_id], person_A_keypoint)
+                self.__tracking_table[tracking_id]['keypoints3d'] = ret
+                self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
+                data.append({'id' : tracking_id, 'keypoints3d' : ret})
         return data
 
-    def __find_tracking_id_from_distance(self, triangulate_param, person_keypoint):
+    def __find_tracking_id_from_distance(self, triangulate_param, person_id, person_keypoint):
         min_err = np.inf
         min_id = -1
         for tracking_id in range(self.__max_person_num):
             tracking_keypoints = self.__tracking_table[tracking_id]['keypoints3d']
             if tracking_keypoints is None:
                 self.__tracking_table[tracking_id]['keypoints3d'] = person_keypoint
-                self.__tracking_table[tracking_id]['cpid'] = triangulate_param[tracking_id]['cpid']
+                self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_id]['cpid']
                 break
 
             err = post.get_distance_from_keypoints(person_keypoint[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
@@ -336,7 +332,7 @@ class Reconstructor:
         max_id = -1
         for tracking_id in range(self.__max_person_num):
             # Count same element between two list
-            cnt = post.count_same_element_in_list(trianguldate_param[person_id]['cpid'], self.__tracking_table[tracking_id]['cpid'])
+            cnt = post.count_same_element_in_list(trianguldate_param[person_id]['cpid'], self.__tracking_table[person_id]['cpid'])
             if cnt > max_cnt:
                 max_cnt = cnt
                 max_id = tracking_id
