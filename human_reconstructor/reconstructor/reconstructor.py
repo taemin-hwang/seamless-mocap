@@ -260,11 +260,11 @@ class Reconstructor:
                     if prev_bbox == person_id:
                         continue
                     if pre.is_bbox_overlapped(bboxes[prev_bbox], bboxes[person_id]):
-                        self.__skeleton_table[cam_id][person_id]['position'] = self.__frame_buffer_pos[cam_id][person_id][self.__buffer_size-1]
+                        self.__skeleton_table[cam_id][person_id]['position'] = self.__frame_buffer_pos[cam_id][person_id][self.__buffer_size-1].tolist()
                         print("Bounding boxes overlapped : {} and {} from camera {} ".format(prev_bbox, person_id, cam_id))
                     else:
                         self.__frame_buffer_pos[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_pos[cam_id][person_id], person_data['position'])
-                        self.__skeleton_table[cam_id][person_id]['position'] = avg_position
+                        self.__skeleton_table[cam_id][person_id]['position'] = avg_position.tolist()
 
         self.__skeleton_lk.release()
 
@@ -332,7 +332,7 @@ class Reconstructor:
         max_id = -1
         for tracking_id in range(self.__max_person_num):
             # Count same element between two list
-            cnt = post.count_same_element_in_list(trianguldate_param[person_id]['cpid'], self.__tracking_table[person_id]['cpid'])
+            cnt = post.count_same_element_in_list(trianguldate_param[person_id]['cpid'], self.__tracking_table[tracking_id]['cpid'])
             if cnt > max_cnt:
                 max_cnt = cnt
                 max_id = tracking_id
