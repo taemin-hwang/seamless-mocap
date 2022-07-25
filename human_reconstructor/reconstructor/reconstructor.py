@@ -25,7 +25,7 @@ class Reconstructor:
     def initialize(self, config):
         self.__config = config
         self.__person_num = 30
-        self.__max_person_num = 2
+        self.__max_person_num = 3
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
