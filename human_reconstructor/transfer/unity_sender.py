@@ -17,5 +17,6 @@ class UnitySender:
         self.port = port
 
     def send_3d_skeletons(self, data):
-        json_data = json.dumps(data, cls=NumpyEncoder)
+        ret = {"annots": data}
+        json_data = json.dumps(ret, cls=NumpyEncoder)
         self.sock.sendto(bytes(json_data, "utf-8"), (self.ipaddr, self.port))

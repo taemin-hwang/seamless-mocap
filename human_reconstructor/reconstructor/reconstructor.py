@@ -76,6 +76,9 @@ class Reconstructor:
                 face_status, hand_status = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status)
                 print("[FACE STATUS] ", face_status)
                 print("[HAND STATUS] ", hand_status)
+                for element in data:
+                    element['face'] = face_status.value
+                    element['hand'] = hand_status.value
 
             if len(data) > 0:
                 if self.__args.gui is True:
