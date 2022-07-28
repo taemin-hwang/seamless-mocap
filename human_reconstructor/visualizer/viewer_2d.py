@@ -67,7 +67,7 @@ class Viewer2d:
                     if(kp_a[0] < display.shape[1] and kp_a[1] < display.shape[0]
                     and kp_b[0] < display.shape[1] and kp_b[1] < display.shape[0]
                     and kp_a[0] > 0 and kp_a[1] > 0 and kp_b[0] > 0 and kp_b[1] > 0 ):
-                        cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 1, cv2.LINE_AA)
+                        cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 3, cv2.LINE_AA)
 
                 # Get spine base coordinates to create backbone
                 left_hip = keypoints[BODY_PARTS.LEFT_HIP.value]
@@ -81,12 +81,12 @@ class Viewer2d:
                 and kp_neck[0] < display.shape[1] and kp_neck[1] < display.shape[0]
                 and kp_spine[0] > 0 and kp_spine[1] > 0 and kp_neck[0] > 0 and kp_neck[1] > 0
                 and left_hip[0] > 0 and left_hip[1] > 0 and right_hip[0] > 0 and right_hip[1] > 0 ):
-                    cv2.line(display, (int(kp_spine[0]), int(kp_spine[1])), (int(kp_neck[0]), int(kp_neck[1])), color, 1, cv2.LINE_AA)
+                    cv2.line(display, (int(kp_spine[0]), int(kp_spine[1])), (int(kp_neck[0]), int(kp_neck[1])), color, 3, cv2.LINE_AA)
 
                 # Skeleton joints for spine
                 if(kp_spine[0] < display.shape[1] and kp_spine[1] < display.shape[0]
                 and left_hip[0] > 0 and left_hip[1] > 0 and right_hip[0] > 0 and right_hip[1] > 0 ):
-                    cv2.circle(display, (int(kp_spine[0]), int(kp_spine[1])), 3, color, -1)
+                    cv2.circle(display, (int(kp_spine[0]), int(kp_spine[1])), 6, color, -1)
 
             elif len(keypoints) == 25:
                 #print('keypoint format: 25')
@@ -98,7 +98,7 @@ class Viewer2d:
                     if(kp_a[0] < display.shape[1] and kp_a[1] < display.shape[0]
                     and kp_b[0] < display.shape[1] and kp_b[1] < display.shape[0]
                     and kp_a[0] > 0 and kp_a[1] > 0 and kp_b[0] > 0 and kp_b[1] > 0 ):
-                        cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 1, cv2.LINE_AA)
+                        cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 5, cv2.LINE_AA)
 
                 color_left = generate_color_id_u(person_id + 4)
                 color_right = generate_color_id_u(person_id + 5)
@@ -119,7 +119,7 @@ class Viewer2d:
                                 part == BODY_PARTS_POSE_25.LEFT_HEEL or
                                 part == BODY_PARTS_POSE_25.LEFT_EYE or
                                 part == BODY_PARTS_POSE_25.LEFT_EAR):
-                            cv2.circle(display, (int(kp[0]), int(kp[1])), 5, color_left, -1)
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color_left, -1)
                         elif (part == BODY_PARTS_POSE_25.RIGHT_SHOULDER or
                                 part == BODY_PARTS_POSE_25.RIGHT_ELBOW or
                                 part == BODY_PARTS_POSE_25.RIGHT_WRIST or
@@ -130,9 +130,9 @@ class Viewer2d:
                                 part == BODY_PARTS_POSE_25.RIGHT_HEEL or
                                 part == BODY_PARTS_POSE_25.RIGHT_EYE or
                                 part == BODY_PARTS_POSE_25.RIGHT_EAR):
-                            cv2.circle(display, (int(kp[0]), int(kp[1])), 5, color_right, -1)
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color_right, -1)
                         else:
-                            cv2.circle(display, (int(kp[0]), int(kp[1])), 5, color, -1)
+                            cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color, -1)
 
 
             elif len(keypoints) == 34:
