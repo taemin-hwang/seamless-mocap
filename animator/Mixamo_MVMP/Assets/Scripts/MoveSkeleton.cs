@@ -33,6 +33,8 @@ public class MoveSkeleton : MonoBehaviour
             keyword = keyword + "6:"; // mixamorig6:
         } else if (id == 3) {
             keyword = keyword + "1:"; // mixamorig1:
+        } else if (id == 4) {
+            keyword = keyword + "5:"; // mixamorig5:
         } else {
             keyword = keyword + "0:"; // mixamorig0:
         }

@@ -8,25 +8,27 @@ public class MoveCharacters : MonoBehaviour
     public GameObject Avatar1;
     public GameObject Avatar2;
     public GameObject Avatar3;
-    //public GameObject Avatar4;
+    public GameObject Avatar4;
 
-    public float Ratio1 = 0.5f;
+    public float Ratio1 = 0.7f;
     public float Ratio2 = 0.7f;
-    public float Ratio3 = 0.5f;
+    public float Ratio3 = 0.7f;
+    public float Ratio4 = 0.7f;
 
-    public float _YOffset = -0.25f;
+    public float _YOffset = -0.35f;
 
     private MoveSkeleton _MoveSkeleton1;
     private MoveSkeleton _MoveSkeleton2;
     private MoveSkeleton _MoveSkeleton3;
-    // private MoveSkeleton _MoveSkeleton1;
+    private MoveSkeleton _MoveSkeleton4;
 
     private PeopleKeypoints _PeopleKeypoints = null;
     ReadSkeletonFromJson _SkeletonReader;
 
     int _NowFrame = 0;
     int _MaxFrame = 799;
-    float _MidHipYAxis = 0.0f;
+    List<float> _MidhipHight = new List<float>(new float[5]);
+
 
     // Start is called before the first frame update
     void Start()
@@ -44,8 +46,11 @@ public class MoveCharacters : MonoBehaviour
         _MoveSkeleton1 = Avatar1.GetComponent<MoveSkeleton>();
         _MoveSkeleton2 = Avatar2.GetComponent<MoveSkeleton>();
         _MoveSkeleton3 = Avatar3.GetComponent<MoveSkeleton>();
-        //_MoveSkeleton4 = Avatar4.GetComponent<MoveSkeleton>();
-        _MidHipYAxis = _MoveSkeleton1._Skeleton[0].transform.position.y + _YOffset;
+        _MoveSkeleton4 = Avatar4.GetComponent<MoveSkeleton>();
+        _MidhipHight[1] = _MoveSkeleton1._Skeleton[3].transform.position.y + _YOffset;
+        _MidhipHight[2] = _MoveSkeleton2._Skeleton[3].transform.position.y + _YOffset;
+        _MidhipHight[3] = _MoveSkeleton3._Skeleton[3].transform.position.y + _YOffset;
+        _MidhipHight[4] = _MoveSkeleton4._Skeleton[3].transform.position.y + _YOffset;
     }
 
     // Update is called once per frame
@@ -56,7 +61,7 @@ public class MoveCharacters : MonoBehaviour
                 int id = _PeopleKeypoints.annots[i].id;
                 List<List<double>> skeletons = _PeopleKeypoints.annots[i].keypoints3d;
                 if (id % 4 == 0) {
-                    // Update3DPose(_MoveSkeleton2, skeletons);
+                    Update3DPose(_MoveSkeleton4, 4, skeletons);
                 } else if (id % 4 == 1) {
                     Update3DPose(_MoveSkeleton1, 1, skeletons);
                 } else if (id % 4 == 2) {
@@ -90,7 +95,7 @@ public class MoveCharacters : MonoBehaviour
         UpdateSpherePosition(avatar, person_id, keypoints3d);
 
         // position
-        ChangeAvatarPosition(avatar, avatar._Spheres[8].transform.position);
+        ChangeAvatarPosition(avatar, person_id, avatar._Spheres[8].transform.position);
 
         // rotation
         Vector3 right_hip_pose = avatar._Spheres[9].transform.position;
@@ -138,6 +143,8 @@ public class MoveCharacters : MonoBehaviour
             ratio = Ratio2;
         } else if (person_id == 3) {
             ratio = Ratio3;
+        } else if (person_id == 4) {
+            ratio = Ratio4;
         }
 
         for (int i = 0; i < keypoints3d.Count; i++) {
@@ -146,8 +153,8 @@ public class MoveCharacters : MonoBehaviour
         }
     }
 
-    void ChangeAvatarPosition(MoveSkeleton avatar, Vector3 hip_pose) {
-        avatar.transform.position = new Vector3(hip_pose.x, hip_pose.y-_MidHipYAxis, hip_pose.z);
+    void ChangeAvatarPosition(MoveSkeleton avatar, int person_id, Vector3 hip_pose) {
+        avatar.transform.position = new Vector3(hip_pose.x, hip_pose.y - _MidhipHight[person_id] + _YOffset, hip_pose.z);
     }
 
     void SetHeadAim(Vector3 head_pose, Vector3 nose_pose) {

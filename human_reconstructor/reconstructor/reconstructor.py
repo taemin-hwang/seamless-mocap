@@ -48,7 +48,7 @@ class Reconstructor:
         self.__send_skeleton_unity = func_send_skeleton_unity
 
         face_status = face_format.FACE_STATUS.CLOSED
-        hand_status = hand_format.HAND_STATUS.OPEN
+        hand_status = hand_format.HAND_STATUS.RIGHT_CLOSED
 
         frame_buffer = np.ones((self.__person_num, self.__buffer_size, 25, 4))
 
