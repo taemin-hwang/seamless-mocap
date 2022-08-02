@@ -144,6 +144,7 @@ class Reconstructor:
         tracking_table = {}
         for i in range(self.__max_person_num):
             tracking_table[i] = {}
+            tracking_table[i]['is_valid'] = False
             tracking_table[i]['cpid'] = []
             tracking_table[i]['keypoints3d'] = None
         return tracking_table
@@ -283,7 +284,7 @@ class Reconstructor:
             person_A_id = person_A[0]
             person_A_keypoint = person_A[1]
             (mean_err_dist, person_A_keypoint) = post.fix_wrong_3d_pose(person_A_keypoint)
-            if mean_err_dist >= 0.5:
+            if mean_err_dist >= 5.0:
                 print("SKIP THIS PERSON {}, TOO MUCH ERROR : {}".format(person_A_id, mean_err_dist))
                 continue
 
@@ -296,7 +297,7 @@ class Reconstructor:
                 person_B_center_position = post.get_center_position(person_B_keypoint)
                 dist_between_A_and_B = np.linalg.norm(person_A_center_position - person_B_center_position)
 
-                if dist_between_A_and_B <= 0.5:
+                if dist_between_A_and_B <= 1.0:
                     print("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
                     is_too_closed = True
                     continue
@@ -319,9 +320,10 @@ class Reconstructor:
         for tracking_id in range(self.__max_person_num):
             tracking_keypoints = self.__tracking_table[tracking_id]['keypoints3d']
             if tracking_keypoints is None:
+                self.__tracking_table[tracking_id]['is_valid'] = True
                 self.__tracking_table[tracking_id]['keypoints3d'] = person_keypoint
                 self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_id]['cpid']
-                break
+                continue
 
             err = post.get_distance_from_keypoints(person_keypoint[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
             print("ERR : ", err)
@@ -334,6 +336,8 @@ class Reconstructor:
         max_cnt = 0
         max_id = -1
         for tracking_id in range(self.__max_person_num):
+            if self.__tracking_table[tracking_id]['is_valid'] is False:
+                continue
             # Count same element between two list
             cnt = post.count_same_element_in_list(trianguldate_param[person_id]['cpid'], self.__tracking_table[tracking_id]['cpid'])
             if cnt > max_cnt:
