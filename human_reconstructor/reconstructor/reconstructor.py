@@ -4,6 +4,7 @@ import time
 import json
 import pause
 import asyncio
+import os
 
 from format import face_format, hand_format
 
@@ -38,6 +39,7 @@ class Reconstructor:
         self.__tracking_table = self.__get_initial_tracking_table()
         self.__frame_buffer_2d = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
         self.__frame_buffer_pos = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
+        self.__log_dir = "./log"
 
     def run(self, func_recv_skeleton, func_recv_handface, func_send_skeleton_gui, func_send_skeleton_unity):
         self.__skeleton_mq, self.__skeleton_lk = func_recv_skeleton(self.__config["server_ip"], self.__config["skeleton_port"])
@@ -51,6 +53,18 @@ class Reconstructor:
         hand_status = hand_format.HAND_STATUS.RIGHT_CLOSED
 
         frame_buffer = np.ones((self.__person_num, self.__buffer_size, 25, 4))
+
+        if self.__args.log is True:
+            # Read current time
+            now = datetime.datetime.now()
+            current_time = now.strftime("%Y-%m-%d_%H-%M-%S")
+            # Create log directory
+            self.__log_dir = "./log/" + current_time
+            try:
+                if not os.path.exists(self.__log_dir):
+                    os.makedirs(self.__log_dir)
+            except OSError:
+                print("Error: Failed to create the directory.")
 
         while(True):
             t_sleep = datetime.datetime.now()
@@ -273,7 +287,7 @@ class Reconstructor:
         self.__skeleton_lk.release()
 
         if self.__args.log is True:
-            file_path = "./log/" + str(self.__frame_number).zfill(6) + ".json"
+            file_path = self.__log_dir + "/" + str(self.__frame_number).zfill(6) + ".json"
             with open(file_path, "w") as outfile:
                 json.dump(self.__skeleton_table, outfile)
 
