@@ -22,6 +22,7 @@ class Reconstructor:
         self.__transformation = fs.read_transformation('./etc/transformation.json')
         self.viewer = v2d.Viewer2d()
         self.__frame_number = 0
+        self.__max_frame_number = 0
 
     def initialize(self, config):
         self.__config = config
@@ -54,7 +55,7 @@ class Reconstructor:
 
         frame_buffer = np.ones((self.__person_num, self.__buffer_size, 25, 4))
 
-        if self.__args.log is True:
+        if self.__args.write is True:
             # Read current time
             now = datetime.datetime.now()
             current_time = now.strftime("%Y-%m-%d_%H-%M-%S")
@@ -66,9 +67,22 @@ class Reconstructor:
             except OSError:
                 print("Error: Failed to create the directory.")
 
+        count = 0
+        if self.__args.log:
+            for path in os.scandir(self.__args.log):
+                if path.is_file():
+                    count += 1
+            self.__max_frame_number = count
+
         while(True):
             t_sleep = datetime.datetime.now()
-            self.__update_skeleton_table()
+            if self.__args.log:
+                if self.__frame_number >= self.__max_frame_number:
+                    self.__frame_number = 0
+                comm = input(str(self.__frame_number).zfill(6) + "> ")
+                self.__read_skeleton_table(self.__frame_number, self.__args.log)
+            else:
+                self.__update_skeleton_table()
             self.__update_person_table()
 
             triangulate_param = {}
@@ -123,6 +137,12 @@ class Reconstructor:
         for cam_id in range(1, self.__cam_num+1):
             for person_id in range(0, self.__person_num):
                 self.__skeleton_table[cam_id][person_id]['is_valid'] = False
+
+    def __read_skeleton_table(self, frame_number, log_dir):
+        file_path = log_dir + str(frame_number).zfill(6) + ".json"
+        print(file_path)
+        with open(file_path, "r") as outfile:
+            self.__skeleton_table = json.load(outfile, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})
 
     def __get_initial_person_table(self):
         person_table = {}
@@ -286,7 +306,7 @@ class Reconstructor:
 
         self.__skeleton_lk.release()
 
-        if self.__args.log is True:
+        if self.__args.write is True:
             file_path = self.__log_dir + "/" + str(self.__frame_number).zfill(6) + ".json"
             with open(file_path, "w") as outfile:
                 json.dump(self.__skeleton_table, outfile)
