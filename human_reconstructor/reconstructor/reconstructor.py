@@ -5,6 +5,8 @@ import json
 import pause
 import asyncio
 import os
+import matplotlib.pyplot as plt
+import cv2
 
 from format import face_format, hand_format
 
@@ -69,6 +71,7 @@ class Reconstructor:
 
         count = 0
         if self.__args.log:
+            # self.__frame_number = 180
             for path in os.scandir(self.__args.log):
                 if path.is_file():
                     count += 1
@@ -239,6 +242,20 @@ class Reconstructor:
 
         for i in range(len(ret)):
             print("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
+
+        if self.__args.visual:
+            room_size = 10 # 10m x 10m
+            display = np.ones((800, 800, 3), np.uint8) * 255
+            for i in range(len(ret)):
+                x = position_arr[i][0] + room_size/2
+                y = position_arr[i][1] + room_size/2
+                x *= display.shape[0]/room_size
+                y *= display.shape[1]/room_size
+                color = utils.generate_color_id_u(ret[i])
+                cv2.circle(display, (int(x), int(y)), 6, color, -1)
+                cv2.putText(display, "({}, {})".format(int(position_idx[i][0]), int(position_idx[i][1])), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
+            cv2.imshow("Position", display)
+            cv2.waitKey(1)
 
         return ret
 
