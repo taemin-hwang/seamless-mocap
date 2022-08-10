@@ -10,7 +10,10 @@ class Manager:
     def __init__(self, args):
         self.__args = args
         self.__reconstructor = rc.Reconstructor(self.__args)
-        self.__config_parser = cp.ConfigParser(self.__args.path + 'config.json')
+        if self.__args.log:
+            self.__config_parser = cp.ConfigParser(self.__args.log + 'config.json')
+        else:
+            self.__config_parser = cp.ConfigParser(self.__args.path + 'config.json')
         self.__gui_sender = gui_sender.GuiSender()
         self.__unity_sender = unity_sender.UnitySender()
 

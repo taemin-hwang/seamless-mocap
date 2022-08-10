@@ -4,6 +4,7 @@
 
 import cv2
 import numpy as np
+import math
 from visualizer.utils import *
 
 class Viewer2d:
@@ -12,6 +13,11 @@ class Viewer2d:
         self.height = 720
         self.width = 1280
         self.display_num = 4
+        self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
+        self.frame_num = 0
+
+    def initialize(self, cam_num):
+        self.display_num = cam_num
         self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
 
     def set_background_color(self, display, r, g, b):
@@ -28,16 +34,24 @@ class Viewer2d:
             resized_display_list.append(cv2.resize(display, dsize=(0,0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA))
             i += 1
 
-        top = np.hstack((resized_display_list[0], resized_display_list[1]))
-        bottom = np.hstack((resized_display_list[2], resized_display_list[3]))
+        col_num = math.ceil(self.display_num / 2)
+        top = np.hstack(resized_display_list[:col_num])
+        bottom = np.hstack(resized_display_list[col_num:])
+
         merged_display = np.vstack((top, bottom))
 
         return merged_display
 
 
     def render_2d(self, data):
+        #print(self.frame_num)
+        if self.frame_num % 5 == 0:
+            self.frame_num = 1
+        else:
+            self.frame_num += 1
+            return
+
         cam_id = data['id']
-        timestamp = data['timestamp']
         annots = data['annots']
 
         if self.cam_id_list.count(cam_id) == 0:
@@ -55,7 +69,8 @@ class Viewer2d:
 
             keypoints = person['keypoints']
 
-            keypoints = convert_25_from_34(np.array(keypoints))
+            if len(keypoints) == 34:
+                keypoints = convert_25_from_34(np.array(keypoints))
 
             if len(keypoints) == 18:
                 #print('keypoint format: 18')
@@ -190,5 +205,5 @@ class Viewer2d:
         merged_display = self.merge_display()
 
         cv2.imshow("2D Viewer", merged_display)
-        cv2.waitKey(5)
+        cv2.waitKey(1)
 

@@ -7,6 +7,7 @@ import asyncio
 import os
 import matplotlib.pyplot as plt
 import cv2
+import shutil
 
 from format import face_format, hand_format
 
@@ -17,11 +18,14 @@ from config import file_storage as fs
 from visualizer import utils
 from visualizer import viewer_2d as v2d
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 class Reconstructor:
     def __init__(self, args):
         self.__args = args
         self.__calibration = fs.read_camera('./etc/intri.yml', './etc/extri.yml')
-        self.__transformation = fs.read_transformation('./etc/transformation.json')
         self.viewer = v2d.Viewer2d()
         self.__frame_number = 0
         self.__max_frame_number = 0
@@ -29,7 +33,7 @@ class Reconstructor:
     def initialize(self, config):
         self.__config = config
         self.__person_num = 30
-        self.__max_person_num = 3
+        self.__max_person_num = 2
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -37,12 +41,18 @@ class Reconstructor:
         self.__buffer_size = self.__config["buffer_size"]
         self.__max_frame = self.__config["max_frame"]
         self.__min_confidence = self.__config["min_confidence"]
-        self.__skeleton_table = self.__get_initial_skeleton_table(self.__calibration)
+        if self.__args.log:
+            self.__transformation = fs.read_transformation(self.__args.log + 'transformation.json')
+        else:
+            self.__skeleton_table = self.__get_initial_skeleton_table(self.__calibration)
+            self.__transformation = fs.read_transformation('./etc/transformation.json')
+
         self.__person_table = self.__get_initial_person_table()
         self.__tracking_table = self.__get_initial_tracking_table()
         self.__frame_buffer_2d = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
         self.__frame_buffer_pos = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
         self.__log_dir = "./log"
+        self.viewer.initialize(self.__cam_num)
 
     def run(self, func_recv_skeleton, func_recv_handface, func_send_skeleton_gui, func_send_skeleton_unity):
         self.__skeleton_mq, self.__skeleton_lk = func_recv_skeleton(self.__config["server_ip"], self.__config["skeleton_port"])
@@ -67,7 +77,10 @@ class Reconstructor:
                 if not os.path.exists(self.__log_dir):
                     os.makedirs(self.__log_dir)
             except OSError:
-                print("Error: Failed to create the directory.")
+                logging.error("Error: Failed to create the directory.")
+
+            shutil.copyfile('./etc/transformation.json', self.__log_dir + '/transformation.json')
+            shutil.copyfile('./etc/config.json', self.__log_dir + '/config.json')
 
         count = 0
         if self.__args.log:
@@ -75,7 +88,7 @@ class Reconstructor:
             for path in os.scandir(self.__args.log):
                 if path.is_file():
                     count += 1
-            self.__max_frame_number = count
+            self.__max_frame_number = count - 2 # transformation.json and config.json
 
         while(True):
             t_sleep = datetime.datetime.now()
@@ -105,8 +118,8 @@ class Reconstructor:
             if self.__args.face is True:
                 # Read face hand status from clients
                 face_status, hand_status = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status)
-                print("[FACE STATUS] ", face_status)
-                print("[HAND STATUS] ", hand_status)
+                logging.debug("[FACE STATUS] ", face_status)
+                logging.debug("[HAND STATUS] ", hand_status)
                 for element in data:
                     element['face'] = face_status.value
                     element['hand'] = hand_status.value
@@ -143,9 +156,23 @@ class Reconstructor:
 
     def __read_skeleton_table(self, frame_number, log_dir):
         file_path = log_dir + str(frame_number).zfill(6) + ".json"
-        print(file_path)
+        logging.debug(file_path)
         with open(file_path, "r") as outfile:
             self.__skeleton_table = json.load(outfile, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})
+            for cam_id in range(1, len(self.__skeleton_table)+1):
+                data = {}
+                data['id'] = cam_id
+                data['annots'] = []
+                for person_id in range(len(self.__skeleton_table[cam_id])-1):
+                    if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
+                        person = {}
+                        person['personID'] = person_id
+                        person['bbox'] = [1,1,2,2]
+                        person['keypoints'] = self.__skeleton_table[cam_id][person_id]['keypoint']
+                        data['annots'].append(person)
+
+            if self.__args.visual:
+                self.viewer.render_2d(data)
 
     def __get_initial_person_table(self):
         person_table = {}
@@ -198,7 +225,7 @@ class Reconstructor:
                 if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
                     average_position = self.__get_average_position(cam_id, person_id, transform)
                     dist_from_cam1 = np.linalg.norm(np.array([average_position[0], average_position[1]]) - self.__transformation['C1'][:2])
-                    print("[DISTANCE] cam {}, person {} : {}".format(cam_id, person_id, dist_from_cam1))
+                    logging.debug("[DISTANCE] cam {}, person {} : {}".format(cam_id, person_id, dist_from_cam1))
                     if dist_from_cam1 < 10:
                         position_arr = np.append(position_arr, np.array([[average_position[0], average_position[1]]]), axis=0)
                         position_idx = np.append(position_idx, np.array([[cam_id, person_id]]), axis=0)
@@ -233,7 +260,7 @@ class Reconstructor:
     def __get_cluster_arr(self, position_arr, position_idx, max_person_num):
         from sklearn.cluster import AgglomerativeClustering
 
-        print("[INFO] Clustering... {} people".format(max_person_num))
+        logging.info("[INFO] Clustering... {} people".format(max_person_num))
         if len(position_arr) <= max_person_num:
             return []
 
@@ -241,9 +268,9 @@ class Reconstructor:
         ret = cluster.fit_predict(position_arr)
 
         for i in range(len(ret)):
-            print("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
+            logging.debug("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
 
-        if self.__args.visual:
+        if self.__args.visual and self.__args.log:
             room_size = 10 # 10m x 10m
             display = np.ones((800, 800, 3), np.uint8) * 255
             for i in range(len(ret)):
@@ -298,7 +325,7 @@ class Reconstructor:
                 bbox = person_data['bbox']
                 bboxes[person_id] = np.array(bbox)
                 if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
-                    print('Invalid data : {}, {}'.format(cam_id, person_id))
+                    logging.debug('Invalid data : {}, {}'.format(cam_id, person_id))
                     continue
                 keypoints_34 = np.array(person_data['keypoints'])
                 keypoints_25 = utils.convert_25_from_34(keypoints_34)
@@ -309,14 +336,14 @@ class Reconstructor:
             for person_data in data['annots']:
                 person_id = person_data['personID']
                 if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
-                    print('Invalid data : {}, {}'.format(cam_id, person_id))
+                    logging.debug('Invalid data : {}, {}'.format(cam_id, person_id))
                     continue
                 for prev_bbox in bboxes:
                     if prev_bbox == person_id:
                         continue
                     if pre.is_bbox_overlapped(bboxes[prev_bbox], bboxes[person_id]):
                         self.__skeleton_table[cam_id][person_id]['position'] = self.__frame_buffer_pos[cam_id][person_id][self.__buffer_size-1].tolist()
-                        print("Bounding boxes overlapped : {} and {} from camera {} ".format(prev_bbox, person_id, cam_id))
+                        logging.warning("Bounding boxes overlapped : {} and {} from camera {} ".format(prev_bbox, person_id, cam_id))
                     else:
                         self.__frame_buffer_pos[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_pos[cam_id][person_id], person_data['position'])
                         self.__skeleton_table[cam_id][person_id]['position'] = avg_position.tolist()
@@ -336,7 +363,7 @@ class Reconstructor:
             person_A_keypoint = person_A[1]
             (mean_err_dist, person_A_keypoint) = post.fix_wrong_3d_pose(person_A_keypoint)
             if mean_err_dist >= 5.0:
-                print("SKIP THIS PERSON {}, TOO MUCH ERROR : {}".format(person_A_id, mean_err_dist))
+                logging.warning("SKIP THIS PERSON {}, TOO MUCH ERROR : {}".format(person_A_id, mean_err_dist))
                 continue
 
             person_A_center_position = post.get_center_position(person_A_keypoint)
@@ -347,9 +374,10 @@ class Reconstructor:
                 person_B_keypoint = person_B[1]
                 person_B_center_position = post.get_center_position(person_B_keypoint)
                 dist_between_A_and_B = np.linalg.norm(person_A_center_position - person_B_center_position)
+                logging.debug("Dist between {} and {} : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
 
                 if dist_between_A_and_B <= 1.0:
-                    print("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
+                    logging.warning("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
                     is_too_closed = True
                     continue
 
@@ -377,7 +405,7 @@ class Reconstructor:
                 continue
 
             err = post.get_distance_from_keypoints(person_keypoint[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
-            print("ERR : ", err)
+            logging.debug("ERR : ", err)
             if err < min_err:
                 min_err = err
                 min_id = tracking_id
@@ -442,7 +470,6 @@ class Reconstructor:
                 hand_status_idx = person['handStatus']
                 face_status = face_format.get_status_from_idx(face_status_idx)
                 hand_status = hand_format.get_status_from_idx(hand_status_idx)
-                #print("[{}], {}, {}".format(person['personID'], face_status, hand_status))
 
         lk_facehand.release()
         return face_status, hand_status
