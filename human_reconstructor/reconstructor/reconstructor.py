@@ -26,7 +26,7 @@ class Reconstructor:
     def __init__(self, args):
         self.__args = args
         self.__calibration = fs.read_camera('./etc/intri.yml', './etc/extri.yml')
-        self.viewer = v2d.Viewer2d()
+        self.viewer = v2d.Viewer2d(self.__args)
         self.__frame_number = 0
         self.__max_frame_number = 0
 
@@ -118,8 +118,8 @@ class Reconstructor:
             if self.__args.face is True:
                 # Read face hand status from clients
                 face_status, hand_status = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status)
-                logging.debug("[FACE STATUS] ", face_status)
-                logging.debug("[HAND STATUS] ", hand_status)
+                logging.debug("[FACE STATUS] {}".format(face_status.value))
+                logging.debug("[HAND STATUS] {}".format(hand_status.value))
                 for element in data:
                     element['face'] = face_status.value
                     element['hand'] = hand_status.value
@@ -273,6 +273,7 @@ class Reconstructor:
         if self.__args.visual and self.__frame_number % 10 == 0:
             room_size = 10 # 10m x 10m
             display = np.ones((800, 800, 3), np.uint8) * 255
+            utils.draw_grid(display)
             for i in range(len(ret)):
                 x = position_arr[i][0] + room_size/2
                 y = position_arr[i][1] + room_size/2
@@ -281,6 +282,7 @@ class Reconstructor:
                 color = utils.generate_color_id_u(ret[i])
                 cv2.circle(display, (int(x), int(y)), 6, color, -1)
                 cv2.putText(display, "({}, {})".format(int(position_idx[i][0]), int(position_idx[i][1])), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
+
             cv2.imshow("Position", display)
             cv2.waitKey(1)
 

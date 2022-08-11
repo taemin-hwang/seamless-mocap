@@ -8,13 +8,14 @@ import math
 from visualizer.utils import *
 
 class Viewer2d:
-    def __init__(self):
+    def __init__(self, args):
         self.cam_id_list = []
         self.height = 720
         self.width = 1280
         self.display_num = 4
         self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
         self.frame_num = 0
+        self.__args = args
 
     def initialize(self, cam_num):
         self.display_num = cam_num
@@ -44,12 +45,14 @@ class Viewer2d:
 
 
     def render_2d(self, data):
-        #print(self.frame_num)
-        if self.frame_num % 5 == 0:
-            self.frame_num = 1
+        if self.__args.log:
+            pass
         else:
-            self.frame_num += 1
-            return
+            if self.frame_num % 20 == 0:
+                self.frame_num = 1
+            else:
+                self.frame_num += 1
+                return
 
         cam_id = data['id']
         annots = data['annots']
