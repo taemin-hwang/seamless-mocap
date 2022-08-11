@@ -164,15 +164,15 @@ class Reconstructor:
                 data['id'] = cam_id
                 data['annots'] = []
                 for person_id in range(len(self.__skeleton_table[cam_id])-1):
-                    if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
-                        person = {}
-                        person['personID'] = person_id
-                        person['bbox'] = [1,1,2,2]
-                        person['keypoints'] = self.__skeleton_table[cam_id][person_id]['keypoint']
-                        data['annots'].append(person)
+                    if self.__skeleton_table[cam_id][person_id]['is_valid'] is True or self.__skeleton_table[cam_id][person_id]['keypoint'][0][0] > 0:
+                        data['annots'].append({
+                            'personID': person_id,
+                            'bbox': [1,1,2,2],
+                            'keypoints': self.__skeleton_table[cam_id][person_id]['keypoint']
+                        })
 
-            if self.__args.visual:
-                self.viewer.render_2d(data)
+                if self.__args.visual:
+                    self.viewer.render_2d(data)
 
     def __get_initial_person_table(self):
         person_table = {}
@@ -270,7 +270,7 @@ class Reconstructor:
         for i in range(len(ret)):
             logging.debug("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
 
-        if self.__args.visual and self.__args.log:
+        if self.__args.visual and self.__frame_number % 10 == 0:
             room_size = 10 # 10m x 10m
             display = np.ones((800, 800, 3), np.uint8) * 255
             for i in range(len(ret)):
