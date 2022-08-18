@@ -8,6 +8,7 @@ import os
 import matplotlib.pyplot as plt
 import cv2
 import shutil
+import copy
 
 from format import face_format, hand_format
 
@@ -20,8 +21,6 @@ from visualizer import viewer_2d as v2d
 
 import logging
 
-logging.basicConfig(level=logging.INFO)
-
 class Reconstructor:
     def __init__(self, args):
         self.__args = args
@@ -29,11 +28,15 @@ class Reconstructor:
         self.viewer = v2d.Viewer2d(self.__args)
         self.__frame_number = 0
         self.__max_frame_number = 0
+        if self.__args.log:
+            logging.basicConfig(level=logging.DEBUG)
+        else:
+            logging.basicConfig(level=logging.INFO)
 
     def initialize(self, config):
         self.__config = config
         self.__person_num = 30
-        self.__max_person_num = 2
+        self.__max_person_num = 4
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -159,20 +162,20 @@ class Reconstructor:
         logging.debug(file_path)
         with open(file_path, "r") as outfile:
             self.__skeleton_table = json.load(outfile, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})
-            for cam_id in range(1, len(self.__skeleton_table)+1):
-                data = {}
-                data['id'] = cam_id
-                data['annots'] = []
-                for person_id in range(len(self.__skeleton_table[cam_id])-1):
-                    if self.__skeleton_table[cam_id][person_id]['is_valid'] is True or self.__skeleton_table[cam_id][person_id]['keypoint'][0][0] > 0:
-                        data['annots'].append({
-                            'personID': person_id,
-                            'bbox': [1,1,2,2],
-                            'keypoints': self.__skeleton_table[cam_id][person_id]['keypoint']
-                        })
+            # for cam_id in range(1, len(self.__skeleton_table)+1):
+            #     data = {}
+            #     data['id'] = cam_id
+            #     data['annots'] = []
+            #     for person_id in range(len(self.__skeleton_table[cam_id])-1):
+            #         if self.__skeleton_table[cam_id][person_id]['is_valid'] is True or self.__skeleton_table[cam_id][person_id]['keypoint'][0][0] > 0:
+            #             data['annots'].append({
+            #                 'personID': person_id,
+            #                 'bbox': [1,1,2,2],
+            #                 'keypoints': self.__skeleton_table[cam_id][person_id]['keypoint']
+            #             })
 
-                if self.__args.visual:
-                    self.viewer.render_2d(data)
+            #     if self.__args.visual:
+            #         self.viewer.render_2d(data)
 
     def __get_initial_person_table(self):
         person_table = {}
@@ -182,6 +185,7 @@ class Reconstructor:
             person_table[person_id]['count'] = 0
             person_table[person_id]['cam_person'] = []
             person_table[person_id]['position'] = []
+            person_table[person_id]['cpid'] = []
             person_table[person_id]['prev_position'] = (0, 0)
         return person_table
 
@@ -222,26 +226,29 @@ class Reconstructor:
             transform = self.__transformation['T'+str(cam_id)+'1']
             person_num = 0
             for person_id in range(0, self.__person_num):
-                if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
+                if self.__skeleton_table[cam_id][person_id]['is_valid'] is True or self.__skeleton_table[cam_id][person_id]['keypoint'][0][0] > 0:
                     average_position = self.__get_average_position(cam_id, person_id, transform)
                     dist_from_cam1 = np.linalg.norm(np.array([average_position[0], average_position[1]]) - self.__transformation['C1'][:2])
                     logging.debug("[DISTANCE] cam {}, person {} : {}".format(cam_id, person_id, dist_from_cam1))
-                    if dist_from_cam1 < 10:
+                    if dist_from_cam1 < 5:
                         position_arr = np.append(position_arr, np.array([[average_position[0], average_position[1]]]), axis=0)
                         position_idx = np.append(position_idx, np.array([[cam_id, person_id]]), axis=0)
                         person_num += 1
 
             if max_person_num < person_num:
                 max_person_num = person_num
+            if max_person_num >= self.__max_person_num:
+                max_person_num = self.__max_person_num
 
         if max_person_num > 0:
             cluster_arr = self.__get_cluster_arr(position_arr, position_idx, max_person_num)
             for i in range(len(cluster_arr)):
                 cluster_id = cluster_arr[i]
-                self.__person_table[cluster_id]['is_valid'] = True
-                self.__person_table[cluster_id]['count'] += 1
-                self.__person_table[cluster_id]['cpid'].append(post.get_cpid(position_idx[i][0], position_idx[i][1])) # cam_id, person_id
-                self.__person_table[cluster_id]['position'].append(position_arr[cluster_id]) # X, Y
+                if cluster_id >= 0:
+                    self.__person_table[cluster_id]['is_valid'] = True
+                    self.__person_table[cluster_id]['count'] += 1
+                    self.__person_table[cluster_id]['cpid'].append(post.get_cpid(position_idx[i][0], position_idx[i][1])) # cam_id, person_id
+                    self.__person_table[cluster_id]['position'].append(position_arr[cluster_id]) # X, Y
 
     def __get_average_position(self, cam_id, person_id, transform):
         position = self.__skeleton_table[cam_id][person_id]['position']
@@ -267,26 +274,161 @@ class Reconstructor:
         cluster = AgglomerativeClustering(n_clusters=max_person_num, affinity='euclidean', linkage='ward')
         ret = cluster.fit_predict(position_arr)
 
+        vis_arr = {}
+        data = {}
+        data['annots'] = []
         for i in range(len(ret)):
             logging.debug("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
 
-        if self.__args.visual and self.__frame_number % 10 == 0:
-            room_size = 10 # 10m x 10m
-            display = np.ones((800, 800, 3), np.uint8) * 255
-            utils.draw_grid(display)
-            for i in range(len(ret)):
-                x = position_arr[i][0] + room_size/2
-                y = position_arr[i][1] + room_size/2
-                x *= display.shape[0]/room_size
-                y *= display.shape[1]/room_size
-                color = utils.generate_color_id_u(ret[i])
-                cv2.circle(display, (int(x), int(y)), 6, color, -1)
-                cv2.putText(display, "({}, {})".format(int(position_idx[i][0]), int(position_idx[i][1])), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
+        ret = self.__remove_duplicated_person(position_idx, position_arr, max_person_num, ret)
 
-            cv2.imshow("Position", display)
-            cv2.waitKey(1)
+        # matched_person_position = np.zeros((max_person_num, 2))
+        # for i in range(max_person_num):
+        #     matched_idx = np.where(ret == i)
+        #     matched_person_position[i] = np.average(position_arr[matched_idx], axis=0)
+        #     print(self.__find_near_elements(position_arr[matched_idx], matched_person_position[i], 3))
+
+        for i in range(len(ret)):
+            if self.__args.visual:
+                cam_id = int(position_idx[i][0])
+                person_id = int(position_idx[i][1])
+                fixed_person_id = int(ret[i])
+
+                if cam_id not in vis_arr:
+                    vis_arr[cam_id] = {}
+                    vis_arr[cam_id]['annots'] = []
+
+                vis_arr[cam_id]['annots'].append({
+                    'personID' : fixed_person_id,
+                    'bbox' : [1,1,2,2],
+                    'keypoints' : self.__skeleton_table[cam_id][person_id]['keypoint']
+                })
+
+        if self.__args.visual:
+            for cam_id in vis_arr.keys():
+                data = {}
+                data['id'] = cam_id
+                data['annots'] = vis_arr[cam_id]['annots']
+                self.viewer.render_2d(data)
+
+        if self.__args.visual:
+            if self.__args.log or self.__frame_number % 40 == 0:
+                room_size = 10 # 10m x 10m
+                display = np.ones((800, 800, 3), np.uint8) * 255
+                utils.draw_grid(display)
+                for i in range(len(ret)):
+                    x = position_arr[i][0] + room_size/2
+                    y = position_arr[i][1] + room_size/2
+                    x *= display.shape[0]/room_size*1.5
+                    y *= display.shape[1]/room_size*1.5
+                    color = utils.generate_color_id_u(ret[i])
+                    cv2.circle(display, (int(x), int(y)), 6, color, -1)
+                    cv2.putText(display, "({}, {})".format(int(position_idx[i][0]), int(position_idx[i][1])), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
+
+                cv2.imshow("Position", display)
+                cv2.waitKey(1)
 
         return ret
+
+    def __remove_duplicated_person(self, position_idx, position_arr, max_person_num, cluster_ret):
+        ret = np.array(copy.deepcopy(cluster_ret))
+
+        matched_person_position = np.zeros((max_person_num, 2))
+        for i in range(max_person_num):
+            matched_idx = np.where(ret == i)
+            matched_person_position[i] = np.average(position_arr[matched_idx], axis=0)
+            # print("average position of {} : {}".format(i, matched_person_position[i]))
+
+        person_group = {}
+        for i in range(self.__cam_num+1):
+            person_group[i] = {}
+            for j in range(self.__person_num):
+                person_group[i][j] = {}
+                person_group[i][j]['count'] = 0
+                person_group[i][j]['id'] = []
+
+        for i in range(len(cluster_ret)):
+            person_group[int(position_idx[i][0])][cluster_ret[i]]['count'] += 1
+            person_group[int(position_idx[i][0])][cluster_ret[i]]['id'].append(i)
+
+        # for cam_id in range(self.__cam_num+1):
+        for i in range(len(cluster_ret)):
+            cnt = person_group[int(position_idx[i][0])][cluster_ret[i]]['count']
+            if cnt > 1 and cnt < 10:
+                cache = np.zeros((cnt, max_person_num))
+                id = 0
+                for duplicated_id in person_group[int(position_idx[i][0])][cluster_ret[i]]['id']:
+                    for matched_idx in range(len(matched_person_position)):
+                        cache[id][matched_idx] = np.linalg.norm(position_arr[duplicated_id] - matched_person_position[matched_idx])
+                    id += 1
+
+                is_valid_cam = np.ones(max_person_num)
+                min_dist, min_arr = self.__get_minimum_dist(cache, cnt, is_valid_cam, max_person_num)
+                print("[{}] : {}".format(int(position_idx[i][0]), min_arr))
+                id = 0
+                # print("person group : {}".format(person_group[int(position_idx[i][0])][cluster_ret[i]]['id']))
+                # print("min_arr : {}".format(min_arr))
+                for duplicated_id in person_group[int(position_idx[i][0])][cluster_ret[i]]['id']:
+                    if len(person_group[int(position_idx[i][0])][cluster_ret[i]]['id']) == len(min_arr):
+                        ret[duplicated_id] = min_arr[id]
+                        id += 1
+                    else:
+                        print("size mismatched")
+            elif cnt > 10:
+                ret[i] = -1
+            else:
+                pass
+
+        person_group = {}
+        for i in range(self.__cam_num+1):
+            person_group[i] = {}
+            for j in range(self.__person_num):
+                person_group[i][j] = {}
+                person_group[i][j]['count'] = 0
+                person_group[i][j]['id'] = []
+
+        for i in range(len(ret)):
+            person_group[int(position_idx[i][0])][ret[i]]['count'] += 1
+            person_group[int(position_idx[i][0])][ret[i]]['id'].append(i)
+
+        for i in range(len(ret)):
+            if person_group[int(position_idx[i][0])][ret[i]]['count'] > 1:
+                ret[i] = -1
+
+        return ret
+
+    def __get_minimum_dist(self, cache, cnt, is_valid_cam, max_person_num):
+        cnt -= 1
+        if cnt < 0:
+            return (0, [])
+        min_dist = np.inf
+        min_idx = -1
+        min_arr = np.array([], dtype='int32')
+        for i in range(max_person_num):
+            if is_valid_cam[i]:
+                is_valid_cam[i] = False
+                ret = self.__get_minimum_dist(cache, cnt, is_valid_cam, max_person_num)
+                dist = cache[cnt][i] + ret[0]
+                arr = ret[1]
+                is_valid_cam[i] = True
+                if dist < min_dist:
+                    min_dist = dist
+                    min_idx = i
+                    min_arr = arr
+        return (min_dist, np.append(min_arr, min_idx))
+
+    # def __find_near_elements(self, array, value, n):
+    #     lst = copy.deepcopy(array)
+    #     ret = []
+    #     if len(lst) < n:
+    #         return lst
+
+    #     for i in range(n):
+    #         lst = np.asarray(lst)
+    #         idx = (np.abs(lst - value)).argmin()
+    #         ret.append(lst[idx])
+    #         lst = np.delete(lst, idx)
+    #     return ret
 
     def __get_valid_dlt_element(self):
         valid_dlt_element = {}
@@ -363,36 +505,38 @@ class Reconstructor:
             is_too_closed = False
             person_A_id = person_A[0]
             person_A_keypoint = person_A[1]
-            (mean_err_dist, person_A_keypoint) = post.fix_wrong_3d_pose(person_A_keypoint)
-            if mean_err_dist >= 5.0:
-                logging.warning("SKIP THIS PERSON {}, TOO MUCH ERROR : {}".format(person_A_id, mean_err_dist))
-                continue
+            person_A_repro_err = person_A[2]
+            dist = self.__check_repro_error(person_A_keypoint, person_A_repro_err, triangulate_param[person_A_id]['keypoint'], triangulate_param[person_A_id]['P'])
+            person_A_keypoint[:, :3] /= 2
+            print("Projection Error : {}".format(np.mean(dist)))
+            if np.mean(dist) < 50:
+                data.append({'id' : person_A_id, 'keypoints3d' : person_A_keypoint})
 
-            person_A_center_position = post.get_center_position(person_A_keypoint)
-            for person_B in reconstruction_list:
-                person_B_id = person_B[0]
-                if person_A_id == person_B_id:
-                    continue
-                person_B_keypoint = person_B[1]
-                person_B_center_position = post.get_center_position(person_B_keypoint)
-                dist_between_A_and_B = np.linalg.norm(person_A_center_position - person_B_center_position)
-                logging.debug("Dist between {} and {} : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
+            # person_A_center_position = post.get_center_position(person_A_keypoint)
+            # for person_B in reconstruction_list:
+            #     person_B_id = person_B[0]
+            #     if person_A_id == person_B_id:
+            #         continue
+            #     person_B_keypoint = person_B[1]
+            #     person_B_center_position = post.get_center_position(person_B_keypoint)
+            #     dist_between_A_and_B = np.linalg.norm(person_A_center_position - person_B_center_position)
+            #     logging.debug("Dist between {} and {} : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
 
-                if dist_between_A_and_B <= 1.0:
-                    logging.warning("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
-                    is_too_closed = True
-                    continue
+            #     if dist_between_A_and_B <= 1.0:
+            #         logging.warning("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
+            #         is_too_closed = True
+            #         continue
 
-            if is_too_closed is False:
-                tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
-            else:
-                tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_A_id)
+            # if is_too_closed is False:
+            #     tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
+            # else:
+            #     tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_A_id)
 
-            if tracking_id >= 0:
-                frame_buffer[tracking_id], ret = post.smooth_3d_pose(frame_buffer[tracking_id], person_A_keypoint)
-                self.__tracking_table[tracking_id]['keypoints3d'] = ret
-                self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
-                data.append({'id' : tracking_id, 'keypoints3d' : ret})
+            # if tracking_id >= 0:
+            #     frame_buffer[tracking_id], ret = post.smooth_3d_pose(frame_buffer[tracking_id], person_A_keypoint)
+            #     self.__tracking_table[tracking_id]['keypoints3d'] = ret
+            #     self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
+            #     data.append({'id' : tracking_id, 'keypoints3d' : ret})
         return data
 
     def __find_tracking_id_from_distance(self, triangulate_param, person_id, person_keypoint):
@@ -407,7 +551,7 @@ class Reconstructor:
                 continue
 
             err = post.get_distance_from_keypoints(person_keypoint[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
-            logging.debug("ERR : ", err)
+            logging.debug("ERR : {}".format(err))
             if err < min_err:
                 min_err = err
                 min_id = tracking_id
@@ -429,11 +573,20 @@ class Reconstructor:
     async def __reconstruct_3d_pose(self, triangulate_param):
         task = []
         for person_id in triangulate_param:
-            task.append(self.__batch_triangulate(person_id, triangulate_param[person_id]['keypoint'], triangulate_param[person_id]['P']))
+            task.append(self.__simple_recon_person(person_id, triangulate_param[person_id]['keypoint'], triangulate_param[person_id]['P']))
         out = await asyncio.gather(*task)
         return out
 
-    async def __batch_triangulate(self, person_id, keypoints_, Pall):
+    async def __simple_recon_person(self, person_id, keypoints_use, Puse):
+        (person_id, out) = self.__batch_triangulate(person_id, keypoints_use, Puse)
+        # compute reprojection error
+        kpts_repro = self.__projectN3(out, Puse)
+        square_diff = (keypoints_use[:, :, :2] - kpts_repro[:, :, :2])**2
+        conf = np.repeat(out[None, :, -1:], len(Puse), 0)
+        kpts_repro = np.concatenate((kpts_repro, conf), axis=2)
+        return person_id, out, kpts_repro
+
+    def __batch_triangulate(self, person_id, keypoints_, Pall):
         v = (keypoints_[:, :, -1]>0).sum(axis=0)
         valid_joint = np.where(v > 1)[0]
         keypoints = keypoints_[:, valid_joint]
@@ -459,6 +612,26 @@ class Reconstructor:
         result[valid_joint, :3] = X[:, :3]
         result[valid_joint, 3] = conf3d
         return (person_id, result)
+
+    def __projectN3(self, kpts3d, Pall):
+        # kpts3d: (N, 3)
+        nViews = len(Pall)
+        kp3d = np.hstack((kpts3d[:, :3], np.ones((kpts3d.shape[0], 1))))
+        kp2ds = []
+        for nv in range(nViews):
+            kp2d = Pall[nv] @ kp3d.T
+            kp2d[:2, :] /= kp2d[2:, :]
+            kp2ds.append(kp2d.T[None, :, :])
+        kp2ds = np.vstack(kp2ds)
+        kp2ds[..., -1] = kp2ds[..., -1] * (kpts3d[None, :, -1] > 0.)
+        return kp2ds
+
+    def __check_repro_error(self, keypoints3d, kpts_repro, keypoints2d, P):
+        square_diff = (keypoints2d[:, :, :2] - kpts_repro[:, :, :2])**2
+        conf = keypoints3d[None, :, -1:]
+        conf = (keypoints3d[None, :, -1:] > 0) * (keypoints2d[:, :, -1:] > 0)
+        dist = np.sqrt((((kpts_repro[..., :2] - keypoints2d[..., :2])*conf)**2).sum(axis=-1))
+        return dist
 
     def __get_facehand_status(self, lk_facehand, mq_facehand, face_status, hand_status):
         lk_facehand.acquire()

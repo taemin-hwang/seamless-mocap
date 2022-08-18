@@ -48,7 +48,7 @@ class Viewer2d:
         if self.__args.log:
             pass
         else:
-            if self.frame_num % 20 == 0:
+            if self.frame_num % 40 == 0:
                 self.frame_num = 1
             else:
                 self.frame_num += 1
@@ -63,6 +63,8 @@ class Viewer2d:
         display_id = self.cam_id_list.index(cam_id)
         self.display_list[display_id] = np.zeros((self.height, self.width, 3), np.uint8)
         display = self.display_list[display_id]
+
+        cv2.putText(display, "{}".format(cam_id), (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, [255, 255, 255], 3)
         for person in annots:
             bbox = person['bbox']
             person_id = person['personID']
@@ -125,32 +127,7 @@ class Viewer2d:
                     if part is BODY_PARTS_POSE_25.LAST:
                         break
                     kp = keypoints[part.value]
-                    # Check that the keypoints are inside the image
-                    if(kp[0] < display.shape[1] and kp[1] < display.shape[0]):
-                        if (part == BODY_PARTS_POSE_25.LEFT_SHOULDER or
-                                part == BODY_PARTS_POSE_25.LEFT_ELBOW or
-                                part == BODY_PARTS_POSE_25.LEFT_WRIST or
-                                part == BODY_PARTS_POSE_25.LEFT_HIP or
-                                part == BODY_PARTS_POSE_25.LEFT_KNEE or
-                                part == BODY_PARTS_POSE_25.LEFT_ANKLE or
-                                part == BODY_PARTS_POSE_25.LEFT_FOOT or
-                                part == BODY_PARTS_POSE_25.LEFT_HEEL or
-                                part == BODY_PARTS_POSE_25.LEFT_EYE or
-                                part == BODY_PARTS_POSE_25.LEFT_EAR):
-                            cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color_left, -1)
-                        elif (part == BODY_PARTS_POSE_25.RIGHT_SHOULDER or
-                                part == BODY_PARTS_POSE_25.RIGHT_ELBOW or
-                                part == BODY_PARTS_POSE_25.RIGHT_WRIST or
-                                part == BODY_PARTS_POSE_25.RIGHT_HIP or
-                                part == BODY_PARTS_POSE_25.RIGHT_KNEE or
-                                part == BODY_PARTS_POSE_25.RIGHT_ANKLE or
-                                part == BODY_PARTS_POSE_25.RIGHT_FOOT or
-                                part == BODY_PARTS_POSE_25.RIGHT_HEEL or
-                                part == BODY_PARTS_POSE_25.RIGHT_EYE or
-                                part == BODY_PARTS_POSE_25.RIGHT_EAR):
-                            cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color_right, -1)
-                        else:
-                            cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color, -1)
+                    cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color, -1)
 
 
             elif len(keypoints) == 34:

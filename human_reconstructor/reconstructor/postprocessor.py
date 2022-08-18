@@ -56,17 +56,17 @@ def fix_3d_pose_recursively(keypoints3d, parents_part):
         # print("{} -> {} : {}".format(parents_part, connected_part, dist))
         # TODO: update constant variable according to the human body size (+ rotation)
         if parents_part in SMALL_PARTS:
-            if dist > 0.15:
-                keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*0.15
-                err_dist += (dist - 0.15)
+            if dist > 0.3:
+                keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*0.3
+                err_dist += (dist - 0.3)
         elif parents_part in MID_PARTS:
-            if dist > 0.5:
-                keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*0.5
-                err_dist += (dist - 0.5)
-        else:
             if dist > 1.0:
                 keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*1.0
                 err_dist += (dist - 1.0)
+        else:
+            if dist > 2.0:
+                keypoints3d[connected_part] = keypoints3d[parents_part] + (keypoints3d[connected_part] - keypoints3d[parents_part])/dist*2.0
+                err_dist += (dist - 2.0)
 
         err_dist += fix_3d_pose_recursively(keypoints3d, connected_part)
     return err_dist

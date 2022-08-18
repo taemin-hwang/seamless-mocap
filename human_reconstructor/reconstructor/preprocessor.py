@@ -23,7 +23,7 @@ def smooth_2d_pose(frame_buffer_2d, keypoints2d):
         if np.sum(cdata) < 0.01:
             break
 
-        x_avg = np.average(xdata, weights=cdata * range(1, buffer_size+1))
+        x_avg = np.average(xdata, weights=cdata)
         y_avg = np.average(ydata, weights=cdata)
         c_avg = np.average(cdata, weights=cdata)
         avg_keypoints2d[i] = [x_avg, y_avg, c_avg]
