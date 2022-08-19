@@ -5,19 +5,16 @@ import json
 import pause
 import asyncio
 import os
-import matplotlib.pyplot as plt
-import cv2
 import shutil
-import copy
 
 from format import face_format, hand_format
 
-from reconstructor import postprocessor as post
-from reconstructor import preprocessor as pre
+from reconstructor.utils import postprocessor as post
+from reconstructor import skeletonmanager as sm
+from reconstructor import clustermanager as cm
+from reconstructor import trackingmanager as tm
 
 from config import file_storage as fs
-from visualizer import utils
-from visualizer import viewer_2d as v2d
 
 import logging
 
@@ -25,7 +22,6 @@ class Reconstructor:
     def __init__(self, args):
         self.__args = args
         self.__calibration = fs.read_camera('./etc/intri.yml', './etc/extri.yml')
-        self.viewer = v2d.Viewer2d(self.__args)
         self.__frame_number = 0
         self.__max_frame_number = 0
         if self.__args.log:
@@ -42,20 +38,17 @@ class Reconstructor:
         self.__target_fps = self.__config["fps"]
         self.__system_interval = 1000/self.__target_fps # milli-seconds
         self.__buffer_size = self.__config["buffer_size"]
-        self.__max_frame = self.__config["max_frame"]
-        self.__min_confidence = self.__config["min_confidence"]
         if self.__args.log:
             self.__transformation = fs.read_transformation(self.__args.log + 'transformation.json')
         else:
-            self.__skeleton_table = self.__get_initial_skeleton_table(self.__calibration)
             self.__transformation = fs.read_transformation('./etc/transformation.json')
 
-        self.__person_table = self.__get_initial_person_table()
-        self.__tracking_table = self.__get_initial_tracking_table()
-        self.__frame_buffer_2d = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
-        self.__frame_buffer_pos = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
+        self.__skeleton_manager = sm.SkeletonManager(self.__args, self.__cam_num, self.__person_num, self.__calibration)
+        self.__cluster_manager = cm.ClusterManager(self.__args, self.__cam_num, self.__person_num, self.__transformation)
+        self.__cluster_manager.initialize()
+        self.__tracking_manager = tm.TrackingManager(self.__max_person_num)
+
         self.__log_dir = "./log"
-        self.viewer.initialize(self.__cam_num)
 
     def run(self, func_recv_skeleton, func_recv_handface, func_send_skeleton_gui, func_send_skeleton_unity):
         self.__skeleton_mq, self.__skeleton_lk = func_recv_skeleton(self.__config["server_ip"], self.__config["skeleton_port"])
@@ -71,55 +64,34 @@ class Reconstructor:
         frame_buffer = np.ones((self.__person_num, self.__buffer_size, 25, 4))
 
         if self.__args.write is True:
-            # Read current time
-            now = datetime.datetime.now()
-            current_time = now.strftime("%Y-%m-%d_%H-%M-%S")
-            # Create log directory
-            self.__log_dir = "./log/" + current_time
-            try:
-                if not os.path.exists(self.__log_dir):
-                    os.makedirs(self.__log_dir)
-            except OSError:
-                logging.error("Error: Failed to create the directory.")
+            self.__copy_config()
 
-            shutil.copyfile('./etc/transformation.json', self.__log_dir + '/transformation.json')
-            shutil.copyfile('./etc/config.json', self.__log_dir + '/config.json')
-
-        count = 0
         if self.__args.log:
-            # self.__frame_number = 180
-            for path in os.scandir(self.__args.log):
-                if path.is_file():
-                    count += 1
-            self.__max_frame_number = count - 2 # transformation.json and config.json
+            self.__max_frame_number = self.__count_log_frames(self.__args.log)
 
         while(True):
             t_sleep = datetime.datetime.now()
+            # Get 2D skeletons
             if self.__args.log:
                 if self.__frame_number >= self.__max_frame_number:
                     self.__frame_number = 0
                 comm = input(str(self.__frame_number).zfill(6) + "> ")
-                self.__read_skeleton_table(self.__frame_number, self.__args.log)
+                self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
             else:
                 self.__update_skeleton_table()
-            self.__update_person_table()
 
-            triangulate_param = {}
-            valid_dlt_element = self.__get_valid_dlt_element()
-            for person_id in range(0, self.__person_num):
-                if valid_dlt_element[person_id]['count'] >= self.__min_cam:
-                    valid_keypoint = np.stack(valid_dlt_element[person_id]['valid_keypoint'], axis=0)
-                    valid_p = np.stack(valid_dlt_element[person_id]['valid_P'], axis=0)
-                    triangulate_param[person_id] = {}
-                    triangulate_param[person_id]['keypoint'] = valid_keypoint
-                    triangulate_param[person_id]['P'] = valid_p
-                    triangulate_param[person_id]['cpid'] = valid_dlt_element[person_id]['cpid']
+            # Make clusters
+            self.__cluster_manager.update_person_table(self.__skeleton_manager, self.__max_person_num, self.__frame_number)
 
+            # Reconstruct 3D skeletons
+            triangulate_param = self.__get_triangulate_param()
             reconstruction_list = asyncio.run(self.__reconstruct_3d_pose(triangulate_param))
-            data = self.__get_reconstruction_data(reconstruction_list, triangulate_param, frame_buffer)
 
+            # Keep tracking 3D skeletons
+            data = self.__assign_tracking_id(reconstruction_list, triangulate_param, frame_buffer)
+
+            # Assign Hand/Face status
             if self.__args.face is True:
-                # Read face hand status from clients
                 face_status, hand_status = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status)
                 logging.debug("[FACE STATUS] {}".format(face_status.value))
                 logging.debug("[HAND STATUS] {}".format(hand_status.value))
@@ -127,295 +99,41 @@ class Reconstructor:
                     element['face'] = face_status.value
                     element['hand'] = hand_status.value
 
+            # Send data if needed
             if len(data) > 0:
                 if self.__args.gui is True:
                     self.__send_skeleton_gui(data)
                 if self.__args.unity is True:
                     self.__send_skeleton_unity(data)
 
-            self.__reset_skeleton_table()
-            self.__reset_person_table()
+            self.__skeleton_manager.reset_skeleton_table()
+            self.__cluster_manager.reset_cluster_table()
 
             self.__frame_number += 1
 
             pause.until(t_sleep.timestamp() + self.__system_interval/1000)
 
-    def __get_initial_skeleton_table(self, calibration):
-        skeleton_table = {}
-        for cam_id in range(1, self.__cam_num+1):
-            skeleton_table[cam_id] = {}
-            skeleton_table[cam_id]['P'] = calibration[str(cam_id)]['P'].tolist()
-            for person_id in range(0, self.__person_num):
-                skeleton_table[cam_id][person_id] = {}
-                skeleton_table[cam_id][person_id]['is_valid'] = False
-                skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
-                skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
-        return skeleton_table
+    def __copy_config(self):
+        # Read current time
+        now = datetime.datetime.now()
+        current_time = now.strftime("%Y-%m-%d_%H-%M-%S")
+        # Create log directory
+        self.__log_dir = "./log/" + current_time
+        try:
+            if not os.path.exists(self.__log_dir):
+                os.makedirs(self.__log_dir)
+        except OSError:
+            logging.error("Error: Failed to create the directory.")
 
-    def __reset_skeleton_table(self):
-        for cam_id in range(1, self.__cam_num+1):
-            for person_id in range(0, self.__person_num):
-                self.__skeleton_table[cam_id][person_id]['is_valid'] = False
+        shutil.copyfile('./etc/transformation.json', self.__log_dir + '/transformation.json')
+        shutil.copyfile('./etc/config.json', self.__log_dir + '/config.json')
 
-    def __read_skeleton_table(self, frame_number, log_dir):
-        file_path = log_dir + str(frame_number).zfill(6) + ".json"
-        logging.debug(file_path)
-        with open(file_path, "r") as outfile:
-            self.__skeleton_table = json.load(outfile, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})
-            # for cam_id in range(1, len(self.__skeleton_table)+1):
-            #     data = {}
-            #     data['id'] = cam_id
-            #     data['annots'] = []
-            #     for person_id in range(len(self.__skeleton_table[cam_id])-1):
-            #         if self.__skeleton_table[cam_id][person_id]['is_valid'] is True or self.__skeleton_table[cam_id][person_id]['keypoint'][0][0] > 0:
-            #             data['annots'].append({
-            #                 'personID': person_id,
-            #                 'bbox': [1,1,2,2],
-            #                 'keypoints': self.__skeleton_table[cam_id][person_id]['keypoint']
-            #             })
-
-            #     if self.__args.visual:
-            #         self.viewer.render_2d(data)
-
-    def __get_initial_person_table(self):
-        person_table = {}
-        for person_id in range(0, self.__person_num):
-            person_table[person_id] = {}
-            person_table[person_id]['is_valid'] = False
-            person_table[person_id]['count'] = 0
-            person_table[person_id]['cam_person'] = []
-            person_table[person_id]['position'] = []
-            person_table[person_id]['cpid'] = []
-            person_table[person_id]['prev_position'] = (0, 0)
-        return person_table
-
-    def __reset_person_table(self):
-        for person_id in range(0, self.__person_num):
-            if self.__person_table[person_id]['is_valid'] is True:
-                cnt = 0
-                avg_x = 0.0
-                avg_y = 0.0
-                for j in range(self.__person_table[person_id]['count']):
-                    avg_x += self.__person_table[person_id]['position'][j][0]
-                    avg_y += self.__person_table[person_id]['position'][j][1]
-                    cnt += 1
-                avg_x /= cnt
-                avg_y /= cnt
-
-                self.__person_table[person_id]['prev_position']=(avg_x, avg_y)
-            self.__person_table[person_id]['is_valid'] = False
-            self.__person_table[person_id]['count'] = 0
-            self.__person_table[person_id]['cpid'] = []
-            self.__person_table[person_id]['position'] = []
-
-    def __get_initial_tracking_table(self):
-        tracking_table = {}
-        for i in range(self.__max_person_num):
-            tracking_table[i] = {}
-            tracking_table[i]['is_valid'] = False
-            tracking_table[i]['cpid'] = []
-            tracking_table[i]['keypoints3d'] = None
-        return tracking_table
-
-    def __update_person_table(self):
-        max_person_num = 0
-        position_idx = np.empty((0, 2)) # cam_id, person_id
-        position_arr = np.empty((0, 2)) # X, Y
-
-        for cam_id in range(1, self.__cam_num+1):
-            transform = self.__transformation['T'+str(cam_id)+'1']
-            person_num = 0
-            for person_id in range(0, self.__person_num):
-                if self.__skeleton_table[cam_id][person_id]['is_valid'] is True or self.__skeleton_table[cam_id][person_id]['keypoint'][0][0] > 0:
-                    average_position = self.__get_average_position(cam_id, person_id, transform)
-                    dist_from_cam1 = np.linalg.norm(np.array([average_position[0], average_position[1]]) - self.__transformation['C1'][:2])
-                    logging.debug("[DISTANCE] cam {}, person {} : {}".format(cam_id, person_id, dist_from_cam1))
-                    if dist_from_cam1 < 5:
-                        position_arr = np.append(position_arr, np.array([[average_position[0], average_position[1]]]), axis=0)
-                        position_idx = np.append(position_idx, np.array([[cam_id, person_id]]), axis=0)
-                        person_num += 1
-
-            if max_person_num < person_num:
-                max_person_num = person_num
-            if max_person_num >= self.__max_person_num:
-                max_person_num = self.__max_person_num
-
-        if max_person_num > 0:
-            cluster_arr = self.__get_cluster_arr(position_arr, position_idx, max_person_num)
-            for i in range(len(cluster_arr)):
-                cluster_id = cluster_arr[i]
-                if cluster_id >= 0:
-                    self.__person_table[cluster_id]['is_valid'] = True
-                    self.__person_table[cluster_id]['count'] += 1
-                    self.__person_table[cluster_id]['cpid'].append(post.get_cpid(position_idx[i][0], position_idx[i][1])) # cam_id, person_id
-                    self.__person_table[cluster_id]['position'].append(position_arr[cluster_id]) # X, Y
-
-    def __get_average_position(self, cam_id, person_id, transform):
-        position = self.__skeleton_table[cam_id][person_id]['position']
-        c = []
-        position = np.array(position)
-        transform = np.array(transform)
-        for kp in position:
-            k = (transform[:-1, :-1]@kp[:3] + transform[:-1, -1]).tolist()
-            k.extend([kp[3]])
-            c.append(k)
-        c = np.array(c)
-        avg_x = np.average(c[:, 0])
-        avg_y = np.average(c[:, 1])
-        return (avg_x, avg_y)
-
-    def __get_cluster_arr(self, position_arr, position_idx, max_person_num):
-        from sklearn.cluster import AgglomerativeClustering
-
-        logging.info("[INFO] Clustering... {} people".format(max_person_num))
-        if len(position_arr) <= max_person_num:
-            return []
-
-        cluster = AgglomerativeClustering(n_clusters=max_person_num, affinity='euclidean', linkage='ward')
-        ret = cluster.fit_predict(position_arr)
-
-        vis_arr = {}
-        data = {}
-        data['annots'] = []
-        for i in range(len(ret)):
-            logging.debug("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
-
-        ret = self.__remove_duplicated_person(position_idx, position_arr, max_person_num, ret)
-
-        # matched_person_position = np.zeros((max_person_num, 2))
-        # for i in range(max_person_num):
-        #     matched_idx = np.where(ret == i)
-        #     matched_person_position[i] = np.average(position_arr[matched_idx], axis=0)
-        #     print(self.__find_near_elements(position_arr[matched_idx], matched_person_position[i], 3))
-
-        for i in range(len(ret)):
-            if self.__args.visual:
-                cam_id = int(position_idx[i][0])
-                person_id = int(position_idx[i][1])
-                fixed_person_id = int(ret[i])
-
-                if cam_id not in vis_arr:
-                    vis_arr[cam_id] = {}
-                    vis_arr[cam_id]['annots'] = []
-
-                vis_arr[cam_id]['annots'].append({
-                    'personID' : fixed_person_id,
-                    'bbox' : [1,1,2,2],
-                    'keypoints' : self.__skeleton_table[cam_id][person_id]['keypoint']
-                })
-
-        if self.__args.visual:
-            for cam_id in vis_arr.keys():
-                data = {}
-                data['id'] = cam_id
-                data['annots'] = vis_arr[cam_id]['annots']
-                self.viewer.render_2d(data)
-
-        if self.__args.visual:
-            if self.__args.log or self.__frame_number % 40 == 0:
-                room_size = 10 # 10m x 10m
-                display = np.ones((800, 800, 3), np.uint8) * 255
-                utils.draw_grid(display)
-                for i in range(len(ret)):
-                    x = position_arr[i][0] + room_size/2
-                    y = position_arr[i][1] + room_size/2
-                    x *= display.shape[0]/room_size*1.5
-                    y *= display.shape[1]/room_size*1.5
-                    color = utils.generate_color_id_u(ret[i])
-                    cv2.circle(display, (int(x), int(y)), 6, color, -1)
-                    cv2.putText(display, "({}, {})".format(int(position_idx[i][0]), int(position_idx[i][1])), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
-
-                cv2.imshow("Position", display)
-                cv2.waitKey(1)
-
-        return ret
-
-    def __remove_duplicated_person(self, position_idx, position_arr, max_person_num, cluster_ret):
-        ret = np.array(copy.deepcopy(cluster_ret))
-
-        matched_person_position = np.zeros((max_person_num, 2))
-        for i in range(max_person_num):
-            matched_idx = np.where(ret == i)
-            matched_person_position[i] = np.average(position_arr[matched_idx], axis=0)
-            # print("average position of {} : {}".format(i, matched_person_position[i]))
-
-        person_group = {}
-        for i in range(self.__cam_num+1):
-            person_group[i] = {}
-            for j in range(self.__person_num):
-                person_group[i][j] = {}
-                person_group[i][j]['count'] = 0
-                person_group[i][j]['id'] = []
-
-        for i in range(len(cluster_ret)):
-            person_group[int(position_idx[i][0])][cluster_ret[i]]['count'] += 1
-            person_group[int(position_idx[i][0])][cluster_ret[i]]['id'].append(i)
-
-        # for cam_id in range(self.__cam_num+1):
-        for i in range(len(cluster_ret)):
-            cnt = person_group[int(position_idx[i][0])][cluster_ret[i]]['count']
-            if cnt > 1 and cnt < 10:
-                cache = np.zeros((cnt, max_person_num))
-                id = 0
-                for duplicated_id in person_group[int(position_idx[i][0])][cluster_ret[i]]['id']:
-                    for matched_idx in range(len(matched_person_position)):
-                        cache[id][matched_idx] = np.linalg.norm(position_arr[duplicated_id] - matched_person_position[matched_idx])
-                    id += 1
-
-                is_valid_cam = np.ones(max_person_num)
-                min_dist, min_arr = self.__get_minimum_dist(cache, cnt, is_valid_cam, max_person_num)
-                print("[{}] : {}".format(int(position_idx[i][0]), min_arr))
-                id = 0
-                # print("person group : {}".format(person_group[int(position_idx[i][0])][cluster_ret[i]]['id']))
-                # print("min_arr : {}".format(min_arr))
-                for duplicated_id in person_group[int(position_idx[i][0])][cluster_ret[i]]['id']:
-                    if len(person_group[int(position_idx[i][0])][cluster_ret[i]]['id']) == len(min_arr):
-                        ret[duplicated_id] = min_arr[id]
-                        id += 1
-                    else:
-                        print("size mismatched")
-            elif cnt > 10:
-                ret[i] = -1
-            else:
-                pass
-
-        person_group = {}
-        for i in range(self.__cam_num+1):
-            person_group[i] = {}
-            for j in range(self.__person_num):
-                person_group[i][j] = {}
-                person_group[i][j]['count'] = 0
-                person_group[i][j]['id'] = []
-
-        for i in range(len(ret)):
-            person_group[int(position_idx[i][0])][ret[i]]['count'] += 1
-            person_group[int(position_idx[i][0])][ret[i]]['id'].append(i)
-
-        for i in range(len(ret)):
-            if person_group[int(position_idx[i][0])][ret[i]]['count'] > 1:
-                ret[i] = -1
-
-        return ret
-
-    def __get_minimum_dist(self, cache, cnt, is_valid_cam, max_person_num):
-        cnt -= 1
-        if cnt < 0:
-            return (0, [])
-        min_dist = np.inf
-        min_idx = -1
-        min_arr = np.array([], dtype='int32')
-        for i in range(max_person_num):
-            if is_valid_cam[i]:
-                is_valid_cam[i] = False
-                ret = self.__get_minimum_dist(cache, cnt, is_valid_cam, max_person_num)
-                dist = cache[cnt][i] + ret[0]
-                arr = ret[1]
-                is_valid_cam[i] = True
-                if dist < min_dist:
-                    min_dist = dist
-                    min_idx = i
-                    min_arr = arr
-        return (min_dist, np.append(min_arr, min_idx))
+    def __count_log_frames(self, dir):
+        count = 0
+        for path in os.scandir(dir):
+            if path.is_file():
+                count += 1
+        return count - 2 # transformation.json and config.json
 
     # def __find_near_elements(self, array, value, n):
     #     lst = copy.deepcopy(array)
@@ -430,6 +148,19 @@ class Reconstructor:
     #         lst = np.delete(lst, idx)
     #     return ret
 
+    def __get_triangulate_param(self):
+        triangulate_param = {}
+        valid_dlt_element = self.__get_valid_dlt_element()
+        for person_id in range(0, self.__person_num):
+            if valid_dlt_element[person_id]['count'] >= self.__min_cam:
+                valid_keypoint = np.stack(valid_dlt_element[person_id]['valid_keypoint'], axis=0)
+                valid_p = np.stack(valid_dlt_element[person_id]['valid_P'], axis=0)
+                triangulate_param[person_id] = {}
+                triangulate_param[person_id]['keypoint'] = valid_keypoint
+                triangulate_param[person_id]['P'] = valid_p
+                triangulate_param[person_id]['cpid'] = valid_dlt_element[person_id]['cpid']
+        return triangulate_param
+
     def __get_valid_dlt_element(self):
         valid_dlt_element = {}
         for person_id in range(0, self.__person_num):
@@ -440,15 +171,15 @@ class Reconstructor:
             valid_dlt_element[person_id]['cpid'] = []
 
         for person_id in range(0, self.__person_num):
-            if self.__person_table[person_id]['is_valid'] is True:
-                valid_dlt_element[person_id]['count'] = self.__person_table[person_id]['count']
-                for i in range(self.__person_table[person_id]['count']):
-                    cpid = self.__person_table[person_id]['cpid'][i]
+            if self.__cluster_manager.is_cluster_valid(person_id) is True:
+                valid_dlt_element[person_id]['count'] = self.__cluster_manager.get_count(person_id)
+                for i in range(valid_dlt_element[person_id]['count']):
+                    cpid = self.__cluster_manager.get_cpid(person_id)[i]
                     cid = post.get_cam_id(cpid)
                     pid = post.get_person_id(cpid)
                     valid_dlt_element[person_id]['cpid'].append(cpid)
-                    valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_table[cid][pid]['keypoint'])
-                    valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_table[cid]['P'])
+                    valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_manager.get_skeleton(cid, pid))
+                    valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_manager.get_skeleton_table()[cid]['P'])
 
         return valid_dlt_element
 
@@ -459,47 +190,18 @@ class Reconstructor:
         for i in range(qsize):
             data = self.__skeleton_mq.get()
             data = json.loads(data)
-            if self.__args.visual:
-                self.viewer.render_2d(data)
-
-            bboxes = {}
-            cam_id = data['id']
-            for person_data in data['annots']:
-                person_id = person_data['personID']
-                bbox = person_data['bbox']
-                bboxes[person_id] = np.array(bbox)
-                if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
-                    logging.debug('Invalid data : {}, {}'.format(cam_id, person_id))
-                    continue
-                keypoints_34 = np.array(person_data['keypoints'])
-                keypoints_25 = utils.convert_25_from_34(keypoints_34)
-                self.__frame_buffer_2d[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_2d[cam_id][person_id], keypoints_25)
-                self.__skeleton_table[cam_id][person_id]['is_valid'] = True
-                self.__skeleton_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
-
-            for person_data in data['annots']:
-                person_id = person_data['personID']
-                if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
-                    logging.debug('Invalid data : {}, {}'.format(cam_id, person_id))
-                    continue
-                for prev_bbox in bboxes:
-                    if prev_bbox == person_id:
-                        continue
-                    if pre.is_bbox_overlapped(bboxes[prev_bbox], bboxes[person_id]):
-                        self.__skeleton_table[cam_id][person_id]['position'] = self.__frame_buffer_pos[cam_id][person_id][self.__buffer_size-1].tolist()
-                        logging.warning("Bounding boxes overlapped : {} and {} from camera {} ".format(prev_bbox, person_id, cam_id))
-                    else:
-                        self.__frame_buffer_pos[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_pos[cam_id][person_id], person_data['position'])
-                        self.__skeleton_table[cam_id][person_id]['position'] = avg_position.tolist()
-
+            # if self.__args.visual:
+            #     self.viewer.render_2d(data)
+            self.__skeleton_manager.update_skeleton_table(data)
         self.__skeleton_lk.release()
 
         if self.__args.write is True:
             file_path = self.__log_dir + "/" + str(self.__frame_number).zfill(6) + ".json"
             with open(file_path, "w") as outfile:
-                json.dump(self.__skeleton_table, outfile)
+                skeleton_table = self.__skeleton_manager.get_skeleton_table()
+                json.dump(skeleton_table, outfile)
 
-    def __get_reconstruction_data(self, reconstruction_list, triangulate_param, frame_buffer):
+    def __assign_tracking_id(self, reconstruction_list, triangulate_param, frame_buffer):
         data = []
         for person_A in reconstruction_list:
             is_too_closed = False
@@ -538,37 +240,6 @@ class Reconstructor:
             #     self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
             #     data.append({'id' : tracking_id, 'keypoints3d' : ret})
         return data
-
-    def __find_tracking_id_from_distance(self, triangulate_param, person_id, person_keypoint):
-        min_err = np.inf
-        min_id = -1
-        for tracking_id in range(self.__max_person_num):
-            tracking_keypoints = self.__tracking_table[tracking_id]['keypoints3d']
-            if tracking_keypoints is None:
-                self.__tracking_table[tracking_id]['is_valid'] = True
-                self.__tracking_table[tracking_id]['keypoints3d'] = person_keypoint
-                self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_id]['cpid']
-                continue
-
-            err = post.get_distance_from_keypoints(person_keypoint[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
-            logging.debug("ERR : {}".format(err))
-            if err < min_err:
-                min_err = err
-                min_id = tracking_id
-        return min_id
-
-    def __find_tracking_id_from_cpid(self, trianguldate_param, person_id):
-        max_cnt = 0
-        max_id = -1
-        for tracking_id in range(self.__max_person_num):
-            if self.__tracking_table[tracking_id]['is_valid'] is False:
-                continue
-            # Count same element between two list
-            cnt = post.count_same_element_in_list(trianguldate_param[person_id]['cpid'], self.__tracking_table[tracking_id]['cpid'])
-            if cnt > max_cnt:
-                max_cnt = cnt
-                max_id = tracking_id
-        return max_id
 
     async def __reconstruct_3d_pose(self, triangulate_param):
         task = []
