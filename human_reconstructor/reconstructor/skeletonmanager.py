@@ -18,6 +18,7 @@ class SkeletonManager:
             self.__skeleton_table = self.__get_initial_skeleton_table(calibration)
         self.__frame_buffer_keypoint = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
         self.__frame_buffer_position = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
+        self.__life_counter = np.zeros((self.__cam_num+1, self.__person_num))
 
     def get_skeleton_table(self):
         return self.__skeleton_table
@@ -34,9 +35,12 @@ class SkeletonManager:
     def reset_skeleton_table(self):
         for cam_id in range(1, self.__cam_num+1):
             for person_id in range(0, self.__person_num):
-                self.__skeleton_table[cam_id][person_id]['is_valid'] = False
-                self.__skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
-                self.__skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
+                if self.__life_counter[cam_id][person_id] <= 0:
+                    self.__skeleton_table[cam_id][person_id]['is_valid'] = False
+                    self.__skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
+                    self.__skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
+                else:
+                    self.__life_counter[cam_id][person_id] -= 1
 
     def update_skeleton_table(self, json_data):
         bboxes = {}
@@ -51,6 +55,7 @@ class SkeletonManager:
             keypoints_34 = np.array(person_data['keypoints'])
             keypoints_25 = utils.convert_25_from_34(keypoints_34)
             self.__frame_buffer_keypoint[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_keypoint[cam_id][person_id], keypoints_25)
+            self.__life_counter[cam_id][person_id] = 3
             self.__skeleton_table[cam_id][person_id]['is_valid'] = True
             self.__skeleton_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
 
@@ -74,6 +79,13 @@ class SkeletonManager:
         logging.debug(file_path)
         with open(file_path, "r") as outfile:
             self.__skeleton_table = json.load(outfile, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})
+            for cam_id in range(1, self.__cam_num+1):
+                for person_id in range(0, self.__person_num):
+                    if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
+                        self.__life_counter[cam_id][person_id] = 3
+                    else:
+                        if self.__life_counter[cam_id][person_id] > 0:
+                            self.__skeleton_table[cam_id][person_id]['is_valid'] = True
 
     def __get_initial_skeleton_table(self, calibration):
         skeleton_table = {}
@@ -85,4 +97,5 @@ class SkeletonManager:
                 skeleton_table[cam_id][person_id]['is_valid'] = False
                 skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
                 skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
+                self.__life_counter[cam_id][person_id] = 0
         return skeleton_table
