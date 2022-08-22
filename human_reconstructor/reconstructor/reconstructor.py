@@ -67,18 +67,21 @@ class Reconstructor:
         if self.__args.log:
             self.__max_frame_number = self.__count_log_frames(self.__args.log)
 
+        need_to_skip = False
+
         while(True):
             t_sleep = datetime.datetime.now()
             # Get 2D skeletons
             if self.__args.log:
                 if self.__frame_number >= self.__max_frame_number:
                     self.__frame_number = 0
-                comm = input(str(self.__frame_number).zfill(6) + "> ")
+                # comm = input(str(self.__frame_number).zfill(6) + "> ")
                 self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
             else:
                 self.__update_skeleton_table()
 
             # Make clusters
+            self.__cluster_manager.set_skip_to_make_cluster(need_to_skip)
             self.__cluster_manager.update_person_table(self.__skeleton_manager, self.__max_person_num, self.__frame_number)
 
             # Reconstruct 3D skeletons
@@ -86,7 +89,7 @@ class Reconstructor:
             reconstruction_list = asyncio.run(self.__reconstruct_3d_pose(triangulate_param))
 
             # Keep tracking 3D skeletons
-            data = self.__assign_tracking_id(reconstruction_list, triangulate_param)
+            need_to_skip, data = self.__assign_tracking_id(reconstruction_list, triangulate_param)
 
             # Assign Hand/Face status
             if self.__args.face is True:
@@ -132,19 +135,6 @@ class Reconstructor:
             if path.is_file():
                 count += 1
         return count - 2 # transformation.json and config.json
-
-    # def __find_near_elements(self, array, value, n):
-    #     lst = copy.deepcopy(array)
-    #     ret = []
-    #     if len(lst) < n:
-    #         return lst
-
-    #     for i in range(n):
-    #         lst = np.asarray(lst)
-    #         idx = (np.abs(lst - value)).argmin()
-    #         ret.append(lst[idx])
-    #         lst = np.delete(lst, idx)
-    #     return ret
 
     def __get_triangulate_param(self):
         triangulate_param = {}

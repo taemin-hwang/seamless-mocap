@@ -26,7 +26,6 @@ class TrackingManager:
         valid_arr = np.zeros((len(reconstruction_list)))
         idx = 0
         for person in reconstruction_list:
-            is_too_closed = False
             person_id = person[0]
             person_keypoint = person[1]
             person_repro_err = person[2]
@@ -38,6 +37,7 @@ class TrackingManager:
                 valid_arr[idx] = 1
             idx += 1
 
+        need_to_skip = False
         a_idx = 0
         for person_A in reconstruction_list:
             if valid_arr[a_idx] <= 0:
@@ -69,6 +69,7 @@ class TrackingManager:
                 tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
             else:
                 tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_A_id)
+                need_to_skip = True
 
             if tracking_id >= 0:
                 logging.info("Assign person {} to {}".format(a_idx, tracking_id))
@@ -80,7 +81,7 @@ class TrackingManager:
                 data.append({'id' : tracking_id, 'keypoints3d' : ret})
             a_idx += 1
 
-        return data
+        return need_to_skip, data
 
     def __check_repro_error(self, keypoints3d, kpts_repro, keypoints2d, P):
         square_diff = (keypoints2d[:, :, :2] - kpts_repro[:, :, :2])**2
@@ -130,6 +131,8 @@ class TrackingManager:
         return dist / keypoints3d1.shape[0]
 
     def __count_same_element_in_list(self, list1, list2):
+        logging.debug("list A : \n {}".format(list1))
+        logging.debug("list B : \n {}".format(list2))
         return len(set(list1) & set(list2))
 
     def __get_initial_tracking_table(self):

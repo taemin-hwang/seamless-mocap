@@ -15,6 +15,7 @@ class ClusterManager:
         self.__person_num = person_num
         self.__transformation = transformation
         self.__cluster_table = self.__get_initial_cluster_table()
+        self.__is_too_closed = False
         self.viewer = v2d.Viewer2d(self.__args)
 
     def initialize(self):
@@ -46,7 +47,13 @@ class ClusterManager:
     def get_prev_position(self, cluster_id):
         return self.__cluster_table[cluster_id]['prev_position']
 
+    def set_skip_to_make_cluster(self, is_too_closed):
+        self.__is_too_closed = is_too_closed
+
     def update_person_table(self, skeleton_manager, cluster_num, frame_number):
+        if self.__is_too_closed:
+            return
+
         max_person_num = 0
         position_idx = np.empty((0, 2)) # cam_id, person_id
         position_arr = np.empty((0, 2)) # X, Y
@@ -228,6 +235,19 @@ class ClusterManager:
 
         return ret
 
+    # def __find_near_elements(self, array, value, n):
+    #     lst = copy.deepcopy(array)
+    #     ret = []
+    #     if len(lst) < n:
+    #         return lst
+
+    #     for i in range(n):
+    #         lst = np.asarray(lst)
+    #         idx = (np.abs(lst - value)).argmin()
+    #         ret.append(lst[idx])
+    #         lst = np.delete(lst, idx)
+    #     return ret
+
     def __get_minimum_dist(self, cache, cnt, is_valid_cam, max_person_num):
         cnt -= 1
         if cnt < 0:
@@ -249,6 +269,9 @@ class ClusterManager:
         return (min_dist, np.append(min_arr, min_idx))
 
     def reset_cluster_table(self):
+        if self.__is_too_closed:
+            return
+
         for cluster_id in range(0, self.__person_num):
             if self.__cluster_table[cluster_id]['is_valid'] is True:
                 cnt = 0
