@@ -32,7 +32,7 @@ class Reconstructor:
     def initialize(self, config):
         self.__config = config
         self.__person_num = 30
-        self.__max_person_num = 4
+        self.__max_person_num = 3
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -46,7 +46,7 @@ class Reconstructor:
         self.__skeleton_manager = sm.SkeletonManager(self.__args, self.__cam_num, self.__person_num, self.__calibration)
         self.__cluster_manager = cm.ClusterManager(self.__args, self.__cam_num, self.__person_num, self.__transformation)
         self.__cluster_manager.initialize()
-        self.__tracking_manager = tm.TrackingManager(self.__max_person_num)
+        self.__tracking_manager = tm.TrackingManager(self.__args, self.__person_num, self.__max_person_num)
 
         self.__log_dir = "./log"
 
@@ -60,8 +60,6 @@ class Reconstructor:
 
         face_status = face_format.FACE_STATUS.CLOSED
         hand_status = hand_format.HAND_STATUS.RIGHT_CLOSED
-
-        frame_buffer = np.ones((self.__person_num, self.__buffer_size, 25, 4))
 
         if self.__args.write is True:
             self.__copy_config()
@@ -88,7 +86,7 @@ class Reconstructor:
             reconstruction_list = asyncio.run(self.__reconstruct_3d_pose(triangulate_param))
 
             # Keep tracking 3D skeletons
-            data = self.__assign_tracking_id(reconstruction_list, triangulate_param, frame_buffer)
+            data = self.__assign_tracking_id(reconstruction_list, triangulate_param)
 
             # Assign Hand/Face status
             if self.__args.face is True:
@@ -201,45 +199,8 @@ class Reconstructor:
                 skeleton_table = self.__skeleton_manager.get_skeleton_table()
                 json.dump(skeleton_table, outfile)
 
-    def __assign_tracking_id(self, reconstruction_list, triangulate_param, frame_buffer):
-        data = []
-        for person_A in reconstruction_list:
-            is_too_closed = False
-            person_A_id = person_A[0]
-            person_A_keypoint = person_A[1]
-            person_A_repro_err = person_A[2]
-            dist = self.__check_repro_error(person_A_keypoint, person_A_repro_err, triangulate_param[person_A_id]['keypoint'], triangulate_param[person_A_id]['P'])
-            person_A_keypoint[:, :3] /= 2
-            print("Projection Error : {}".format(np.mean(dist)))
-            if np.mean(dist) < 50:
-                data.append({'id' : person_A_id, 'keypoints3d' : person_A_keypoint})
-
-            # person_A_center_position = post.get_center_position(person_A_keypoint)
-            # for person_B in reconstruction_list:
-            #     person_B_id = person_B[0]
-            #     if person_A_id == person_B_id:
-            #         continue
-            #     person_B_keypoint = person_B[1]
-            #     person_B_center_position = post.get_center_position(person_B_keypoint)
-            #     dist_between_A_and_B = np.linalg.norm(person_A_center_position - person_B_center_position)
-            #     logging.debug("Dist between {} and {} : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
-
-            #     if dist_between_A_and_B <= 1.0:
-            #         logging.warning("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
-            #         is_too_closed = True
-            #         continue
-
-            # if is_too_closed is False:
-            #     tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
-            # else:
-            #     tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_A_id)
-
-            # if tracking_id >= 0:
-            #     frame_buffer[tracking_id], ret = post.smooth_3d_pose(frame_buffer[tracking_id], person_A_keypoint)
-            #     self.__tracking_table[tracking_id]['keypoints3d'] = ret
-            #     self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
-            #     data.append({'id' : tracking_id, 'keypoints3d' : ret})
-        return data
+    def __assign_tracking_id(self, reconstruction_list, triangulate_param):
+        return self.__tracking_manager.get_tracking_keypoints(reconstruction_list, triangulate_param)
 
     async def __reconstruct_3d_pose(self, triangulate_param):
         task = []
@@ -296,13 +257,6 @@ class Reconstructor:
         kp2ds = np.vstack(kp2ds)
         kp2ds[..., -1] = kp2ds[..., -1] * (kpts3d[None, :, -1] > 0.)
         return kp2ds
-
-    def __check_repro_error(self, keypoints3d, kpts_repro, keypoints2d, P):
-        square_diff = (keypoints2d[:, :, :2] - kpts_repro[:, :, :2])**2
-        conf = keypoints3d[None, :, -1:]
-        conf = (keypoints3d[None, :, -1:] > 0) * (keypoints2d[:, :, -1:] > 0)
-        dist = np.sqrt((((kpts_repro[..., :2] - keypoints2d[..., :2])*conf)**2).sum(axis=-1))
-        return dist
 
     def __get_facehand_status(self, lk_facehand, mq_facehand, face_status, hand_status):
         lk_facehand.acquire()

@@ -111,15 +111,6 @@ def xyz_to_xzy(keypoints3d):
     #ret[:, 3][ret[:, 3] < self.min_confidence] = 0
     return keypoints3d
 
-def get_distance_from_keypoints(keypoints3d1, keypoints3d2):
-    # param1: keypoints3d1 is 3D pose from current frame
-    # param2: keypoints3d2 is 3D pose from previous frame
-    # return: ret is distance between keypoints3d1 and keypoints3d2
-    dist = 0
-    for i in range(keypoints3d1.shape[0]):
-        dist += np.linalg.norm(keypoints3d1[i] - keypoints3d2[i])
-    return dist / keypoints3d1.shape[0]
-
 def get_cpid(cid, pid):
     return cid*100 + pid
 
@@ -134,5 +125,3 @@ def get_center_position(keypoints3d):
     avg_y = np.average(keypoints3d[:, 1])
     return np.array([avg_x, avg_y])
 
-def count_same_element_in_list(list1, list2):
-    return len(set(list1) & set(list2))
