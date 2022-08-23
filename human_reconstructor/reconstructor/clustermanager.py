@@ -51,9 +51,7 @@ class ClusterManager:
         self.__is_too_closed = is_too_closed
 
     def update_person_table(self, skeleton_manager, cluster_num, frame_number):
-        if self.__is_too_closed:
-            return
-
+        logging.info(" ClusterManager: Update person table")
         max_person_num = 0
         position_idx = np.empty((0, 2)) # cam_id, person_id
         position_arr = np.empty((0, 2)) # X, Y
@@ -88,6 +86,32 @@ class ClusterManager:
                     self.__cluster_table[cluster_id]['cpid'].append(post.get_cpid(position_idx[i][0], position_idx[i][1])) # cam_id, person_id
                     self.__cluster_table[cluster_id]['position'].append(position_arr[cluster_id]) # X, Y
 
+    def update_person_table_with_hint(self, tracking_table, max_person_num):
+        if self.__is_too_closed is False:
+            return
+
+        logging.info(" ClusterManager: Update person table with hint")
+        for cluster_id in range(self.__person_num):
+            if self.__cluster_table[cluster_id]['is_valid'] is False:
+                continue
+            cpid_from_cluster_table = self.__cluster_table[cluster_id]['cpid']
+
+            for tracking_id in range(max_person_num):
+                if tracking_table[tracking_id]['is_valid'] is False:
+                    continue
+                cpid_from_tracking_table = tracking_table[tracking_id]['cpid']
+                if len(cpid_from_cluster_table) > 0:
+                    diff_between_tables = self.__count_same_element_in_list(cpid_from_cluster_table, cpid_from_tracking_table) / len(cpid_from_cluster_table)
+                    logging.debug("Diff between tables {}".format(diff_between_tables))
+
+                if diff_between_tables > 0.7:
+                    logging.info(" ClusterManager: Change cluster result with tracking table")
+                    self.__cluster_table[cluster_id]['cpid'] = cpid_from_tracking_table
+                    self.__cluster_table[cluster_id]['count'] = len(cpid_from_tracking_table)
+
+    def __count_same_element_in_list(self, list1, list2):
+        return len(set(list1) & set(list2))
+
     def __get_average_position(self, skeleton_manager, cam_id, person_id, transform):
         position = skeleton_manager.get_position(cam_id, person_id)
         c = []
@@ -105,7 +129,7 @@ class ClusterManager:
     def __get_cluster_arr(self, position_arr, position_idx, max_person_num, skeleton_manager, frame_number):
         from sklearn.cluster import AgglomerativeClustering
 
-        logging.info("[INFO] Clustering... {} people".format(max_person_num))
+        logging.info(" ClusterManager: Clustering... {} people".format(max_person_num))
         if len(position_arr) <= max_person_num:
             return []
 
@@ -202,7 +226,7 @@ class ClusterManager:
 
                 is_valid_cam = np.ones(max_person_num)
                 min_dist, min_arr = self.__get_minimum_dist(cache, cnt, is_valid_cam, max_person_num)
-                print("[{}] : {}".format(int(position_idx[i][0]), min_arr))
+                # print("[{}] : {}".format(int(position_idx[i][0]), min_arr))
                 id = 0
                 # print("person group : {}".format(person_group[int(position_idx[i][0])][cluster_ret[i]]['id']))
                 # print("min_arr : {}".format(min_arr))
@@ -211,7 +235,7 @@ class ClusterManager:
                         ret[duplicated_id] = min_arr[id]
                         id += 1
                     else:
-                        print("size mismatched")
+                        logging.error(" ClusterManager: Size mismatched")
             elif cnt > 10:
                 ret[i] = -1
             else:
@@ -269,15 +293,12 @@ class ClusterManager:
         return (min_dist, np.append(min_arr, min_idx))
 
     def reset_cluster_table(self):
-        if self.__is_too_closed:
-            return
-
         for cluster_id in range(0, self.__person_num):
             if self.__cluster_table[cluster_id]['is_valid'] is True:
                 cnt = 0
                 avg_x = 0.0
                 avg_y = 0.0
-                for j in range(self.__cluster_table[cluster_id]['count']):
+                for j in range(len(self.__cluster_table[cluster_id]['position'])):
                     avg_x += self.__cluster_table[cluster_id]['position'][j][0]
                     avg_y += self.__cluster_table[cluster_id]['position'][j][1]
                     cnt += 1

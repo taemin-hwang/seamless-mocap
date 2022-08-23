@@ -9,8 +9,11 @@ class TrackingManager:
         self.__args = args
         self.__person_num = person_num
         self.__max_person_num = max_person_num
-        self.__frame_buffer = np.ones((self.__person_num, 5, 25, 4)) # buffersize = 5
+        self.__frame_buffer = np.ones((self.__person_num, 10, 25, 4)) # buffersize = 5
         self.__tracking_table = self.__get_initial_tracking_table()
+
+    def get_tracking_table(self):
+        return self.__tracking_table
 
     def is_tracking_valid(self, cluster_id):
         return self.__tracking_table[cluster_id]['is_valid']
@@ -22,6 +25,7 @@ class TrackingManager:
         return self.__tracking_table[cluster_id]['keypoints3d']
 
     def get_tracking_keypoints(self, reconstruction_list, triangulate_param):
+        logging.info(" TrackingManager: Get tracking keypoints")
         data = []
         valid_arr = np.zeros((len(reconstruction_list)))
         idx = 0
@@ -31,10 +35,10 @@ class TrackingManager:
             person_repro_err = person[2]
             dist = self.__check_repro_error(person_keypoint, person_repro_err, triangulate_param[person_id]['keypoint'], triangulate_param[person_id]['P'])
             person_keypoint[:, :3] /= 2
-            print("Projection Error : {}".format(np.mean(dist)))
-            if np.mean(dist) < 50:
+            logging.debug("Projection Error : {}".format(np.mean(dist)))
+            if np.mean(dist) < 100:
                 #data.append({'id' : person_id, 'keypoints3d' : person_keypoint})
-                valid_arr[idx] = 1
+                valid_arr[idx] = np.mean(dist)
             idx += 1
 
         need_to_skip = False
@@ -77,7 +81,8 @@ class TrackingManager:
                 self.__frame_buffer[tracking_id], ret = post.smooth_3d_pose(self.__frame_buffer[tracking_id], person_A_keypoint)
                 # ret = person_A_keypoint
                 self.__tracking_table[tracking_id]['keypoints3d'] = ret
-                self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
+                if valid_arr[a_idx] < 30:
+                    self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
                 data.append({'id' : tracking_id, 'keypoints3d' : ret})
             a_idx += 1
 

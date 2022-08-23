@@ -43,6 +43,7 @@ class SkeletonManager:
                     self.__life_counter[cam_id][person_id] -= 1
 
     def update_skeleton_table(self, json_data):
+        logging.info(" SkeletonManager: Update skeleton table")
         bboxes = {}
         cam_id = json_data['id']
         for person_data in json_data['annots']:
