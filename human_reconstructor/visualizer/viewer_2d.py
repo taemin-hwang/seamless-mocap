@@ -64,14 +64,7 @@ class Viewer2d:
                 cam_id = post.get_cam_id(cpid)
                 person_id = post.get_person_id(cpid)
                 keypoints = skeleton_manager.get_skeleton(cam_id, person_id)
-
-
-                if self.cam_id_list.count(cam_id) == 0:
-                    self.cam_id_list.append(cam_id)
-
-                display_id = self.cam_id_list.index(cam_id)
-                # self.display_list[display_id] = np.zeros((self.height, self.width, 3), np.uint8)
-                display = self.display_list[display_id]
+                display = self.display_list[cam_id-1] # index of list startw with zero
 
                 cv2.putText(display, "{}".format(cam_id), (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, [255, 255, 255], 3)
                 person_id = idx
