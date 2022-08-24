@@ -83,8 +83,9 @@ class Reconstructor:
 
             # Make clusters
             self.__cluster_manager.set_skip_to_make_cluster(need_to_skip)
-            self.__cluster_manager.update_person_table(self.__skeleton_manager, self.__max_person_num, self.__frame_number)
+            self.__cluster_manager.update_person_table(self.__skeleton_manager, self.__max_person_num)
             self.__cluster_manager.update_person_table_with_hint(self.__tracking_manager.get_tracking_table(), self.__max_person_num)
+            self.__cluster_manager.show_cluster_result(self.__skeleton_manager, self.__frame_number)
 
             # Reconstruct 3D skeletons
             triangulate_param = self.__get_triangulate_param()

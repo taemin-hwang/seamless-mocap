@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import math
 from visualizer.utils import *
+from reconstructor.utils import postprocessor as post
 
 class Viewer2d:
     def __init__(self, args):
@@ -43,6 +44,80 @@ class Viewer2d:
 
         return merged_display
 
+    def render_cluster_table(self, person_num, cluster_table, skeleton_manager):
+        if self.__args.log:
+            pass
+        else:
+            if self.frame_num % 40 == 0:
+                self.frame_num = 1
+            else:
+                self.frame_num += 1
+                return
+
+        self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
+        for idx in range(person_num):
+            if cluster_table[idx]['is_valid'] is False:
+                continue
+
+            for i in range(cluster_table[idx]['count']):
+                cpid = cluster_table[idx]['cpid'][i]
+                cam_id = post.get_cam_id(cpid)
+                person_id = post.get_person_id(cpid)
+                keypoints = skeleton_manager.get_skeleton(cam_id, person_id)
+
+
+                if self.cam_id_list.count(cam_id) == 0:
+                    self.cam_id_list.append(cam_id)
+
+                display_id = self.cam_id_list.index(cam_id)
+                # self.display_list[display_id] = np.zeros((self.height, self.width, 3), np.uint8)
+                display = self.display_list[display_id]
+
+                cv2.putText(display, "{}".format(cam_id), (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, [255, 255, 255], 3)
+                person_id = idx
+                color = generate_color_id_u(person_id)
+
+                for part in BODY_BONES_POSE_25:
+                    kp_a = keypoints[part[0].value]
+                    kp_b = keypoints[part[1].value]
+                    # Check that the keypoints are inside the image
+                    if(kp_a[0] < display.shape[1] and kp_a[1] < display.shape[0]
+                    and kp_b[0] < display.shape[1] and kp_b[1] < display.shape[0]
+                    and kp_a[0] > 0 and kp_a[1] > 0 and kp_b[0] > 0 and kp_b[1] > 0 ):
+                        cv2.line(display, (int(kp_a[0]), int(kp_a[1])), (int(kp_b[0]), int(kp_b[1])), color, 5, cv2.LINE_AA)
+
+                for part in BODY_PARTS_POSE_25:
+                    if part is BODY_PARTS_POSE_25.LAST:
+                        break
+                    kp = keypoints[part.value]
+                    cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color, -1)
+
+        merged_display = self.merge_display()
+
+        cv2.imshow("2D Viewer", merged_display)
+        cv2.waitKey(1)
+
+    def render_position(self, person_num, cluster_table):
+        if self.__args.log or self.frame_num % 40 == 0:
+            room_size = 10 # 10m x 10m
+            display = np.ones((600, 600, 3), np.uint8) * 255
+            draw_grid(display)
+            for cluster_id in range(0, person_num):
+                if cluster_table[cluster_id]['is_valid'] is False:
+                    continue
+
+                for i in range(cluster_table[cluster_id]['count']):
+                    cpid = cluster_table[cluster_id]['cpid'][i]
+                    x = cluster_table[cluster_id]['position'][i][0] + room_size/2
+                    y = cluster_table[cluster_id]['position'][i][1] + room_size/2
+                    x *= display.shape[0]/room_size*1.5
+                    y *= display.shape[1]/room_size*1.5
+                    color = generate_color_id_u(cluster_id)
+                    cv2.circle(display, (int(x), int(y)), 6, color, -1)
+                    cv2.putText(display, "({}, {})".format(int(post.get_cam_id(cpid)), int(post.get_person_id(cpid))), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
+
+            cv2.imshow("Position", display)
+            cv2.waitKey(1)
 
     def render_2d(self, data):
         if self.__args.log:

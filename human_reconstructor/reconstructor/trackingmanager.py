@@ -81,7 +81,7 @@ class TrackingManager:
                 self.__frame_buffer[tracking_id], ret = post.smooth_3d_pose(self.__frame_buffer[tracking_id], person_A_keypoint)
                 # ret = person_A_keypoint
                 self.__tracking_table[tracking_id]['keypoints3d'] = ret
-                if valid_arr[a_idx] < 30:
+                if valid_arr[a_idx] < 10:
                     self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
                 data.append({'id' : tracking_id, 'keypoints3d' : ret})
             a_idx += 1

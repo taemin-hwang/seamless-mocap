@@ -32,6 +32,16 @@ class ClusterManager:
             cluster_table[cluster_id]['prev_position'] = (0, 0)
         return cluster_table
 
+    def show_cluster_result(self, skeleton_manager, frame_number):
+        if self.__args.visual is False:
+            return
+
+        # Render 2D Keypoints
+        self.viewer.render_cluster_table(self.__person_num, self.__cluster_table, skeleton_manager)
+
+        # Render Position
+        self.viewer.render_position(self.__person_num, self.__cluster_table)
+
     def is_cluster_valid(self, cluster_id):
         return self.__cluster_table[cluster_id]['is_valid']
 
@@ -50,7 +60,7 @@ class ClusterManager:
     def set_skip_to_make_cluster(self, is_too_closed):
         self.__is_too_closed = is_too_closed
 
-    def update_person_table(self, skeleton_manager, cluster_num, frame_number):
+    def update_person_table(self, skeleton_manager, cluster_num):
         logging.info(" ClusterManager: Update person table")
         max_person_num = 0
         position_idx = np.empty((0, 2)) # cam_id, person_id
@@ -77,14 +87,14 @@ class ClusterManager:
                 max_person_num = cluster_num
 
         if max_person_num > 0:
-            cluster_arr = self.__get_cluster_arr(position_arr, position_idx, max_person_num, skeleton_manager, frame_number)
+            cluster_arr = self.__get_cluster_arr(position_arr, position_idx, max_person_num)
             for i in range(len(cluster_arr)):
                 cluster_id = cluster_arr[i]
                 if cluster_id >= 0:
                     self.__cluster_table[cluster_id]['is_valid'] = True
                     self.__cluster_table[cluster_id]['count'] += 1
                     self.__cluster_table[cluster_id]['cpid'].append(post.get_cpid(position_idx[i][0], position_idx[i][1])) # cam_id, person_id
-                    self.__cluster_table[cluster_id]['position'].append(position_arr[cluster_id]) # X, Y
+                    self.__cluster_table[cluster_id]['position'].append(position_arr[i]) # X, Y
 
     def update_person_table_with_hint(self, tracking_table, max_person_num):
         if self.__is_too_closed is False:
@@ -99,18 +109,27 @@ class ClusterManager:
             for tracking_id in range(max_person_num):
                 if tracking_table[tracking_id]['is_valid'] is False:
                     continue
+
+                diff_between_tables = 0
+                same_element = []
                 cpid_from_tracking_table = tracking_table[tracking_id]['cpid']
                 if len(cpid_from_cluster_table) > 0:
-                    diff_between_tables = self.__count_same_element_in_list(cpid_from_cluster_table, cpid_from_tracking_table) / len(cpid_from_cluster_table)
+                    same_element = self.__get_same_element_in_list(cpid_from_cluster_table, cpid_from_tracking_table)
+                    diff_between_tables = len(same_element) / len(cpid_from_cluster_table)
                     logging.debug("Diff between tables {}".format(diff_between_tables))
 
-                if diff_between_tables > 0.7:
-                    logging.info(" ClusterManager: Change cluster result with tracking table")
-                    self.__cluster_table[cluster_id]['cpid'] = cpid_from_tracking_table
-                    self.__cluster_table[cluster_id]['count'] = len(cpid_from_tracking_table)
+                if diff_between_tables < 1 and diff_between_tables > 0.7:
+                    if len(same_element) < 3:
+                        logging.info(" ClusterManager: Change cluster result with tracking table")
+                        self.__cluster_table[cluster_id]['cpid'] = cpid_from_tracking_table
+                        self.__cluster_table[cluster_id]['count'] = len(cpid_from_tracking_table)
+                    else:
+                        logging.info(" ClusterManager: Change cluster result with overlapped table *********")
+                        self.__cluster_table[cluster_id]['cpid'] = list(same_element)
+                        self.__cluster_table[cluster_id]['count'] = len(same_element)
 
-    def __count_same_element_in_list(self, list1, list2):
-        return len(set(list1) & set(list2))
+    def __get_same_element_in_list(self, list1, list2):
+        return set(list1) & set(list2)
 
     def __get_average_position(self, skeleton_manager, cam_id, person_id, transform):
         position = skeleton_manager.get_position(cam_id, person_id)
@@ -126,7 +145,7 @@ class ClusterManager:
         avg_y = np.average(c[:, 1])
         return (avg_x, avg_y)
 
-    def __get_cluster_arr(self, position_arr, position_idx, max_person_num, skeleton_manager, frame_number):
+    def __get_cluster_arr(self, position_arr, position_idx, max_person_num):
         from sklearn.cluster import AgglomerativeClustering
 
         logging.info(" ClusterManager: Clustering... {} people".format(max_person_num))
@@ -136,59 +155,10 @@ class ClusterManager:
         cluster = AgglomerativeClustering(n_clusters=max_person_num, affinity='euclidean', linkage='ward')
         ret = cluster.fit_predict(position_arr)
 
-        vis_arr = {}
-        data = {}
-        data['annots'] = []
         for i in range(len(ret)):
             logging.debug("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
 
         ret = self.__remove_duplicated_person(position_idx, position_arr, max_person_num, ret)
-
-        # matched_person_position = np.zeros((max_person_num, 2))
-        # for i in range(max_person_num):
-        #     matched_idx = np.where(ret == i)
-        #     matched_person_position[i] = np.average(position_arr[matched_idx], axis=0)
-        #     print(self.__find_near_elements(position_arr[matched_idx], matched_person_position[i], 3))
-
-        for i in range(len(ret)):
-            if self.__args.visual:
-                cam_id = int(position_idx[i][0])
-                person_id = int(position_idx[i][1])
-                fixed_person_id = int(ret[i])
-
-                if cam_id not in vis_arr:
-                    vis_arr[cam_id] = {}
-                    vis_arr[cam_id]['annots'] = []
-
-                vis_arr[cam_id]['annots'].append({
-                    'personID' : fixed_person_id,
-                    'bbox' : [1,1,2,2],
-                    'keypoints' : skeleton_manager.get_skeleton(cam_id, person_id)
-                })
-
-        if self.__args.visual:
-            for cam_id in vis_arr.keys():
-                data = {}
-                data['id'] = cam_id
-                data['annots'] = vis_arr[cam_id]['annots']
-                self.viewer.render_2d(data)
-
-        if self.__args.visual:
-            if self.__args.log or frame_number % 40 == 0:
-                room_size = 10 # 10m x 10m
-                display = np.ones((600, 600, 3), np.uint8) * 255
-                utils.draw_grid(display)
-                for i in range(len(ret)):
-                    x = position_arr[i][0] + room_size/2
-                    y = position_arr[i][1] + room_size/2
-                    x *= display.shape[0]/room_size*1.5
-                    y *= display.shape[1]/room_size*1.5
-                    color = utils.generate_color_id_u(ret[i])
-                    cv2.circle(display, (int(x), int(y)), 6, color, -1)
-                    cv2.putText(display, "({}, {})".format(int(position_idx[i][0]), int(position_idx[i][1])), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
-
-                cv2.imshow("Position", display)
-                cv2.waitKey(1)
 
         return ret
 
