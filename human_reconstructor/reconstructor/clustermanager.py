@@ -17,7 +17,6 @@ class ClusterManager:
         self.__cluster_table = self.__get_initial_cluster_table()
         self.__is_too_closed = False
         self.viewer = v2d.Viewer2d(self.__args)
-        self.__skeleton_data = None
 
     def initialize(self):
         self.viewer.initialize(self.__cam_num)
@@ -38,33 +37,10 @@ class ClusterManager:
             return
 
         # Render 2D Keypoints
-        if self.__skeleton_data != None:
-            self.viewer.render_cluster_table(self.__person_num, self.__cluster_table, skeleton_manager, self.__skeleton_data)
+        self.viewer.render_cluster_table(self.__person_num, self.__cluster_table, skeleton_manager)
 
         # Render Position
         self.viewer.render_position(self.__person_num, self.__cluster_table)
-
-    def draw_one_more_person(self, skeleton_manager, frame_number):
-        if frame_number == 20:
-            self.__cluster_table[6]['count'] = self.__cluster_table[1]['count']
-            self.__cluster_table[6]['position'] = self.__cluster_table[1]['position']
-
-            for i in range(len(self.__cluster_table[6]['position'])):
-                self.__cluster_table[6]['position'][i] *= 1.5
-
-            self.__cluster_table[6]['cpid'] = self.__cluster_table[0]['cpid']
-
-            for i in range(len(self.__cluster_table[6]['cpid'])):
-                self.__cluster_table[6]['cpid'][i] += 1
-
-            self.__cluster_table[6]['prev_position'] = self.__cluster_table[1]['prev_position']
-            self.__skeleton_data = skeleton_manager.get_skeleton_table()
-        elif frame_number > 20:
-            self.__cluster_table[6]['is_valid'] = True
-
-    def get_known_skeleton(self, cam_id, person_id):
-        return self.__skeleton_data[cam_id][person_id-1]['keypoint']
-
 
     def is_cluster_valid(self, cluster_id):
         return self.__cluster_table[cluster_id]['is_valid']
@@ -288,8 +264,6 @@ class ClusterManager:
 
     def reset_cluster_table(self):
         for cluster_id in range(0, self.__person_num):
-            if cluster_id == 6:
-                continue
             if self.__cluster_table[cluster_id]['is_valid'] is True:
                 cnt = 0
                 avg_x = 0.0

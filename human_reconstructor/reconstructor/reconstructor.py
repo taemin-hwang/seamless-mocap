@@ -25,14 +25,14 @@ class Reconstructor:
         self.__frame_number = 0
         self.__max_frame_number = 0
         if self.__args.log:
-            logging.basicConfig(level=logging.DEBUG)
+            logging.basicConfig(level=logging.INFO)
         else:
             logging.basicConfig(level=logging.INFO)
 
     def initialize(self, config):
         self.__config = config
         self.__person_num = 30
-        self.__max_person_num = 4
+        self.__max_person_num = 3
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -85,8 +85,6 @@ class Reconstructor:
             self.__cluster_manager.set_skip_to_make_cluster(need_to_skip)
             self.__cluster_manager.update_person_table(self.__skeleton_manager, self.__max_person_num)
             self.__cluster_manager.update_person_table_with_hint(self.__tracking_manager.get_tracking_table(), self.__max_person_num)
-            self.__cluster_manager.draw_one_more_person(self.__skeleton_manager, self.__frame_number)
-
             self.__cluster_manager.show_cluster_result(self.__skeleton_manager, self.__frame_number)
 
             # Reconstruct 3D skeletons
@@ -167,17 +165,6 @@ class Reconstructor:
             if self.__cluster_manager.is_cluster_valid(person_id) is True:
                 valid_dlt_element[person_id]['count'] = self.__cluster_manager.get_count(person_id)
                 for i in range(valid_dlt_element[person_id]['count']):
-                    if person_id == 6:
-                        # do something
-                        cpid = self.__cluster_manager.get_cpid(person_id)[i]
-                        cid = post.get_cam_id(cpid)
-                        pid = post.get_person_id(cpid)
-                        valid_dlt_element[person_id]['cpid'].append(cpid)
-                        valid_dlt_element[person_id]['valid_keypoint'].append(self.__cluster_manager.get_known_skeleton(cid, pid))
-                        valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_manager.get_skeleton_table()[cid]['P'])
-                        continue
-
-
                     cpid = self.__cluster_manager.get_cpid(person_id)[i]
                     cid = post.get_cam_id(cpid)
                     pid = post.get_person_id(cpid)
