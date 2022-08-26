@@ -44,7 +44,7 @@ class Viewer2d:
 
         return merged_display
 
-    def render_cluster_table(self, person_num, cluster_table, skeleton_manager, skeleton_data):
+    def render_cluster_table(self, person_num, cluster_table, skeleton_manager):
         if self.__args.log:
             pass
         else:
@@ -63,10 +63,7 @@ class Viewer2d:
                 cpid = cluster_table[idx]['cpid'][i]
                 cam_id = post.get_cam_id(cpid)
                 person_id = post.get_person_id(cpid)
-                if skeleton_data != None and idx == 6:
-                    keypoints = skeleton_data[cam_id][person_id-1]['keypoint']
-                else:
-                    keypoints = skeleton_manager.get_skeleton(cam_id, person_id)
+                keypoints = skeleton_manager.get_skeleton(cam_id, person_id)
                 display = self.display_list[cam_id-1] # index of list startw with zero
 
                 cv2.putText(display, "{}".format(cam_id), (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, [255, 255, 255], 3)
