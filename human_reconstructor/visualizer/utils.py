@@ -207,7 +207,7 @@ def generate_color_id_u(idx):
     if(idx < 0):
         arr = [236,184,36,255]
     else:
-        color_idx = idx % 5
+        color_idx = idx % 8
         arr = [ID_COLORS[color_idx][0], ID_COLORS[color_idx][1], ID_COLORS[color_idx][2], 255]
     return arr
 
