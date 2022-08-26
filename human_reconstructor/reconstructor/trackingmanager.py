@@ -41,6 +41,12 @@ class TrackingManager:
                 valid_arr[idx] = np.mean(dist)
             idx += 1
 
+
+            if person_id == 6:
+                person_keypoint[:, :1] *= 1.1
+                person_keypoint[:, :2] *= 1.1
+                data.append({'id' : person_id, 'keypoints3d' : person_keypoint})
+
         need_to_skip = False
         a_idx = 0
         for person_A in reconstruction_list:
