@@ -25,7 +25,7 @@ class Reconstructor:
         self.__frame_number = 0
         self.__max_frame_number = 0
         if self.__args.log:
-            logging.basicConfig(level=logging.INFO)
+            logging.basicConfig(level=logging.DEBUG)
         else:
             logging.basicConfig(level=logging.INFO)
 
@@ -76,7 +76,7 @@ class Reconstructor:
             if self.__args.log:
                 if self.__frame_number >= self.__max_frame_number:
                     self.__frame_number = 0
-                # comm = input(str(self.__frame_number).zfill(6) + "> ")
+                comm = input(str(self.__frame_number).zfill(6) + "> ")
                 self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
             else:
                 self.__update_skeleton_table()

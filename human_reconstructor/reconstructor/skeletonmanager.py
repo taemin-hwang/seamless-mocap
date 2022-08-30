@@ -12,13 +12,14 @@ class SkeletonManager:
         self.__cam_num = cam_num
         self.__person_num = person_num
         self.__buffer_size = 5
+        self.__life_counter = np.zeros((self.__cam_num+1, self.__person_num))
+        self.__max_life = 5
         if self.__args.log:
             pass
         else:
             self.__skeleton_table = self.__get_initial_skeleton_table(calibration)
         self.__frame_buffer_keypoint = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
         self.__frame_buffer_position = np.ones((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
-        self.__life_counter = np.zeros((self.__cam_num+1, self.__person_num))
 
     def get_skeleton_table(self):
         return self.__skeleton_table
@@ -56,7 +57,7 @@ class SkeletonManager:
             keypoints_34 = np.array(person_data['keypoints'])
             keypoints_25 = utils.convert_25_from_34(keypoints_34)
             self.__frame_buffer_keypoint[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_keypoint[cam_id][person_id], keypoints_25)
-            self.__life_counter[cam_id][person_id] = 3
+            self.__life_counter[cam_id][person_id] = self.__max_life
             self.__skeleton_table[cam_id][person_id]['is_valid'] = True
             self.__skeleton_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
 
@@ -83,7 +84,7 @@ class SkeletonManager:
             for cam_id in range(1, self.__cam_num+1):
                 for person_id in range(0, self.__person_num):
                     if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
-                        self.__life_counter[cam_id][person_id] = 3
+                        self.__life_counter[cam_id][person_id] = self.__max_life
                     else:
                         if self.__life_counter[cam_id][person_id] > 0:
                             self.__skeleton_table[cam_id][person_id]['is_valid'] = True
