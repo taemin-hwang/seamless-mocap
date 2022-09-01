@@ -16,6 +16,7 @@ class ClusterManager:
         self.__cluster_table = self.__get_initial_cluster_table()
         self.__is_too_closed = False
         self.__viewer = viewer
+        self.__valid_cluster = None
 
     def initialize(self):
         self.__viewer.initialize(self.__cam_num)
@@ -59,7 +60,20 @@ class ClusterManager:
     def set_skip_to_make_cluster(self, is_too_closed):
         self.__is_too_closed = is_too_closed
 
+    def save_valid_cluster(self, is_valid_cluster, frame_number):
+        if is_valid_cluster is True:
+            logging.info(" ClusterManager: Save valid cluster table : {}".format(frame_number))
+            self.__valid_cluster = copy.deepcopy(self.__cluster_table)
+            # print("Save valid cluster \n\n")
+            # print(self.__valid_cluster)
+            # print("\n\n")
+
     def update_person_table(self, skeleton_manager, cluster_num):
+        if self.__is_too_closed is True:
+            logging.info(" ClusterManager: Skip to update person table and reuse valid cluster table")
+            self.reuse_valid_cluster()
+            return
+
         logging.info(" ClusterManager: Update person table")
         max_person_num = 0
         position_idx = np.empty((0, 2)) # cam_id, person_id
@@ -94,6 +108,14 @@ class ClusterManager:
                     self.__cluster_table[cluster_id]['count'] += 1
                     self.__cluster_table[cluster_id]['cpid'].append(post.get_cpid(position_idx[i][0], position_idx[i][1])) # cam_id, person_id
                     self.__cluster_table[cluster_id]['position'].append(position_arr[i]) # X, Y
+
+    def reuse_valid_cluster(self):
+        if self.__valid_cluster is not None:
+            logging.info(" ClusterManager: Reuse valid cluster table")
+            self.__cluster_table = self.__valid_cluster
+            # print("Reuse valid cluster \n\n")
+            # print(self.__cluster_table)
+            # print("\n\n")
 
     def update_person_table_with_hint(self, tracking_table, max_person_num):
         if self.__is_too_closed is False:
@@ -262,6 +284,10 @@ class ClusterManager:
         return (min_dist, np.append(min_arr, min_idx))
 
     def reset_cluster_table(self):
+        if self.__is_too_closed is True:
+            logging.info(" ClusterManager: Skip to reset person table")
+            return
+
         for cluster_id in range(0, self.__person_num):
             if self.__cluster_table[cluster_id]['is_valid'] is True:
                 cnt = 0

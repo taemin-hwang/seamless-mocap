@@ -6,6 +6,7 @@ import pause
 import asyncio
 import os
 import shutil
+import copy
 
 from format import face_format, hand_format
 
@@ -71,23 +72,22 @@ class Reconstructor:
 
         need_to_skip = False
 
-        # self.__frame_number = 400
         while(True):
             t_sleep = datetime.datetime.now()
             # Get 2D skeletons
             if self.__args.log:
                 if self.__frame_number >= self.__max_frame_number:
                     self.__frame_number = 0
-                comm = input(str(self.__frame_number).zfill(6) + "> ")
+                # if self.__frame_number >= 430:
+                #     comm = input(str(self.__frame_number).zfill(6) + "> ")
                 self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
                 self.__skeleton_manager.update_life_counter()
             else:
                 self.__update_skeleton_table()
 
             # Make clusters
-            self.__cluster_manager.set_skip_to_make_cluster(need_to_skip)
             self.__cluster_manager.update_person_table(self.__skeleton_manager, self.__max_person_num)
-            self.__cluster_manager.update_person_table_with_hint(self.__tracking_manager.get_tracking_table(), self.__max_person_num)
+            # self.__cluster_manager.update_person_table_with_hint(self.__tracking_manager.get_tracking_table(), self.__max_person_num)
             self.__cluster_manager.show_cluster_result(self.__skeleton_manager, self.__frame_number)
 
             # Reconstruct 3D skeletons
@@ -95,7 +95,9 @@ class Reconstructor:
             reconstruction_list = asyncio.run(self.__reconstruct_3d_pose(triangulate_param))
 
             # Keep tracking 3D skeletons
-            need_to_skip, data = self.__assign_tracking_id(reconstruction_list, triangulate_param)
+            need_to_skip, is_valid_cluster, data = self.__assign_tracking_id(reconstruction_list, triangulate_param)
+            self.__cluster_manager.set_skip_to_make_cluster(need_to_skip)
+            self.__cluster_manager.save_valid_cluster(is_valid_cluster, self.__frame_number)
 
             # Assign Hand/Face status
             if self.__args.face is True:

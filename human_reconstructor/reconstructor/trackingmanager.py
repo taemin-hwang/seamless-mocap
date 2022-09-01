@@ -11,6 +11,7 @@ class TrackingManager:
         self.__max_person_num = max_person_num
         self.__frame_buffer = np.ones((self.__person_num, 5, 25, 4)) # buffersize = 5
         self.__tracking_table = self.__get_initial_tracking_table()
+        self.__is_too_closed_status = False
 
     def get_tracking_table(self):
         return self.__tracking_table
@@ -29,6 +30,7 @@ class TrackingManager:
         data = []
         valid_arr = np.zeros((len(reconstruction_list)))
         idx = 0
+        is_valid_cluster = True
         for person in reconstruction_list:
             person_id = person[0]
             person_keypoint = person[1]
@@ -37,11 +39,15 @@ class TrackingManager:
             person_keypoint[:, :3] /= 2
             logging.debug("Projection Error : {}".format(np.mean(dist)))
             if np.mean(dist) < 100:
-                #data.append({'id' : person_id, 'keypoints3d' : person_keypoint})
                 valid_arr[idx] = np.mean(dist)
+            else:
+                self.__is_too_closed_status = True
+            if np.mean(dist) > 10:
+                is_valid_cluster = False
             idx += 1
 
-        need_to_skip = False
+        is_enough_far = True
+
         a_idx = 0
         for person_A in reconstruction_list:
             if valid_arr[a_idx] <= 0:
@@ -67,13 +73,16 @@ class TrackingManager:
                     logging.warning("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
                     is_too_closed = True
                     continue
+                elif dist_between_A_and_B >= 1.5 and len(valid_arr) == self.__max_person_num:
+                    is_enough_far = False
                 b_idx += 1
 
             if is_too_closed is False:
                 tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
             else:
-                tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_A_id)
-                need_to_skip = True
+                # tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_A_id)
+                tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
+                self.__is_too_closed_status = True
 
             if tracking_id >= 0:
                 logging.info("Assign person {} to {}".format(a_idx, tracking_id))
@@ -86,7 +95,10 @@ class TrackingManager:
                 data.append({'id' : tracking_id, 'keypoints3d' : ret})
             a_idx += 1
 
-        return need_to_skip, data
+        if is_enough_far is True:
+            self.__is_too_closed_status = False
+
+        return self.__is_too_closed_status, is_valid_cluster, data
 
     def __check_repro_error(self, keypoints3d, kpts_repro, keypoints2d, P):
         square_diff = (keypoints2d[:, :, :2] - kpts_repro[:, :, :2])**2
