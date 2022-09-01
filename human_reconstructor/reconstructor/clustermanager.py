@@ -6,20 +6,19 @@ import copy
 
 from reconstructor.utils import postprocessor as post
 from visualizer import utils
-from visualizer import viewer_2d as v2d
 
 class ClusterManager:
-    def __init__(self, args, cam_num, person_num, transformation):
+    def __init__(self, args, cam_num, person_num, transformation, viewer):
         self.__args = args
         self.__cam_num = cam_num
         self.__person_num = person_num
         self.__transformation = transformation
         self.__cluster_table = self.__get_initial_cluster_table()
         self.__is_too_closed = False
-        self.viewer = v2d.Viewer2d(self.__args)
+        self.__viewer = viewer
 
     def initialize(self):
-        self.viewer.initialize(self.__cam_num)
+        self.__viewer.initialize(self.__cam_num)
 
     def __get_initial_cluster_table(self):
         cluster_table = {}
@@ -37,10 +36,10 @@ class ClusterManager:
             return
 
         # Render 2D Keypoints
-        self.viewer.render_cluster_table(self.__person_num, self.__cluster_table, skeleton_manager)
+        self.__viewer.render_cluster_table(self.__person_num, self.__cluster_table, skeleton_manager)
 
         # Render Position
-        self.viewer.render_position(self.__person_num, self.__cluster_table)
+        self.__viewer.render_position(self.__person_num, self.__cluster_table)
 
     def is_cluster_valid(self, cluster_id):
         return self.__cluster_table[cluster_id]['is_valid']

@@ -116,12 +116,12 @@ class Viewer2d:
     def render_2d(self, data):
         if self.__args.log:
             pass
-        else:
-            if self.frame_num % 40 == 0:
-                self.frame_num = 1
-            else:
-                self.frame_num += 1
-                return
+        # else:
+        #     if self.frame_num % 40 == 0:
+        #         self.frame_num = 1
+        #     else:
+        #         self.frame_num += 1
+        #         return
 
         cam_id = data['id']
         annots = data['annots']
@@ -253,6 +253,6 @@ class Viewer2d:
 
         merged_display = self.merge_display()
 
-        cv2.imshow("2D Viewer", merged_display)
+        cv2.imshow("2D Viewer: Skeleton", merged_display)
         cv2.waitKey(1)
 

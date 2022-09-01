@@ -4,22 +4,27 @@ import logging
 import json
 
 from visualizer import utils
+from visualizer.utils import *
 from reconstructor.utils import preprocessor as pre
 
 class SkeletonManager:
-    def __init__(self, args, cam_num, person_num, calibration):
+    def __init__(self, args, cam_num, person_num, calibration, viewer):
         self.__args = args
         self.__cam_num = cam_num
         self.__person_num = person_num
         self.__buffer_size = 5
         self.__life_counter = np.zeros((self.__cam_num+1, self.__person_num))
         self.__max_life = 5
+        self.__viewer = viewer
         if self.__args.log:
             pass
         else:
             self.__skeleton_table = self.__get_initial_skeleton_table(calibration)
         self.__frame_buffer_keypoint = np.zeros((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
         self.__frame_buffer_position = np.zeros((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
+
+    def show_skeleton_keypoint(self, data):
+        self.__viewer.render_2d(data)
 
     def get_skeleton_table(self):
         return self.__skeleton_table
@@ -36,11 +41,10 @@ class SkeletonManager:
     def reset_skeleton_table(self):
         for cam_id in range(1, self.__cam_num+1):
             for person_id in range(0, self.__person_num):
-                if self.__life_counter[cam_id][person_id] <= 0:
-                    self.__skeleton_table[cam_id][person_id]['is_valid'] = False
-                    self.__skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
-                    self.__skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
-                else:
+                self.__skeleton_table[cam_id][person_id]['is_valid'] = False
+                self.__skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
+                self.__skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
+                if self.__life_counter[cam_id][person_id] > 0:
                     self.__life_counter[cam_id][person_id] -= 1
 
     def update_skeleton_table(self, json_data):
@@ -83,14 +87,38 @@ class SkeletonManager:
         with open(file_path, "r") as outfile:
             self.__skeleton_table = json.load(outfile, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})
 
+    def show_skeleton_position(self):
+        room_size = 10 # 10m x 10m
+        display = np.ones((600, 600, 3), np.uint8) * 255
+        draw_grid(display)
+        for cam_id in range(1, self.__cam_num+1):
+            for person_id in range(0, self.__person_num):
+                if self.__skeleton_table[cam_id][person_id]['is_valid'] is False:
+                    continue
+
+                print("{}, {} is valid, life counter is {}".format(cam_id, person_id, self.__life_counter[cam_id][person_id]))
+                position = self.__skeleton_table[cam_id][person_id]['position']
+                for i in range(len(position)):
+                    x = position[i][0] + room_size/2
+                    y = position[i][1] + room_size/2
+                    x *= display.shape[0]/room_size*1.5
+                    y *= display.shape[1]/room_size*1.5
+                    color = generate_color_id_u(cam_id)
+                    cv2.circle(display, (int(x), int(y)), 6, color, -1)
+                    cv2.putText(display, "({}, {})".format(int(cam_id), int(person_id)), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+
+            cv2.imshow("2D Viewer: Position", display)
+            cv2.waitKey(1)
+
     def update_life_counter(self):
         for cam_id in range(1, self.__cam_num+1):
             for person_id in range(0, self.__person_num):
                 if self.__skeleton_table[cam_id][person_id]['is_valid'] is True:
                     self.__life_counter[cam_id][person_id] = self.__max_life
+                elif self.__life_counter[cam_id][person_id] > 0:
+                    self.__skeleton_table[cam_id][person_id]['is_valid'] = True
                 else:
-                    if self.__life_counter[cam_id][person_id] > 0:
-                        self.__skeleton_table[cam_id][person_id]['is_valid'] = True
+                    self.__skeleton_table[cam_id][person_id]['is_valid'] = False
 
     def __get_initial_skeleton_table(self, calibration):
         skeleton_table = {}

@@ -15,6 +15,7 @@ from reconstructor import clustermanager as cm
 from reconstructor import trackingmanager as tm
 
 from config import file_storage as fs
+from visualizer import viewer_2d as v2d
 
 import logging
 
@@ -43,8 +44,9 @@ class Reconstructor:
         else:
             self.__transformation = fs.read_transformation('./etc/transformation.json')
 
-        self.__skeleton_manager = sm.SkeletonManager(self.__args, self.__cam_num, self.__person_num, self.__calibration)
-        self.__cluster_manager = cm.ClusterManager(self.__args, self.__cam_num, self.__person_num, self.__transformation)
+        self.__viewer = v2d.Viewer2d(self.__args)
+        self.__skeleton_manager = sm.SkeletonManager(self.__args, self.__cam_num, self.__person_num, self.__calibration, self.__viewer)
+        self.__cluster_manager = cm.ClusterManager(self.__args, self.__cam_num, self.__person_num, self.__transformation, self.__viewer)
         self.__cluster_manager.initialize()
         self.__tracking_manager = tm.TrackingManager(self.__args, self.__person_num, self.__max_person_num)
 
@@ -183,7 +185,10 @@ class Reconstructor:
             data = self.__skeleton_mq.get()
             data = json.loads(data)
             self.__skeleton_manager.update_skeleton_table(data)
+            # self.__skeleton_manager.show_skeleton_keypoint(data)
+
         self.__skeleton_manager.update_life_counter()
+        # self.__skeleton_manager.show_skeleton_position()
 
         if self.__args.write is True:
             file_path = self.__log_dir + "/" + str(self.__frame_number).zfill(6) + ".json"
