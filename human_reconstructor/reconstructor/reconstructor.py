@@ -27,7 +27,7 @@ class Reconstructor:
         if self.__args.log:
             logging.basicConfig(level=logging.DEBUG)
         else:
-            logging.basicConfig(level=logging.INFO)
+            logging.basicConfig(level=logging.DEBUG)
 
     def initialize(self, config):
         self.__config = config
@@ -78,6 +78,7 @@ class Reconstructor:
                     self.__frame_number = 0
                 comm = input(str(self.__frame_number).zfill(6) + "> ")
                 self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
+                self.__skeleton_manager.update_life_counter()
             else:
                 self.__update_skeleton_table()
 
@@ -181,16 +182,16 @@ class Reconstructor:
         for i in range(qsize):
             data = self.__skeleton_mq.get()
             data = json.loads(data)
-            # if self.__args.visual:
-            #     self.viewer.render_2d(data)
             self.__skeleton_manager.update_skeleton_table(data)
-        self.__skeleton_lk.release()
+        self.__skeleton_manager.update_life_counter()
 
         if self.__args.write is True:
             file_path = self.__log_dir + "/" + str(self.__frame_number).zfill(6) + ".json"
             with open(file_path, "w") as outfile:
                 skeleton_table = self.__skeleton_manager.get_skeleton_table()
                 json.dump(skeleton_table, outfile)
+
+        self.__skeleton_lk.release()
 
     def __assign_tracking_id(self, reconstruction_list, triangulate_param):
         return self.__tracking_manager.get_tracking_keypoints(reconstruction_list, triangulate_param)

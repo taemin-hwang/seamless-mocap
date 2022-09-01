@@ -47,12 +47,12 @@ class Viewer2d:
     def render_cluster_table(self, person_num, cluster_table, skeleton_manager):
         if self.__args.log:
             pass
-        else:
-            if self.frame_num % 40 == 0:
-                self.frame_num = 1
-            else:
-                self.frame_num += 1
-                return
+        # else:
+        #     if self.frame_num % 40 == 0:
+        #         self.frame_num = 1
+        #     else:
+        #         self.frame_num += 1
+        #         return
 
         self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
         for idx in range(person_num):
@@ -91,26 +91,27 @@ class Viewer2d:
         cv2.waitKey(1)
 
     def render_position(self, person_num, cluster_table):
-        if self.__args.log or self.frame_num % 40 == 0:
-            room_size = 10 # 10m x 10m
-            display = np.ones((600, 600, 3), np.uint8) * 255
-            draw_grid(display)
-            for cluster_id in range(0, person_num):
-                if cluster_table[cluster_id]['is_valid'] is False:
-                    continue
+        #if self.__args.log or self.frame_num % 40 == 0:
+        # if self.__args.log:
+        room_size = 10 # 10m x 10m
+        display = np.ones((600, 600, 3), np.uint8) * 255
+        draw_grid(display)
+        for cluster_id in range(0, person_num):
+            if cluster_table[cluster_id]['is_valid'] is False:
+                continue
 
-                for i in range(cluster_table[cluster_id]['count']):
-                    cpid = cluster_table[cluster_id]['cpid'][i]
-                    x = cluster_table[cluster_id]['position'][i][0] + room_size/2
-                    y = cluster_table[cluster_id]['position'][i][1] + room_size/2
-                    x *= display.shape[0]/room_size*1.5
-                    y *= display.shape[1]/room_size*1.5
-                    color = generate_color_id_u(cluster_id)
-                    cv2.circle(display, (int(x), int(y)), 6, color, -1)
-                    cv2.putText(display, "({}, {})".format(int(post.get_cam_id(cpid)), int(post.get_person_id(cpid))), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
+            for i in range(cluster_table[cluster_id]['count']):
+                cpid = cluster_table[cluster_id]['cpid'][i]
+                x = cluster_table[cluster_id]['position'][i][0] + room_size/2
+                y = cluster_table[cluster_id]['position'][i][1] + room_size/2
+                x *= display.shape[0]/room_size*1.5
+                y *= display.shape[1]/room_size*1.5
+                color = generate_color_id_u(cluster_id)
+                cv2.circle(display, (int(x), int(y)), 6, color, -1)
+                cv2.putText(display, "({}, {})".format(int(post.get_cam_id(cpid)), int(post.get_person_id(cpid))), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
 
-            cv2.imshow("Position", display)
-            cv2.waitKey(1)
+        cv2.imshow("Position", display)
+        cv2.waitKey(1)
 
     def render_2d(self, data):
         if self.__args.log:

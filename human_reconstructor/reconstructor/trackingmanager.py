@@ -9,7 +9,7 @@ class TrackingManager:
         self.__args = args
         self.__person_num = person_num
         self.__max_person_num = max_person_num
-        self.__frame_buffer = np.ones((self.__person_num, 10, 25, 4)) # buffersize = 5
+        self.__frame_buffer = np.ones((self.__person_num, 5, 25, 4)) # buffersize = 5
         self.__tracking_table = self.__get_initial_tracking_table()
 
     def get_tracking_table(self):
