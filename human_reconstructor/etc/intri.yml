@@ -5,6 +5,8 @@ names:
    - "2"
    - "3"
    - "4"
+   - "5"
+   - "6"
 K_1: !!opencv-matrix
    rows: 3
    cols: 3
@@ -52,6 +54,32 @@ K_4: !!opencv-matrix
    data: [ 530.57, 0., 646.48, 0.,
        530.3, 359.54, 0., 0., 1. ]
 dist_4: !!opencv-matrix
+   rows: 1
+   cols: 5
+   dt: d
+   data: [ -0.0435, 0.0134,
+       0, -0.0003,
+       -0.0063]
+K_5: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 530.57, 0., 646.48, 0.,
+       530.3, 359.54, 0., 0., 1. ]
+dist_5: !!opencv-matrix
+   rows: 1
+   cols: 5
+   dt: d
+   data: [ -0.0435, 0.0134,
+       0, -0.0003,
+       -0.0063]
+K_6: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 530.57, 0., 646.48, 0.,
+       530.3, 359.54, 0., 0., 1. ]
+dist_6: !!opencv-matrix
    rows: 1
    cols: 5
    dt: d
