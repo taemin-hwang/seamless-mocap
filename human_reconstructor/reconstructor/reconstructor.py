@@ -29,7 +29,7 @@ class Reconstructor:
         if self.__args.log:
             logging.basicConfig(level=logging.DEBUG)
         else:
-            logging.basicConfig(level=logging.DEBUG)
+            logging.basicConfig(level=logging.INFO)
 
     def initialize(self, config):
         self.__config = config
@@ -115,6 +115,10 @@ class Reconstructor:
                 if self.__args.unity is True:
                     self.__send_skeleton_unity(data)
 
+            # Save data if needed
+            if self.__args.write is True:
+                self.__save_skeleton_table(face_status.value, hand_status.value)
+
             self.__skeleton_manager.reset_skeleton_table()
             self.__cluster_manager.reset_cluster_table()
 
@@ -192,14 +196,15 @@ class Reconstructor:
 
         self.__skeleton_manager.update_life_counter()
         # self.__skeleton_manager.show_skeleton_position()
-
-        if self.__args.write is True:
-            file_path = self.__log_dir + "/" + str(self.__frame_number).zfill(6) + ".json"
-            with open(file_path, "w") as outfile:
-                skeleton_table = self.__skeleton_manager.get_skeleton_table()
-                json.dump(skeleton_table, outfile)
-
         self.__skeleton_lk.release()
+
+    def __save_skeleton_table(self, face_status, hand_status):
+        file_path = self.__log_dir + "/" + str(self.__frame_number).zfill(6) + ".json"
+        with open(file_path, "w") as outfile:
+            skeleton_table = self.__skeleton_manager.get_skeleton_table()
+            skeleton_table['hand'] = hand_status
+            skeleton_table['face'] = face_status
+            json.dump(skeleton_table, outfile)
 
     def __assign_tracking_id(self, reconstruction_list, triangulate_param):
         return self.__tracking_manager.get_tracking_keypoints(reconstruction_list, triangulate_param)
