@@ -71,6 +71,7 @@ class TrackingManager:
     def __is_valid_cluster(self, reconstruction_list, triangulate_param, max_person_num):
         is_valid_cluster = False
         valid_person_cnt = 0
+        sum_repro_err = 0
         valid_person = np.zeros((len(reconstruction_list)))
         for id, person in enumerate(reconstruction_list):
             person_id = person[0]
@@ -79,11 +80,12 @@ class TrackingManager:
             person_repro_err = person[2]
             average_repro_err = np.mean(self.__check_repro_error(person_keypoint, person_repro_err, triangulate_param[person_id]['keypoint'], triangulate_param[person_id]['P']))
             logging.debug(" TrackingManager: Average Reprojection Error is {}".format(average_repro_err))
-            if average_repro_err < 10:
+            sum_repro_err += average_repro_err
+            if average_repro_err < 15:
                 valid_person_cnt += 1
             if average_repro_err < 100:
                 valid_person[id] = 1
-        if valid_person_cnt == max_person_num:
+        if valid_person_cnt == max_person_num and (sum_repro_err / max_person_num) < 10:
             is_valid_cluster = True
         return is_valid_cluster, valid_person
 

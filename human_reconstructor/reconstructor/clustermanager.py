@@ -100,7 +100,14 @@ class ClusterManager:
                 max_person_num = cluster_num
 
         if max_person_num > 0:
-            cluster_arr = self.__get_cluster_arr(position_arr, position_idx, max_person_num)
+            num_of_modified, cluster_arr = self.__get_cluster_arr(position_arr, position_idx, max_person_num)
+            logging.debug("[DISTANCE] Number of modified elements in clustering {}".format(num_of_modified))
+
+            if num_of_modified >= 2:
+                logging.info(" ClusterManager: Skip to update person table and reuse valid cluster table")
+                self.reuse_valid_cluster()
+                return
+
             for i in range(len(cluster_arr)):
                 cluster_id = cluster_arr[i]
                 if cluster_id >= 0:
@@ -168,10 +175,12 @@ class ClusterManager:
 
     def __get_cluster_arr(self, position_arr, position_idx, max_person_num):
         from sklearn.cluster import AgglomerativeClustering
+        num_of_modified = 0
+        ret = []
 
         logging.info(" ClusterManager: Clustering... {} people".format(max_person_num))
         if len(position_arr) <= max_person_num:
-            return []
+            return num_of_modified, ret
 
         cluster = AgglomerativeClustering(n_clusters=max_person_num, affinity='euclidean', linkage='ward')
         ret = cluster.fit_predict(position_arr)
@@ -179,12 +188,13 @@ class ClusterManager:
         for i in range(len(ret)):
             logging.debug("... ({}, {}) : {} --> {}".format(int(position_idx[i][0]), int(position_idx[i][1]), position_arr[i], ret[i]))
 
-        ret = self.__remove_duplicated_person(position_idx, position_arr, max_person_num, ret)
+        num_of_modified, ret = self.__remove_duplicated_person(position_idx, position_arr, max_person_num, ret)
 
-        return ret
+        return num_of_modified, ret
 
     def __remove_duplicated_person(self, position_idx, position_arr, max_person_num, cluster_ret):
         ret = np.array(copy.deepcopy(cluster_ret))
+        original_cluster = copy.deepcopy(ret)
 
         matched_person_position = np.zeros((max_person_num, 2))
         for i in range(max_person_num):
@@ -248,7 +258,21 @@ class ClusterManager:
             if person_group[int(position_idx[i][0])][ret[i]]['count'] > 1:
                 ret[i] = -1
 
-        return ret
+        modified_cluster = ret
+
+        # print("ORIGINAL : ", original_cluster)
+        # print("MODIFIED : ", modified_cluster)
+        # print("SAME_ELEMENT : ", self.__get_same_element_in_list(original_cluster, modified_cluster))
+        num_of_modified = len(original_cluster) - self.__count_diff_element(original_cluster, modified_cluster)
+
+        return num_of_modified, ret
+
+    def __count_diff_element(self, original_cluster, modified_cluster):
+        cnt = 0
+        for i in range(len(original_cluster)):
+            if original_cluster[i] == modified_cluster[i]:
+                cnt += 1
+        return cnt
 
     # def __find_near_elements(self, array, value, n):
     #     lst = copy.deepcopy(array)
