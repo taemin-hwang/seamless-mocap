@@ -34,7 +34,7 @@ class Reconstructor:
     def initialize(self, config):
         self.__config = config
         self.__person_num = 30
-        self.__max_person_num = 3
+        self.__max_person_num = int(self.__args.number)
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -79,7 +79,7 @@ class Reconstructor:
                 if self.__frame_number >= self.__max_frame_number:
                     self.__frame_number = 0
                 # if self.__frame_number >= 430:
-                #     comm = input(str(self.__frame_number).zfill(6) + "> ")
+                # comm = input(str(self.__frame_number).zfill(6) + "> ")
                 self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
                 self.__skeleton_manager.update_life_counter()
             else:
@@ -173,9 +173,10 @@ class Reconstructor:
                     cpid = self.__cluster_manager.get_cpid(person_id)[i]
                     cid = post.get_cam_id(cpid)
                     pid = post.get_person_id(cpid)
-                    valid_dlt_element[person_id]['cpid'].append(cpid)
-                    valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_manager.get_skeleton(cid, pid))
-                    valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_manager.get_skeleton_table()[cid]['P'])
+                    if self.__skeleton_manager.is_skeleton_valid(cid, pid) is True:
+                        valid_dlt_element[person_id]['cpid'].append(cpid)
+                        valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_manager.get_skeleton(cid, pid))
+                        valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_manager.get_skeleton_table()[cid]['P'])
 
         return valid_dlt_element
 

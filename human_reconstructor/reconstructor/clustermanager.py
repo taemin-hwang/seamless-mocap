@@ -69,7 +69,7 @@ class ClusterManager:
             # print("\n\n")
 
     def update_person_table(self, skeleton_manager, cluster_num):
-        if self.__is_too_closed is True:
+        if self.__is_too_closed is True and self.__valid_cluster is not None:
             logging.info(" ClusterManager: Skip to update person table and reuse valid cluster table")
             self.reuse_valid_cluster()
             return
@@ -112,7 +112,7 @@ class ClusterManager:
     def reuse_valid_cluster(self):
         if self.__valid_cluster is not None:
             logging.info(" ClusterManager: Reuse valid cluster table")
-            self.__cluster_table = self.__valid_cluster
+            self.__cluster_table = copy.deepcopy(self.__valid_cluster)
             # print("Reuse valid cluster \n\n")
             # print(self.__cluster_table)
             # print("\n\n")
@@ -284,9 +284,9 @@ class ClusterManager:
         return (min_dist, np.append(min_arr, min_idx))
 
     def reset_cluster_table(self):
-        if self.__is_too_closed is True:
-            logging.info(" ClusterManager: Skip to reset person table")
-            return
+        # if self.__is_too_closed is True:
+        #     logging.info(" ClusterManager: Skip to reset person table")
+        #     return
 
         for cluster_id in range(0, self.__person_num):
             if self.__cluster_table[cluster_id]['is_valid'] is True:

@@ -2,6 +2,7 @@ import numpy as np
 import math
 
 import logging
+import copy
 from reconstructor.utils import postprocessor as post
 
 class TrackingManager:
@@ -9,9 +10,8 @@ class TrackingManager:
         self.__args = args
         self.__person_num = person_num
         self.__max_person_num = max_person_num
-        self.__frame_buffer = np.ones((self.__person_num, 5, 25, 4)) # buffersize = 5
+        self.__frame_buffer = np.ones((self.__person_num, 3, 25, 4)) # buffersize = 5
         self.__tracking_table = self.__get_initial_tracking_table()
-        self.__is_too_closed_status = False
 
     def get_tracking_table(self):
         return self.__tracking_table
@@ -27,78 +27,65 @@ class TrackingManager:
 
     def get_tracking_keypoints(self, reconstruction_list, triangulate_param):
         logging.info(" TrackingManager: Get tracking keypoints")
+        is_too_closed = False
+        is_valid_cluster = False
         data = []
-        valid_arr = np.zeros((len(reconstruction_list)))
-        idx = 0
-        is_valid_cluster = True
-        for person in reconstruction_list:
+
+        # Rescale keypoint to 0.5
+        self.__rescale_keypoint(reconstruction_list, 0.5)
+
+        if len(reconstruction_list) == 0:
+            return False, False, []
+        elif self.__max_person_num == 1 or len(reconstruction_list) == 1:
+            logging.info(" TrackingManager: Skip to keep tracking keypoints, assign id 1")
+            person_keypoint = reconstruction_list[0][1]
+            self.__frame_buffer[0], ret = post.smooth_3d_pose(self.__frame_buffer[0], person_keypoint)
+            is_valid_cluster = self.__is_valid_cluster(reconstruction_list, triangulate_param, self.__max_person_num)
+            data.append({'id' : 0, 'keypoints3d' : ret})
+            return False, is_valid_cluster, data
+
+        is_valid_cluster, valid_person = self.__is_valid_cluster(reconstruction_list, triangulate_param, self.__max_person_num)
+        is_too_closed = self.__is_too_closed(reconstruction_list, valid_person)
+
+        for idx, person in enumerate(reconstruction_list):
             person_id = person[0]
             person_keypoint = person[1]
-            person_repro_err = person[2]
-            dist = self.__check_repro_error(person_keypoint, person_repro_err, triangulate_param[person_id]['keypoint'], triangulate_param[person_id]['P'])
-            person_keypoint[:, :3] /= 2
-            logging.debug("Projection Error : {}".format(np.mean(dist)))
-            if np.mean(dist) < 100:
-                valid_arr[idx] = np.mean(dist)
-            else:
-                self.__is_too_closed_status = True
-            if np.mean(dist) > 10:
-                is_valid_cluster = False
-            idx += 1
-
-        is_enough_far = True
-
-        a_idx = 0
-        for person_A in reconstruction_list:
-            if valid_arr[a_idx] <= 0:
+            if valid_person[idx] <= 0:
                 continue
-            is_too_closed = False
-            person_A_id = person_A[0]
-            person_A_keypoint = person_A[1]
-            person_A_center_position = post.get_center_position(person_A_keypoint)
-
-            b_idx = 0
-            for person_B in reconstruction_list:
-                person_B_id = person_B[0]
-                if person_A_id == person_B_id:
-                    continue
-                if valid_arr[b_idx] <= 0:
-                    continue
-                person_B_keypoint = person_B[1]
-                person_B_center_position = post.get_center_position(person_B_keypoint)
-                dist_between_A_and_B = np.linalg.norm(person_A_center_position - person_B_center_position)
-                logging.debug("Dist between {} and {} : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
-
-                if dist_between_A_and_B <= 1.0:
-                    logging.warning("SKIP THESE PERSON {} and PERSON {}, TOO CLOSE : {}".format(person_A_id, person_B_id, dist_between_A_and_B))
-                    is_too_closed = True
-                    continue
-                elif dist_between_A_and_B >= 1.5 and len(valid_arr) == self.__max_person_num:
-                    is_enough_far = False
-                b_idx += 1
-
-            if is_too_closed is False:
-                tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
+            # data.append({'id' : person_id, 'keypoints3d' : person_keypoint})
             else:
-                # tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_A_id)
-                tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_A_id, person_A_keypoint)
-                self.__is_too_closed_status = True
+                tracking_id = self.__get_tracking_id(is_too_closed, triangulate_param, person_id, person_keypoint)
+                if tracking_id >= 0:
+                    self.__frame_buffer[tracking_id], ret = post.smooth_3d_pose(self.__frame_buffer[tracking_id], person_keypoint)
+                    self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_id]['cpid']
+                    self.__tracking_table[tracking_id]['keypoints3d'] = ret
+                    data.append({'id' : tracking_id, 'keypoints3d' : ret})
 
-            if tracking_id >= 0:
-                logging.info("Assign person {} to {}".format(a_idx, tracking_id))
+        if is_too_closed is True:
+            logging.info(" TrackingManager: People are too closed")
+        if is_valid_cluster is True:
+            logging.info(" TrackingManager: Cluster is valid")
 
-                self.__frame_buffer[tracking_id], ret = post.smooth_3d_pose(self.__frame_buffer[tracking_id], person_A_keypoint)
-                # ret = person_A_keypoint
-                self.__tracking_table[tracking_id]['keypoints3d'] = ret
-                if valid_arr[a_idx] < 10:
-                    self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_A_id]['cpid']
-                data.append({'id' : tracking_id, 'keypoints3d' : ret})
-            a_idx += 1
+        return is_too_closed, is_valid_cluster, data
 
-        if is_enough_far is True:
-            self.__is_too_closed_status = False
-
-        return self.__is_too_closed_status, is_valid_cluster, data
+    def __is_valid_cluster(self, reconstruction_list, triangulate_param, max_person_num):
+        is_valid_cluster = False
+        valid_person_cnt = 0
+        valid_person = np.zeros((len(reconstruction_list)))
+        for id, person in enumerate(reconstruction_list):
+            person_id = person[0]
+            person_keypoint = copy.deepcopy(person[1])
+            person_keypoint[:, 3] *= 2
+            person_repro_err = person[2]
+            average_repro_err = np.mean(self.__check_repro_error(person_keypoint, person_repro_err, triangulate_param[person_id]['keypoint'], triangulate_param[person_id]['P']))
+            logging.debug(" TrackingManager: Average Reprojection Error is {}".format(average_repro_err))
+            if average_repro_err < 10:
+                valid_person_cnt += 1
+            if average_repro_err < 100:
+                valid_person[id] = 1
+        if valid_person_cnt == max_person_num:
+            is_valid_cluster = True
+        return is_valid_cluster, valid_person
 
     def __check_repro_error(self, keypoints3d, kpts_repro, keypoints2d, P):
         square_diff = (keypoints2d[:, :, :2] - kpts_repro[:, :, :2])**2
@@ -106,6 +93,62 @@ class TrackingManager:
         conf = (keypoints3d[None, :, -1:] > 0) * (keypoints2d[:, :, -1:] > 0)
         dist = np.sqrt((((kpts_repro[..., :2] - keypoints2d[..., :2])*conf)**2).sum(axis=-1))
         return dist
+
+    def __is_too_closed(self, reconstruction_list, valid_person):
+        is_too_closed = False
+        min_distance_from_person = np.inf
+        for idx, person in enumerate(reconstruction_list):
+            person_id = person[0]
+            person_keypoint = person[1]
+            if valid_person[idx] <= 0:
+                continue
+            else:
+                distance_between_person = self.__get_min_distance_between_person(person_id, person_keypoint, reconstruction_list, valid_person)
+                if min_distance_from_person > distance_between_person:
+                    min_distance_from_person = distance_between_person
+
+        if min_distance_from_person < 1.0:
+            is_too_closed = True
+        return is_too_closed
+
+    def __rescale_keypoint(self, reconstruction_list, scale):
+        for person in reconstruction_list:
+            person_keypoint = person[1]
+            person_keypoint[:, :3] *= scale
+
+    def __get_min_distance_between_person(self, from_id, from_keypoint, reconstruction_list, valid_person):
+        from_position = post.get_center_position(from_keypoint)
+        min_distance = np.inf
+        for idx, person in enumerate(reconstruction_list):
+            to_id = person[0]
+            to_keypoint = person[1]
+            to_position = post.get_center_position(to_keypoint)
+
+            if valid_person[idx] <= 0:
+                continue
+            if from_id == to_id:
+                continue
+
+            distance = np.linalg.norm(to_position - from_position)
+            logging.debug("Dist between {} and {} : {}".format(from_id, to_id, distance))
+            if distance < min_distance:
+                min_distance = distance
+        return min_distance
+
+    def __get_tracking_id(self, is_too_closed, triangulate_param, person_id, person_keypoint):
+        tracking_id = -1
+        print("Try to assign tracking id of {}".format(person_id))
+        if is_too_closed is False:
+            tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_id, person_keypoint)
+        else:
+            # tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_id)
+            tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_id, person_keypoint)
+
+        if tracking_id >= 0:
+            logging.info("Assign person {} to {}".format(person_id, tracking_id))
+        else:
+            logging.error("Tracking ID is less then 0: {} to {}".format(person_id, tracking_id))
+        return tracking_id
 
     def __find_tracking_id_from_distance(self, triangulate_param, person_id, person_keypoint):
         min_err = np.inf
