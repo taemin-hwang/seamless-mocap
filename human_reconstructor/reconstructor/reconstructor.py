@@ -63,6 +63,8 @@ class Reconstructor:
 
         face_status = face_format.FACE_STATUS.CLOSED
         hand_status = hand_format.HAND_STATUS.RIGHT_CLOSED
+        left_rot = [0, 0, 0]
+        right_rot = [0, 0, 0]
 
         if self.__args.write is True:
             self.__copy_config()
@@ -101,12 +103,18 @@ class Reconstructor:
 
             # Assign Hand/Face status
             if self.__args.face is True:
-                face_status, hand_status = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status)
-                logging.debug("[FACE STATUS] {}".format(face_status.value))
-                logging.debug("[HAND STATUS] {}".format(hand_status.value))
+                # ONLY FOR TEST, NEED TO BE CLEARED
+                # if len(data) == 0:
+                #     data = [{'id': 0, 'keypoints3d' : []}]
+
+                face_status, hand_status, left_rot, right_rot = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status, left_rot, right_rot)
+                logging.info("[FACE STATUS] {}".format(face_status.value))
+                logging.info("[HAND STATUS] {}".format(hand_status.value))
                 for element in data:
                     element['face'] = face_status.value
                     element['hand'] = hand_status.value
+                    element['left_rotation'] = left_rot
+                    element['right_rotation'] = right_rot
 
             # Send data if needed
             if len(data) > 0:
@@ -265,7 +273,7 @@ class Reconstructor:
         kp2ds[..., -1] = kp2ds[..., -1] * (kpts3d[None, :, -1] > 0.)
         return kp2ds
 
-    def __get_facehand_status(self, lk_facehand, mq_facehand, face_status, hand_status):
+    def __get_facehand_status(self, lk_facehand, mq_facehand, face_status, hand_status, left_rot, right_rot):
         lk_facehand.acquire()
         qsize = mq_facehand.qsize()
 
@@ -275,8 +283,10 @@ class Reconstructor:
             for person in data["annots"]:
                 face_status_idx = person['faceStatus']
                 hand_status_idx = person['handStatus']
+                left_rot = person['leftRot']
+                right_rot = person['rightRot']
                 face_status = face_format.get_status_from_idx(face_status_idx)
                 hand_status = hand_format.get_status_from_idx(hand_status_idx)
 
         lk_facehand.release()
-        return face_status, hand_status
+        return face_status, hand_status, left_rot, right_rot
