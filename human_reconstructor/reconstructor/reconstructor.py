@@ -125,7 +125,7 @@ class Reconstructor:
 
             # Save data if needed
             if self.__args.write is True:
-                self.__save_skeleton_table(face_status.value, hand_status.value)
+                self.__save_skeleton_table(face_status.value, hand_status.value, left_rot, right_rot)
 
             self.__skeleton_manager.reset_skeleton_table()
             self.__cluster_manager.reset_cluster_table()
@@ -206,12 +206,13 @@ class Reconstructor:
         # self.__skeleton_manager.show_skeleton_position()
         self.__skeleton_lk.release()
 
-    def __save_skeleton_table(self, face_status, hand_status):
+    def __save_skeleton_table(self, face_status, hand_status, left_rot, right_rot):
         file_path = self.__log_dir + "/" + str(self.__frame_number).zfill(6) + ".json"
         with open(file_path, "w") as outfile:
             skeleton_table = self.__skeleton_manager.get_skeleton_table()
             skeleton_table['hand'] = hand_status
-            skeleton_table['face'] = face_status
+            skeleton_table['left'] = left_rot
+            skeleton_table['right'] = right_rot
             json.dump(skeleton_table, outfile)
 
     def __assign_tracking_id(self, reconstruction_list, triangulate_param):
