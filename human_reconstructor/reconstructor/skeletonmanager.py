@@ -14,7 +14,7 @@ class SkeletonManager:
         self.__person_num = person_num
         self.__buffer_size = 5
         self.__life_counter = np.zeros((self.__cam_num+1, self.__person_num))
-        self.__max_life = 5
+        self.__max_life = 10
         self.__viewer = viewer
         if self.__args.log:
             pass
@@ -42,8 +42,8 @@ class SkeletonManager:
         for cam_id in range(1, self.__cam_num+1):
             for person_id in range(0, self.__person_num):
                 self.__skeleton_table[cam_id][person_id]['is_valid'] = False
-                self.__skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
-                self.__skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
+                #self.__skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
+                #self.__skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
                 if self.__life_counter[cam_id][person_id] > 0:
                     self.__life_counter[cam_id][person_id] -= 1
 

@@ -33,7 +33,7 @@ class Viewer2d:
         i = 0
         for display in self.display_list:
             cv2.rectangle(display, [0, 0], [self.width, self.height], color=(255, 255, 255), thickness=3)
-            resized_display_list.append(cv2.resize(display, dsize=(0,0), fx=0.3, fy=0.3, interpolation=cv2.INTER_AREA))
+            resized_display_list.append(cv2.resize(display, dsize=(0,0), fx=0.2, fy=0.2, interpolation=cv2.INTER_AREA))
             i += 1
 
         col_num = math.ceil(self.display_num / 2)

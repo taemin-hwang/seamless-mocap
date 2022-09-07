@@ -34,7 +34,8 @@ class Reconstructor:
     def initialize(self, config):
         self.__config = config
         self.__person_num = 30
-        self.__max_person_num = int(self.__args.number)
+        #self.__max_person_num = int(self.__args.number)
+        self.__max_person_num = 3
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -83,9 +84,10 @@ class Reconstructor:
                 # if self.__frame_number >= 430:
                 # comm = input(str(self.__frame_number).zfill(6) + "> ")
                 self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
-                self.__skeleton_manager.update_life_counter()
             else:
                 self.__update_skeleton_table()
+
+            self.__skeleton_manager.update_life_counter()
 
             # Make clusters
             self.__cluster_manager.update_person_table(self.__skeleton_manager, self.__max_person_num)
@@ -202,7 +204,7 @@ class Reconstructor:
             self.__skeleton_manager.update_skeleton_table(data)
             # self.__skeleton_manager.show_skeleton_keypoint(data)
 
-        self.__skeleton_manager.update_life_counter()
+        #self.__skeleton_manager.update_life_counter()
         # self.__skeleton_manager.show_skeleton_position()
         self.__skeleton_lk.release()
 
