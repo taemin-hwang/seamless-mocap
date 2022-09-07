@@ -19,7 +19,7 @@ class Manager:
 
     def initialize(self):
         config = self.__config_parser.GetConfig()
-        self.__reconstructor.initialize(config)
+        self.__reconstructor.initialize(self.__config_parser)
         if self.__args.gui:
             self.__gui_sender.initialize(config["gui_ip"], config["gui_port"])
         if self.__args.unity:

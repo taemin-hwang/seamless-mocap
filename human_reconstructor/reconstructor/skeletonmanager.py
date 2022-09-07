@@ -14,7 +14,7 @@ class SkeletonManager:
         self.__person_num = person_num
         self.__buffer_size = 5
         self.__life_counter = np.zeros((self.__cam_num+1, self.__person_num))
-        self.__max_life = 10
+        self.__max_life = 20
         self.__viewer = viewer
         if self.__args.log:
             pass

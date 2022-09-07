@@ -1,15 +1,1 @@
-{
-    "server_ip" : "192.168.0.132",
-    "skeleton_port" : 50001,
-    "facehand_port" : 50002,
-    "gui_ip" : "127.0.0.1",
-    "gui_port" : 9999,
-    "unity_ip" : "127.0.0.1",
-    "unity_port" : 50002,
-    "cam_num" : 6,
-    "min_cam" : 3,
-    "max_frame" : 50,
-    "fps" : 20,
-    "buffer_size" : 5,
-    "min_confidence" : 0.0
-}
+{"server_ip": "192.168.0.132", "skeleton_port": 50001, "facehand_port": 50002, "gui_ip": "127.0.0.1", "gui_port": 9999, "unity_ip": "127.0.0.1", "unity_port": 50002, "cam_num": 6, "min_cam": 3, "max_frame": 50, "max_person": 2, "fps": 20, "buffer_size": 5, "min_confidence": 0.0}

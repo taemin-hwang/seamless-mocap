@@ -31,11 +31,9 @@ class Reconstructor:
         else:
             logging.basicConfig(level=logging.INFO)
 
-    def initialize(self, config):
-        self.__config = config
+    def initialize(self, config_parser):
+        self.__config = config_parser.GetConfig()
         self.__person_num = 30
-        #self.__max_person_num = int(self.__args.number)
-        self.__max_person_num = 3
         self.__cam_num = self.__config["cam_num"]
         self.__min_cam = self.__config["min_cam"]
         self.__target_fps = self.__config["fps"]
@@ -43,8 +41,13 @@ class Reconstructor:
         self.__buffer_size = self.__config["buffer_size"]
         if self.__args.log:
             self.__transformation = fs.read_transformation(self.__args.log + 'transformation.json')
+            self.__max_person_num = self.__config["max_person"]
         else:
             self.__transformation = fs.read_transformation('./etc/transformation.json')
+            self.__max_person_num = int(self.__args.number)
+            config_parser.WriteMaxPersonNum(self.__max_person_num)
+
+        print("[CONFIG] MAX PERSON NUM : {}".format(self.__max_person_num))
 
         self.__viewer = v2d.Viewer2d(self.__args)
         self.__skeleton_manager = sm.SkeletonManager(self.__args, self.__cam_num, self.__person_num, self.__calibration, self.__viewer)
@@ -182,8 +185,8 @@ class Reconstructor:
 
         for person_id in range(0, self.__person_num):
             if self.__cluster_manager.is_cluster_valid(person_id) is True:
-                valid_dlt_element[person_id]['count'] = self.__cluster_manager.get_count(person_id)
-                for i in range(valid_dlt_element[person_id]['count']):
+                valid_cnt = 0
+                for i in range(self.__cluster_manager.get_count(person_id)):
                     cpid = self.__cluster_manager.get_cpid(person_id)[i]
                     cid = post.get_cam_id(cpid)
                     pid = post.get_person_id(cpid)
@@ -191,7 +194,8 @@ class Reconstructor:
                         valid_dlt_element[person_id]['cpid'].append(cpid)
                         valid_dlt_element[person_id]['valid_keypoint'].append(self.__skeleton_manager.get_skeleton(cid, pid))
                         valid_dlt_element[person_id]['valid_P'].append(self.__skeleton_manager.get_skeleton_table()[cid]['P'])
-
+                        valid_cnt += 1
+                valid_dlt_element[person_id]['count'] = valid_cnt
         return valid_dlt_element
 
     def __update_skeleton_table(self):
