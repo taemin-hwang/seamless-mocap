@@ -1,5 +1,5 @@
 pushd ..
 
-./run_app.sh -guv -n1
+./run_app.sh -guv -n1 -w
 
 popd
