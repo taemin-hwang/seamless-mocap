@@ -64,14 +64,14 @@ class ClusterManager:
         if is_valid_cluster is True:
             logging.info(" ClusterManager: Save valid cluster table : {}".format(frame_number))
             self.__valid_cluster = copy.deepcopy(self.__cluster_table)
-            # print("Save valid cluster \n\n")
-            # print(self.__valid_cluster)
-            # print("\n\n")
+            #print("Save valid cluster \n\n")
+            #print(self.__valid_cluster)
+            #print("\n\n")
 
     def update_person_table(self, skeleton_manager, cluster_num):
         if self.__is_too_closed is True and self.__valid_cluster is not None:
             logging.info(" ClusterManager: Skip to update person table and reuse valid cluster table")
-            self.reuse_valid_cluster()
+            self.reuse_valid_cluster(skeleton_manager)
             return
 
         logging.info(" ClusterManager: Update person table")
@@ -84,7 +84,7 @@ class ClusterManager:
             person_num = 0
             for person_id in range(0, self.__person_num):
                 is_skeleton_valid = skeleton_manager.is_skeleton_valid(cam_id, person_id)
-                skeleton = skeleton_manager.get_skeleton(cam_id, person_id)
+                # skeleton = skeleton_manager.get_skeleton(cam_id, person_id)
                 if is_skeleton_valid is True:
                     average_position = self.__get_average_position(skeleton_manager, cam_id, person_id, transform)
                     dist_from_cam1 = np.linalg.norm(np.array([average_position[0], average_position[1]]) - self.__transformation['C1'][:2])
@@ -105,7 +105,7 @@ class ClusterManager:
 
             if num_of_modified >= 2:
                 logging.info(" ClusterManager: Skip to update person table and reuse valid cluster table")
-                self.reuse_valid_cluster()
+                self.reuse_valid_cluster(skeleton_manager)
                 return
 
             for i in range(len(cluster_arr)):
@@ -116,13 +116,22 @@ class ClusterManager:
                     self.__cluster_table[cluster_id]['cpid'].append(post.get_cpid(position_idx[i][0], position_idx[i][1])) # cam_id, person_id
                     self.__cluster_table[cluster_id]['position'].append(position_arr[i]) # X, Y
 
-    def reuse_valid_cluster(self):
+    def reuse_valid_cluster(self, skeleton_manager):
         if self.__valid_cluster is not None:
             logging.info(" ClusterManager: Reuse valid cluster table")
             self.__cluster_table = copy.deepcopy(self.__valid_cluster)
-            # print("Reuse valid cluster \n\n")
-            # print(self.__cluster_table)
-            # print("\n\n")
+
+            for cluster_id in range(0, self.__person_num):
+                for idx, cpid in enumerate(self.__cluster_table[cluster_id]['cpid']):
+                    cam_id = post.get_cam_id(cpid)
+                    person_id = post.get_person_id(cpid)
+                    if skeleton_manager.is_skeleton_valid(cam_id, person_id) is True:
+                        transform = self.__transformation['T'+str(cam_id)+'1']
+                        self.__cluster_table[cluster_id]['position'][idx] = self.__get_average_position(skeleton_manager, cam_id, person_id, transform)
+
+            #print("Reuse valid cluster \n\n")
+            #print(self.__cluster_table)
+            #print("\n\n")
 
     def update_person_table_with_hint(self, tracking_table, max_person_num):
         if self.__is_too_closed is False:

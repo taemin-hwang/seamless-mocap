@@ -10,7 +10,7 @@ class TrackingManager:
         self.__args = args
         self.__person_num = person_num
         self.__max_person_num = max_person_num
-        self.__frame_buffer = np.ones((self.__person_num, 3, 25, 4)) # buffersize = 5
+        self.__frame_buffer = np.ones((self.__person_num, 10, 25, 4)) # buffersize = 5
         self.__tracking_table = self.__get_initial_tracking_table()
 
     def get_tracking_table(self):
@@ -38,15 +38,19 @@ class TrackingManager:
             return False, False, []
         elif self.__max_person_num == 1 or len(reconstruction_list) == 1:
             logging.info(" TrackingManager: Skip to keep tracking keypoints, assign id 1")
+            tracking_id_list = []
             person_keypoint = reconstruction_list[0][1]
             self.__frame_buffer[0], ret = post.smooth_3d_pose(self.__frame_buffer[0], person_keypoint)
-            is_valid_cluster = self.__is_valid_cluster(reconstruction_list, triangulate_param, self.__max_person_num)
-            data.append({'id' : 0, 'keypoints3d' : ret})
+            is_valid_cluster, valid_person = self.__is_valid_cluster(reconstruction_list, triangulate_param, self.__max_person_num)
+            tracking_id, min_err = self.__get_tracking_id(tracking_id_list, is_too_closed, triangulate_param, 0, person_keypoint)
+            if min_err < 10.0 or min_err == 123456789:
+                data.append({'id' : tracking_id, 'keypoints3d' : ret})
             return False, is_valid_cluster, data
 
         is_valid_cluster, valid_person = self.__is_valid_cluster(reconstruction_list, triangulate_param, self.__max_person_num)
         is_too_closed = self.__is_too_closed(reconstruction_list, valid_person)
 
+        tracking_id_list = []
         for idx, person in enumerate(reconstruction_list):
             person_id = person[0]
             person_keypoint = person[1]
@@ -54,11 +58,13 @@ class TrackingManager:
                 continue
             # data.append({'id' : person_id, 'keypoints3d' : person_keypoint})
             else:
-                tracking_id = self.__get_tracking_id(is_too_closed, triangulate_param, person_id, person_keypoint)
-                if tracking_id >= 0:
+                tracking_id, min_err = self.__get_tracking_id(tracking_id_list, is_too_closed, triangulate_param, person_id, person_keypoint)
+                if (tracking_id >= 0) and (min_err < 10.0 or min_err == 123456789):
+                    tracking_id_list.append(tracking_id)
                     self.__frame_buffer[tracking_id], ret = post.smooth_3d_pose(self.__frame_buffer[tracking_id], person_keypoint)
                     self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_id]['cpid']
                     self.__tracking_table[tracking_id]['keypoints3d'] = ret
+                    self.__set_life_counter(tracking_id, 5)
                     data.append({'id' : tracking_id, 'keypoints3d' : ret})
 
         if is_too_closed is True:
@@ -66,11 +72,14 @@ class TrackingManager:
         if is_valid_cluster is True:
             logging.info(" TrackingManager: Cluster is valid")
 
+        self.__countdown_life_counter()
+
         return is_too_closed, is_valid_cluster, data
 
     def __is_valid_cluster(self, reconstruction_list, triangulate_param, max_person_num):
         is_valid_cluster = False
         valid_person_cnt = 0
+        min_cpid_num = np.inf
         sum_repro_err = 0
         valid_person = np.zeros((len(reconstruction_list)))
         for id, person in enumerate(reconstruction_list):
@@ -85,7 +94,15 @@ class TrackingManager:
                 valid_person_cnt += 1
             if average_repro_err < 100:
                 valid_person[id] = 1
-        if valid_person_cnt == max_person_num and (sum_repro_err / max_person_num) < 10:
+
+            cpid_num = len(triangulate_param[person_id]['cpid'])
+            if min_cpid_num > cpid_num:
+                min_cpid_num = cpid_num
+
+        if valid_person_cnt == len(reconstruction_list) and (sum_repro_err / len(reconstruction_list)) < 10 and min_cpid_num > 5:
+            # print("{}, {}".format(valid_person_cnt, len(reconstruction_list)))
+            # print("{}".format(sum_repro_err / len(reconstruction_list)))
+            # print("{}".format(min_cpid_num))
             is_valid_cluster = True
         return is_valid_cluster, valid_person
 
@@ -137,40 +154,38 @@ class TrackingManager:
                 min_distance = distance
         return min_distance
 
-    def __get_tracking_id(self, is_too_closed, triangulate_param, person_id, person_keypoint):
+    def __get_tracking_id(self, tracking_id_list, is_too_closed, triangulate_param, person_id, person_keypoint):
         tracking_id = -1
         print("Try to assign tracking id of {}".format(person_id))
         if is_too_closed is False:
-            tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_id, person_keypoint)
+            tracking_id, min_err = self.__find_tracking_id_from_distance(tracking_id_list, triangulate_param, person_id, person_keypoint)
         else:
-            # tracking_id = self.__find_tracking_id_from_cpid(triangulate_param, person_id)
-            tracking_id = self.__find_tracking_id_from_distance(triangulate_param, person_id, person_keypoint)
+            # tracking_id = self.__find_tracking_id_from_cpid(tracking_id_list, triangulate_param, person_id)
+            tracking_id, min_err = self.__find_tracking_id_from_distance(tracking_id_list, triangulate_param, person_id, person_keypoint)
 
         if tracking_id >= 0:
             logging.info("Assign person {} to {}".format(person_id, tracking_id))
         else:
             logging.error("Tracking ID is less then 0: {} to {}".format(person_id, tracking_id))
-        return tracking_id
+        return tracking_id, min_err
 
-    def __find_tracking_id_from_distance(self, triangulate_param, person_id, person_keypoint):
+    def __find_tracking_id_from_distance(self, tracking_id_list, triangulate_param, person_id, person_keypoint):
         min_err = np.inf
         min_id = -1
         for tracking_id in range(self.__max_person_num):
             tracking_keypoints = self.__tracking_table[tracking_id]['keypoints3d']
-            if tracking_keypoints is None:
-                self.__tracking_table[tracking_id]['is_valid'] = True
-                self.__tracking_table[tracking_id]['keypoints3d'] = person_keypoint
-                self.__tracking_table[tracking_id]['cpid'] = triangulate_param[person_id]['cpid']
-                break
-
-            err = self.__get_distance_from_keypoints(person_keypoint[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
+            if tracking_keypoints is not None:
+                err = self.__get_distance_from_keypoints(person_keypoint[:, :3], self.__tracking_table[tracking_id]['keypoints3d'][:, :3])
+            else:
+                err = 123456789
             logging.debug("ERR : {}".format(err))
             if err < min_err:
-                min_err = err
-                min_id = tracking_id
-        return min_id
+                if tracking_id not in tracking_id_list:
+                    min_err = err
+                    min_id = tracking_id
+        return min_id, min_err
 
-    def __find_tracking_id_from_cpid(self, trianguldate_param, person_id):
+    def __find_tracking_id_from_cpid(self, tracking_id_list, trianguldate_param, person_id):
         max_cnt = 0
         max_id = -1
         for tracking_id in range(self.__max_person_num):
@@ -179,8 +194,9 @@ class TrackingManager:
             # Count same element between two list
             cnt = self.__count_same_element_in_list(trianguldate_param[person_id]['cpid'], self.__tracking_table[tracking_id]['cpid'])
             if cnt > max_cnt:
-                max_cnt = cnt
-                max_id = tracking_id
+                if tracking_id not in tracking_id_list:
+                    max_cnt = cnt
+                    max_id = tracking_id
         return max_id
 
     def __get_distance_from_keypoints(self, keypoints3d1, keypoints3d2):
@@ -197,6 +213,18 @@ class TrackingManager:
         logging.debug("list B : \n {}".format(list2))
         return len(set(list1) & set(list2))
 
+    def __set_life_counter(self, cluster_id, cnt):
+        self.__tracking_table[cluster_id]['life'] = cnt
+
+    def __countdown_life_counter(self):
+        for cluster_id in range(self.__max_person_num):
+            if self.__tracking_table[cluster_id]['life'] > 0:
+                self.__tracking_table[cluster_id]['life'] -= 0
+            else:
+                self.__tracking_table[cluster_id]['is_valid'] = False
+                self.__tracking_table[cluster_id]['cpid'] = []
+                self.__tracking_table[cluster_id]['keypoints3d'] = None
+
     def __get_initial_tracking_table(self):
         tracking_table = {}
         for cluster_id in range(self.__max_person_num):
@@ -204,4 +232,5 @@ class TrackingManager:
             tracking_table[cluster_id]['is_valid'] = False
             tracking_table[cluster_id]['cpid'] = []
             tracking_table[cluster_id]['keypoints3d'] = None
+            tracking_table[cluster_id]['life'] = 0
         return tracking_table

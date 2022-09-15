@@ -64,6 +64,7 @@ class Viewer2d:
                 cam_id = post.get_cam_id(cpid)
                 person_id = post.get_person_id(cpid)
                 if skeleton_manager.is_skeleton_valid(cam_id, person_id) is False:
+                    print("[2D RENDER] CPID {} is invalid".format(cpid))
                     continue
                 keypoints = skeleton_manager.get_skeleton(cam_id, person_id)
                 display = self.display_list[cam_id-1] # index of list startw with zero
