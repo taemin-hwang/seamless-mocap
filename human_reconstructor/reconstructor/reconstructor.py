@@ -27,9 +27,13 @@ class Reconstructor:
         self.__frame_number = 0
         self.__max_frame_number = 0
         if self.__args.log:
-            logging.basicConfig(level=logging.INFO)
+            logging.basicConfig(level=logging.DEBUG)
         else:
             logging.basicConfig(level=logging.INFO)
+        self.__prev_left_rot = [0, 0, 0]
+        self.__prev_right_rot = [0, 0, 0]
+        self.__curr_left_rot = [0, 0, 0]
+        self.__curr_right_rot = [0, 0, 0]
 
     def initialize(self, config_parser):
         self.__config = config_parser.GetConfig()
@@ -108,11 +112,8 @@ class Reconstructor:
 
             # Assign Hand/Face status
             if self.__args.face is True:
-                # ONLY FOR TEST, NEED TO BE CLEARED
-                # if len(data) == 0:
-                #     data = [{'id': 0, 'keypoints3d' : []}]
-
                 face_status, hand_status, left_rot, right_rot = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status, left_rot, right_rot)
+                left_rot, right_rot = self.__get_hand_interpolation(left_rot, right_rot, self.__frame_number % 20)
                 logging.info("[FACE STATUS] {}".format(face_status.value))
                 logging.info("[HAND STATUS] {}".format(hand_status.value))
                 for element in data:
@@ -206,10 +207,7 @@ class Reconstructor:
             data = self.__skeleton_mq.get()
             data = json.loads(data)
             self.__skeleton_manager.update_skeleton_table(data)
-            # self.__skeleton_manager.show_skeleton_keypoint(data)
 
-        #self.__skeleton_manager.update_life_counter()
-        # self.__skeleton_manager.show_skeleton_position()
         self.__skeleton_lk.release()
 
     def __save_skeleton_table(self, face_status, hand_status, left_rot, right_rot):
@@ -280,6 +278,27 @@ class Reconstructor:
         kp2ds[..., -1] = kp2ds[..., -1] * (kpts3d[None, :, -1] > 0.)
         return kp2ds
 
+    def __assign_facehand_status(self, data, face_status, hand_status, left_rot, right_rot):
+        if self.__args.log is False:
+            face_status, hand_status, left_rot, right_rot = self.__get_facehand_status(hand_face_lk, hand_face_mq, face_status, hand_status, left_rot, right_rot)
+            left_rot, right_rot = self.__get_hand_interpolation(left_rot, right_rot, self.__frame_number % 20)
+            logging.info("[FACE STATUS] {}".format(face_status.value))
+            logging.info("[HAND STATUS] {}".format(hand_status.value))
+        else:
+            skeleton_table = self.__skeleton_manager.get_skeleton_table()
+            if 'hand' in skeleton_table:
+                hand_status = skeleton_table['hand']
+            if 'left' in skeleton_table:
+                left_rot = skeleton_table['left']
+            if 'right' in skeleton_table:
+                right_rot = skeleton_table['right']
+        for element in data:
+            element['face'] = face_status.value
+            element['hand'] = hand_status.value
+            element['left_rotation'] = left_rot
+            element['right_rotation'] = right_rot
+        return data
+
     def __get_facehand_status(self, lk_facehand, mq_facehand, face_status, hand_status, left_rot, right_rot):
         lk_facehand.acquire()
         qsize = mq_facehand.qsize()
@@ -297,3 +316,25 @@ class Reconstructor:
 
         lk_facehand.release()
         return face_status, hand_status, left_rot, right_rot
+
+    def __get_hand_interpolation(self, left_rot, right_rot, interpolation_idx):
+        if left_rot is None or right_rot is None:
+            return left_rot, right_rot
+
+        if self.__curr_left_rot != left_rot:
+            self.__curr_left_rot = left_rot
+            interpolated_left_rot = left_rot
+        else:
+            self.__prev_left_rot = self.__curr_left_rot
+            diff_left_rot = [ai - bi for ai, bi in zip(self.__curr_left_rot, self.__prev_left_rot)]
+            interpolated_left_rot = [ai * interpolation_idx / 20 + bi for ai, bi in zip(diff_left_rot, self.__prev_left_rot)]
+
+        if self.__curr_right_rot != right_rot:
+            self.__curr_right_rot = right_rot
+            interpolated_right_rot = right_rot
+        else:
+            self.__prev_right_rot = self.__curr_right_rot
+            diff_right_rot = [ai - bi for ai, bi in zip(self.__curr_right_rot, self.__prev_right_rot)]
+            interpolated_right_rot = [ai * interpolation_idx / 20 + bi for ai, bi in zip(diff_right_rot, self.__prev_right_rot)]
+
+        return interpolated_left_rot, interpolated_right_rot
