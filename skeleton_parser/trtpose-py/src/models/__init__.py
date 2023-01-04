@@ -1,6 +1,7 @@
 from .resnet import *
 from .densenet import *
 from .mnasnet import *
+import torch
 # from .dla import *
 
 MODELS = {

@@ -2,14 +2,40 @@ import torch
 import torch2trt
 from torch2trt import TRTModule
 
-from src import models
+import cv2
+import torchvision.transforms as transforms
+import PIL.Image
 import os
 
+import trt_pose.models
+from trt_pose.draw_objects import DrawObjects
+from trt_pose.parse_objects import ParseObjects
+import trt_pose.coco
+import time, sys
+
+mean = torch.Tensor([0.485, 0.456, 0.406]).cuda()
+std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
+device = torch.device('cuda')
+
+def preprocess(image):
+    global device
+    device = torch.device('cuda')
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = PIL.Image.fromarray(image)
+    image = transforms.functional.to_tensor(image).to(device)
+    image.sub_(mean[:, None, None]).div_(std[:, None, None])
+    return image[None, ...]
 class ModelManager:
     def __init__(self, level, is_trt, human_pose):
         self.__num_parts = len(human_pose['keypoints'])
         self.__num_links = len(human_pose['skeleton'])
+        topology = trt_pose.coco.coco_category_to_topology(human_pose)
+        self.__parse_objects = ParseObjects(topology)
+        self.__draw_objects = DrawObjects(topology)
+        # self.__mean = torch.Tensor([0.485, 0.456, 0.406]).cuda()
+        # self.__std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
 
+        # self.__device = torch.device('cuda')
         self.__is_trt = is_trt
 
         if level == str(2):
@@ -31,39 +57,45 @@ class ModelManager:
             self.__model_path = self.__name + ".pth"
 
         self.__model_path = os.path.join("./model", self.__model_path)
-        print("[INFO] model path : {}".format(self.__model_path))
 
-        if is_trt == True and os.path.isfile(self.__model_path) == False:
-            if self.__name == "resnet18_baseline_att_224x224_A_epoch_249":
-                model = models.resnet18_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-                model.load_state_dict(torch.load('./model/resnet18_baseline_att_224x224_A_epoch_249.pth'))
-            elif self.__name == "densenet121_baseline_att_256x256_B_epoch_160":
-                model = models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-                model.load_state_dict(torch.load('./model/densenet121_baseline_att_256x256_B_epoch_160.pth'))
-            elif self.__name == "densenet121_baseline_att_320x320_A_epoch_240":
-                model = models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-                model.load_state_dict(torch.load('./model/densenet121_baseline_att_320x320_A_epoch_240.pth'))
+        if self.__name == "resnet18_baseline_att_224x224_A_epoch_249":
+            model = trt_pose.models.resnet18_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            model.load_state_dict(torch.load('./model/resnet18_baseline_att_224x224_A_epoch_249.pth'))
+        elif self.__name == "densenet121_baseline_att_256x256_B_epoch_160":
+            model = trt_pose.models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            model.load_state_dict(torch.load('./model/densenet121_baseline_att_256x256_B_epoch_160.pth'))
+        elif self.__name == "densenet121_baseline_att_320x320_A_epoch_240":
+            model = trt_pose.models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            model.load_state_dict(torch.load('./model/densenet121_baseline_att_320x320_A_epoch_240.pth'))
 
-            model.eval()
+        if (is_trt == True) and (os.path.isfile(self.__model_path) == False):
             data = torch.zeros((1, 3, self.__width, self.__height)).cuda()
             model_trt = torch2trt.torch2trt(model, [data], fp16_mode=True, max_workspace_size=1<<25)
             optimized_model = self.__model_path
             torch.save(model_trt.state_dict(), optimized_model)
 
-        if self.__name == "resnet18_baseline_att_224x224_A_epoch_249":
-            self.__model = models.resnet18_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-            self.__model.load_state_dict(torch.load('./model/resnet18_baseline_att_224x224_A_epoch_249.pth'))
-        elif self.__name == "densenet121_baseline_att_256x256_B_epoch_160":
-            self.__model = models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-            self.__model.load_state_dict(torch.load('./model/densenet121_baseline_att_256x256_B_epoch_160.pth'))
-        elif self.__name == "densenet121_baseline_att_320x320_A_epoch_240":
-            self.__model = models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-            self.__model.load_state_dict(torch.load('./model/densenet121_baseline_att_320x320_A_epoch_240.pth'))
-
         if self.__is_trt is True:
-            print("[INFO] Read optimized model : {}".format(self.__model_path))
             self.__model = TRTModule()
             self.__model.load_state_dict(torch.load(self.__model_path))
+
+            data = torch.zeros((1, 3, self.__width, self.__height)).cuda()
+            t0 = time.time()
+            torch.cuda.current_stream().synchronize()
+            for i in range(50):
+                y = self.__model(data)
+            torch.cuda.current_stream().synchronize()
+            t1 = time.time()
+            print(50.0 / (t1 - t0))
+        else:
+            if self.__name == "resnet18_baseline_att_224x224_A_epoch_249":
+                self.__model = trt_pose.models.resnet18_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            elif self.__name == "densenet121_baseline_att_256x256_B_epoch_160":
+                self.__model = trt_pose.models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            elif self.__name == "densenet121_baseline_att_320x320_A_epoch_240":
+                self.__model = trt_pose.models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            self.__model.load_state_dict(torch.load(self.__model_path))
+
+        print("[INFO] MODEL PATH : {}".format(self.__model_path))
 
     def get_model(self):
         return self.__model
@@ -76,3 +108,49 @@ class ModelManager:
 
     def get_model_path(self):
         return self.__model_path
+
+    def execute(self, image, image_width, image_height, t):
+        image_resized = cv2.resize(image, dsize=(self.__width, self.__height), interpolation=cv2.INTER_AREA)
+        X_compress = image_width / self.__width * 1.0
+        Y_compress = image_height / self.__height * 1.0
+        color = (0, 255, 0)
+        data = preprocess(image_resized)
+        cmap, paf = self.__model(data)
+        cmap, paf = cmap.detach().cpu(), paf.detach().cpu()
+        counts, objects, peaks = self.__parse_objects(cmap, paf)#, cmap_threshold=0.15, link_threshold=0.15)
+        fps = 1.0 / (time.time() - t)
+        for i in range(counts[0]):
+            keypoints = self.get_keypoint(objects, i, peaks)
+            for j in range(len(keypoints)):
+                if keypoints[j][1]:
+                    x = round(keypoints[j][2] * self.__width * X_compress)
+                    y = round(keypoints[j][1] * self.__height * Y_compress)
+                    print("origin x, y : {}, {}".format(keypoints[j][2], keypoints[j][1]))
+                    print("image width, height : {}, {}".format(image_width, image_height))
+                    print("model width, height : {}, {}".format(self.__width, self.__height))
+                    print("({}, {})".format(x, y))
+                    cv2.circle(image, (x, y), 3, color, 2)
+                    cv2.putText(image , "%d" % int(keypoints[j][0]), (x + 5, y),  cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 1)
+                    cv2.circle(image, (x, y), 3, color, 2)
+        print("FPS:%f "%(fps))
+
+        cv2.putText(image , "FPS: %f" % (fps), (20, 20),  cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1)
+        return image
+
+    def get_keypoint(self, humans, hnum, peaks):
+        #check invalid human index
+        kpoint = []
+        human = humans[0][hnum]
+        C = human.shape[0]
+        for j in range(C):
+            k = int(human[j])
+            if k >= 0:
+                peak = peaks[0][j][k]   # peak[1]:width, peak[0]:height
+                peak = (j, float(peak[0]), float(peak[1]))
+                kpoint.append(peak)
+                print('index:%d : success [%5.3f, %5.3f]'%(j, peak[1], peak[2]) )
+            else:
+                peak = (j, None, None)
+                kpoint.append(peak)
+                #print('index:%d : None %d'%(j, k) )
+        return kpoint
