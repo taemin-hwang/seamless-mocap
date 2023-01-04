@@ -50,18 +50,29 @@ class ModelManager:
             optimized_model = self.__model_path
             torch.save(model_trt.state_dict(), optimized_model)
 
-    def get_model(self):
+        if self.__name == "resnet18_baseline_att_224x224_A_epoch_249":
+            self.__model = models.resnet18_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            self.__model.load_state_dict(torch.load('./model/resnet18_baseline_att_224x224_A_epoch_249.pth'))
+        elif self.__name == "densenet121_baseline_att_256x256_B_epoch_160":
+            self.__model = models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            self.__model.load_state_dict(torch.load('./model/densenet121_baseline_att_256x256_B_epoch_160.pth'))
+        elif self.__name == "densenet121_baseline_att_320x320_A_epoch_240":
+            self.__model = models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
+            self.__model.load_state_dict(torch.load('./model/densenet121_baseline_att_320x320_A_epoch_240.pth'))
+
         if self.__is_trt is True:
+            print("[INFO] Read optimized model : {}".format(self.__model_path))
             self.__model = TRTModule()
             self.__model.load_state_dict(torch.load(self.__model_path))
-        else:
-            if self.__name == "resnet18_baseline_att_224x224_A_epoch_249":
-                self.__model = models.resnet18_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-                self.__model.load_state_dict(torch.load('./model/resnet18_baseline_att_224x224_A_epoch_249.pth'))
-            elif self.__name == "densenet121_baseline_att_256x256_B_epoch_160":
-                self.__model = models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-                self.__model.load_state_dict(torch.load('./model/densenet121_baseline_att_256x256_B_epoch_160.pth'))
-            elif self.__name == "densenet121_baseline_att_320x320_A_epoch_240":
-                self.__model = models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-                self.__model.load_state_dict(torch.load('./model/densenet121_baseline_att_320x320_A_epoch_240.pth'))
+
+    def get_model(self):
         return self.__model
+
+    def get_width(self):
+        return self.__width
+
+    def get_height(self):
+        return self.__height
+
+    def get_model_path(self):
+        return self.__model_path
