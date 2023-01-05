@@ -2,7 +2,7 @@ from abc import *
 from src.camera import camera_config
 
 class CameraInterface(metaclass=ABCMeta):
-    def __init__(self, resolution: camera_config.Resolution):
+    def __init__(self):
         pass
 
     @abstractmethod

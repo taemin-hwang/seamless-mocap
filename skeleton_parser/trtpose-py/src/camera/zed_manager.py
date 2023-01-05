@@ -7,8 +7,6 @@ import numpy as np
 
 class ZedManager(camera_interface.CameraInterface):
     def __init__(self, resolution):
-        super().__init__(resolution)
-
         self.__zed = sl.Camera()
         self.__image = sl.Mat()
         # Create a InitParameters object and set configuration parameters
