@@ -14,5 +14,9 @@ class ModelManager(model_interface.ModelInterface):
             self.__model_implement = trt_manager.TrtManager(self.__args.model)
 
     def get_keypoint(self, image):
+        ret = None
+        if self.__extern_keypoint_getter is not None:
+            ret = self.__extern_keypoint_getter.get_keypoint(image)
         if self.__model_implement is not None:
-            self.__model_implement.get_keypoint(image)
+            ret = self.__model_implement.get_keypoint(image)
+        return ret

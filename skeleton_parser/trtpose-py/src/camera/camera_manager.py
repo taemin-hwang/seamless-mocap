@@ -8,13 +8,18 @@ class CameraManager(camera_interface.CameraInterface):
         self.__args = args
 
         self.__camera_manager = None
-        self.__resolution = self.__args.resolution
 
         if self.__args.camera == "zed":
-            self.__camera_manager = zed_manager.ZedManager(self.__resolution)
+            self.__camera_manager = zed_manager.ZedManager(self.__args)
 
     def get_image(self):
         return self.__camera_manager.get_image()
 
     def get_depth(self, x, y):
         return self.__camera_manager.get_depth()
+
+    def get_keypoint(self):
+        ret = None
+        if self.__args.camera == "zed":
+            ret = self.__camera_manager.get_keypoint()
+        return ret

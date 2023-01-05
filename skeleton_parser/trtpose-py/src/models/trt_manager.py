@@ -110,7 +110,8 @@ class TrtManager(model_interface.ModelInterface):
         return self.__model_path
 
     def get_keypoint(self, image):
-        pass
+        ret = None
+        return ret
 
     def execute(self, image, image_width, image_height, t):
         image_resized = cv2.resize(image, dsize=(self.__width, self.__height), interpolation=cv2.INTER_AREA)
