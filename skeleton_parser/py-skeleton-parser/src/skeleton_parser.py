@@ -1,6 +1,8 @@
-import cv2, json, logging
+import cv2, json, logging, time
 from src.models import model_manager
 from src.camera import camera_manager
+from src.visualizer import visual_manager
+from src.transfer import transfer_manager
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -9,6 +11,8 @@ class SkeletonParser:
         self.__args = args
         self.__model_manager = model_manager.ModelManager(self.__args)
         self.__camera_manager = camera_manager.CameraManager(self.__args)
+        self.__visual_manager = visual_manager.VisualManager()
+        self.__transfer_manager = transfer_manager.TransferManager()
 
         if ("zed" in self.__args.model) and (self.__args.camera != "zed"):
             print("[ERROR] ZED MODEL is only supported for ZED camera")
@@ -17,12 +21,17 @@ class SkeletonParser:
             self.__model_manager.set_extern_keypoint_getter(extern_keypoint_getter)
 
     def initialize(self):
-        pass
+        if self.__args.transfer:
+            self.__transfer_manager.initialize()
 
     def run(self):
         while True:
             image = self.__camera_manager.get_image()
-            image = self.__model_manager.get_keypoint(image)
+            keypoint = self.__model_manager.get_keypoint(image)
+            if self.__args.visual:
+                self.__visual_manager.show_keypoint(image, keypoint)
+            if self.__args.transfer:
+                self.__transfer_manager.send_keypoint(keypoint)
 
     def shutdown(self):
         pass

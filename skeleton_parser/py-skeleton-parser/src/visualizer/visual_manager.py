@@ -1,4 +1,5 @@
 import cv2
+import logging
 
 class VisualManager:
     def __init__(self):
