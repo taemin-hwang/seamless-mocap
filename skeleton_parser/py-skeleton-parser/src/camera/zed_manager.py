@@ -6,18 +6,38 @@ import pyzed.sl as sl
 import numpy as np
 import logging
 
+SKELETON_BONES = [  sl.BODY_PARTS.NOSE,
+                    sl.BODY_PARTS.NECK,
+                    sl.BODY_PARTS.RIGHT_SHOULDER,
+                    sl.BODY_PARTS.RIGHT_ELBOW,
+                    sl.BODY_PARTS.RIGHT_WRIST,
+                    sl.BODY_PARTS.LEFT_SHOULDER,
+                    sl.BODY_PARTS.LEFT_ELBOW,
+                    sl.BODY_PARTS.LEFT_WRIST,
+                    sl.BODY_PARTS.RIGHT_HIP,
+                    sl.BODY_PARTS.RIGHT_KNEE,
+                    sl.BODY_PARTS.RIGHT_ANKLE,
+                    sl.BODY_PARTS.LEFT_HIP,
+                    sl.BODY_PARTS.LEFT_KNEE,
+                    sl.BODY_PARTS.LEFT_ANKLE,
+                    sl.BODY_PARTS.RIGHT_EYE,
+                    sl.BODY_PARTS.LEFT_EYE,
+                    sl.BODY_PARTS.RIGHT_EAR,
+                    sl.BODY_PARTS.LEFT_EAR ]
+
 class ZedManager(camera_interface.CameraInterface):
     def __init__(self, args):
         self.__args = args
         self.__zed = sl.Camera()
         self.__image = sl.Mat()
+        self.__bodies = sl.Objects()
 
         resolution = self.__args.resolution
         # Create a InitParameters object and set configuration parameters
         init_params = sl.InitParameters()
-        if resolution == camera_config.Resolution.HD720:
+        if resolution == "HD720":
             init_params.camera_resolution = sl.RESOLUTION.HD720
-        elif resolution == camera_config.Resolution.HD1080:
+        elif resolution == "HD1080":
             init_params.camera_resolution = sl.RESOLUTION.HD1080
 
         init_params.coordinate_units = sl.UNIT.METER
@@ -44,7 +64,7 @@ class ZedManager(camera_interface.CameraInterface):
             obj_param.enable_tracking = True                # Track people across images flow
             if self.__args.model == "zed-fast":
                 obj_param.detection_model = sl.DETECTION_MODEL.HUMAN_BODY_FAST
-            elif self.__args.mode == "zed-medium":
+            elif self.__args.model == "zed-medium":
                 obj_param.detection_model = sl.DETECTION_MODEL.HUMAN_BODY_MEDIUM
             else:
                 obj_param.detection_model = sl.DETECTION_MODEL.HUMAN_BODY_ACCURATE
@@ -53,21 +73,43 @@ class ZedManager(camera_interface.CameraInterface):
             # Enable Object Detection module
             self.__zed.enable_object_detection(obj_param)
 
-            obj_runtime_param = sl.ObjectDetectionRuntimeParameters()
-            obj_runtime_param.detection_confidence_threshold = 40
+            self.__obj_runtime_param = sl.ObjectDetectionRuntimeParameters()
+            self.__obj_runtime_param.detection_confidence_threshold = 40
 
     def get_image(self):
         logging.debug("[ZED] Get image")
         if self.__zed.grab() == sl.ERROR_CODE.SUCCESS:
-            self.__zed.retrieve_image(self.__image, sl.VIEW.LEFT)#, sl.MEM.CPU, self.__display_resolution)
+            self.__zed.retrieve_image(self.__image, sl.VIEW.LEFT, sl.MEM.CPU, self.__display_resolution)
             if "zed" in self.__args.model:
-                self.__keypoint = None
-                pass
+                self.__zed.retrieve_objects(self.__bodies, self.__obj_runtime_param)
+                self.__keypoint = self.parse_keypoint_from_object(self.__bodies.object_list)
+                # print(self.__keypoint)
         return self.__image.get_data()
 
     def get_keypoint(self):
         logging.debug("[ZED] Get keypoint")
         return self.__keypoint
+
+    def parse_keypoint_from_object(self, bodies):
+        data = {}
+        data['annots'] = []
+        for body in bodies:
+            annot = {}
+            annot['personID'] = body.id
+            annot['keypoints'] = []
+            if len(body.keypoint_2d) > 0:
+                for part in SKELETON_BONES:
+                    kp = body.keypoint_2d[part.value]
+                    kp_confidence = body.keypoint_confidence[part.value] / 100
+                    annot['keypoints'].append([kp[0], kp[1], kp_confidence])
+
+            if len(body.bounding_box_2d) > 0:
+                bb_a = body.bounding_box_2d[0]
+                bb_b = body.bounding_box_2d[2]
+                bb_confidence = body.confidence / 100
+                annot['bbox'] = [bb_a[0], bb_a[1], bb_b[0], bb_b[1], bb_confidence]
+            data['annots'].append(annot)
+        return data
 
     def get_depth(self, x, y):
         pass
