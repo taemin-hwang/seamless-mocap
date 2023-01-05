@@ -130,5 +130,6 @@ class VisualManager:
                         else:
                             cv2.circle(image, (int(kp[0]), int(kp[1])), 3, color, -1)
 
-        cv2.imshow("2D Viewer: Skeleton", image)
+        image_resized = cv2.resize(image, dsize=(1280, 720), interpolation=cv2.INTER_AREA)
+        cv2.imshow("2D Viewer: Skeleton", image_resized)
         cv2.waitKey(1)
