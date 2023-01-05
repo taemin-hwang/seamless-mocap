@@ -8,6 +8,7 @@ from torch2trt import TRTModule
 import cv2
 import PIL.Image
 import os, time, sys, json, logging
+import numpy as np
 
 import trt_pose.models
 from trt_pose.draw_objects import DrawObjects
@@ -107,8 +108,55 @@ class TrtManager(model_interface.ModelInterface):
 
     def get_keypoint(self, image):
         logging.debug("[TRT] Get keypoint")
-        ret = None
+        ret = {}
+        ret['annots'] = []
+
+        image_width = image.shape[1]
+        image_height = image.shape[0]
+
+        image_resized = cv2.resize(image, dsize=(self.__width, self.__height), interpolation=cv2.INTER_AREA)
+        X_compress = image_width / self.__width * 1.0
+        Y_compress = image_height / self.__height * 1.0
+        data = preprocess(image_resized)
+        cmap, paf = self.__model(data)
+        cmap, paf = cmap.detach().cpu(), paf.detach().cpu()
+        counts, objects, peaks = self.__parse_objects(cmap, paf)#, cmap_threshold=0.15, link_threshold=0.15)
+        for i in range(counts[0]):
+            keypoints = self.__get_keypoint(objects, i, peaks)
+            annot = {}
+            annot['personID'] = i
+            annot['keypoints'] = np.zeros((18, 3))
+
+            min_x = min_y = np.inf
+            max_x = max_y = 0
+
+            for j in range(len(keypoints)):
+                if keypoints[j][1]:
+                    x = round(keypoints[j][2] * self.__width * X_compress)
+                    y = round(keypoints[j][1] * self.__height * Y_compress)
+                    # annot['keypoints'].append([x, y, 1.0])
+                    if x < min_x: min_x = x
+                    if y < min_y: min_y = y
+                    if x > max_x: max_x = x
+                    if y > max_y: max_y = y
+
+                    cvt_idx = self.convert_idx(j)
+                    annot['keypoints'][cvt_idx] = [x, y, 1.0]
+
+            # print(annot['keypoints'])
+            annot['keypoints'] = annot['keypoints'].tolist()
+
+            annot['bbox'] = [min_x, min_y, max_x, max_y, 1.0]
+            ret['annots'].append(annot)
         return ret
+
+    def convert_idx(self, idx):
+        trt_keypoint = ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist", "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle", "neck"]
+        cvt_keypoint = ["nose", "neck", "right_shoulder", "right_elbow", "right_wrist", "left_shoulder", "left_elbow", "left_wrist", "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle", "right_eye", "left_eye", "right_ear", "left_ear"]
+
+        keypoint_name = trt_keypoint[idx]
+        cvt_idx = cvt_keypoint.index(keypoint_name)
+        return cvt_idx
 
     def execute(self, image, image_width, image_height, t):
         image_resized = cv2.resize(image, dsize=(self.__width, self.__height), interpolation=cv2.INTER_AREA)
@@ -149,7 +197,7 @@ class TrtManager(model_interface.ModelInterface):
                 peak = peaks[0][j][k]   # peak[1]:width, peak[0]:height
                 peak = (j, float(peak[0]), float(peak[1]))
                 kpoint.append(peak)
-                print('index:%d : success [%5.3f, %5.3f]'%(j, peak[1], peak[2]) )
+                # print('index:%d : success [%5.3f, %5.3f]'%(j, peak[1], peak[2]) )
             else:
                 peak = (j, None, None)
                 kpoint.append(peak)
