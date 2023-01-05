@@ -4,6 +4,7 @@ import cv2
 import sys
 import pyzed.sl as sl
 import numpy as np
+import logging
 
 class ZedManager(camera_interface.CameraInterface):
     def __init__(self, args):
@@ -25,7 +26,7 @@ class ZedManager(camera_interface.CameraInterface):
 
         err = self.__zed.open(init_params)
         if err != sl.ERROR_CODE.SUCCESS:
-            print("[ERROR] Cannot open ZED camera")
+            logging.error("[ZED] Cannot open ZED camera")
             exit(1)
 
         camera_info = self.__zed.get_camera_information()
@@ -35,8 +36,8 @@ class ZedManager(camera_interface.CameraInterface):
         if "zed" in self.__args.model:
             positional_tracking_parameters = sl.PositionalTrackingParameters()
             # If the camera is static, uncomment the following line to have better performances and boxes sticked to the ground.
-            # positional_tracking_parameters.set_as_static = True
-            zed.enable_positional_tracking(positional_tracking_parameters)
+            positional_tracking_parameters.set_as_static = True
+            self.__zed.enable_positional_tracking(positional_tracking_parameters)
 
             obj_param = sl.ObjectDetectionParameters()
             obj_param.enable_body_fitting = True            # Smooth skeleton move
@@ -50,19 +51,22 @@ class ZedManager(camera_interface.CameraInterface):
             obj_param.body_format = sl.BODY_FORMAT.POSE_18  # Choose the BODY_FORMAT you wish to use
 
             # Enable Object Detection module
-            zed.enable_object_detection(obj_param)
+            self.__zed.enable_object_detection(obj_param)
 
             obj_runtime_param = sl.ObjectDetectionRuntimeParameters()
             obj_runtime_param.detection_confidence_threshold = 40
 
     def get_image(self):
+        logging.debug("[ZED] Get image")
         if self.__zed.grab() == sl.ERROR_CODE.SUCCESS:
             self.__zed.retrieve_image(self.__image, sl.VIEW.LEFT)#, sl.MEM.CPU, self.__display_resolution)
             if "zed" in self.__args.model:
+                self.__keypoint = None
                 pass
         return self.__image.get_data()
 
     def get_keypoint(self):
+        logging.debug("[ZED] Get keypoint")
         return self.__keypoint
 
     def get_depth(self, x, y):

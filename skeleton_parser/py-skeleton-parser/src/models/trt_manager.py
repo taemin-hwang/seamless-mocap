@@ -7,7 +7,7 @@ from torch2trt import TRTModule
 
 import cv2
 import PIL.Image
-import os, time, sys, json
+import os, time, sys, json, logging
 
 import trt_pose.models
 from trt_pose.draw_objects import DrawObjects
@@ -29,6 +29,7 @@ def preprocess(image):
 
 class TrtManager(model_interface.ModelInterface):
     def __init__(self, model):
+        super().__init__()
         with open('./etc/human_pose.json', 'r') as f:
             human_pose = json.load(f)
         self.__num_parts = len(human_pose['keypoints'])
@@ -64,9 +65,6 @@ class TrtManager(model_interface.ModelInterface):
         elif self.__name == "densenet121_baseline_att_256x256_B_epoch_160":
             model = trt_pose.models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
             model.load_state_dict(torch.load('./model/densenet121_baseline_att_256x256_B_epoch_160.pth'))
-        elif self.__name == "densenet121_baseline_att_320x320_A_epoch_240":
-            model = trt_pose.models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-            model.load_state_dict(torch.load('./model/densenet121_baseline_att_320x320_A_epoch_240.pth'))
 
         if (self.__is_trt == True) and (os.path.isfile(self.__model_path) == False):
             data = torch.zeros((1, 3, self.__width, self.__height)).cuda()
@@ -91,8 +89,6 @@ class TrtManager(model_interface.ModelInterface):
                 self.__model = trt_pose.models.resnet18_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
             elif self.__name == "densenet121_baseline_att_256x256_B_epoch_160":
                 self.__model = trt_pose.models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
-            elif self.__name == "densenet121_baseline_att_320x320_A_epoch_240":
-                self.__model = trt_pose.models.densenet121_baseline_att(self.__num_parts, 2 * self.__num_links).cuda().eval()
             self.__model.load_state_dict(torch.load(self.__model_path))
 
         print("[INFO] MODEL PATH : {}".format(self.__model_path))
@@ -110,6 +106,7 @@ class TrtManager(model_interface.ModelInterface):
         return self.__model_path
 
     def get_keypoint(self, image):
+        logging.debug("[TRT] Get keypoint")
         ret = None
         return ret
 

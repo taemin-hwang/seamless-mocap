@@ -3,10 +3,7 @@ from src.camera import zed_manager
 
 class CameraManager(camera_interface.CameraInterface):
     def __init__(self, args):
-        super().__init__()
-
         self.__args = args
-
         self.__camera_manager = None
 
         if self.__args.camera == "zed":
@@ -18,7 +15,7 @@ class CameraManager(camera_interface.CameraInterface):
     def get_depth(self, x, y):
         return self.__camera_manager.get_depth()
 
-    def get_keypoint(self):
+    def get_keypoint(self, image):
         ret = None
         if self.__args.camera == "zed":
             ret = self.__camera_manager.get_keypoint()

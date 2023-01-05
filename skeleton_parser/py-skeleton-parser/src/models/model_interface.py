@@ -2,7 +2,7 @@ from abc import *
 
 class ModelInterface(metaclass=ABCMeta):
     def __init__(self):
-        self.__extern_keypoint_getter = None
+        self._extern_keypoint_getter = None
         pass
 
     @abstractmethod
@@ -10,5 +10,5 @@ class ModelInterface(metaclass=ABCMeta):
         pass
 
     def set_extern_keypoint_getter(self, f):
-        self.__extern_keypoint_getter = f
+        self._extern_keypoint_getter = f
         pass
