@@ -126,6 +126,9 @@ class ZedManager(camera_interface.CameraInterface):
         return self.__depth_map.get_value(x, y)
 
     def get_depth_from_keypoint(self, keypoint):
+        if keypoint == None:
+            logging.error("[ZED] 2D pose detection failed")
+            return {}
         data = {}
         data['annots'] = []
         pos_idx = [0, 1, 2, 5, 8, 11] # Nose, Neck, R-Shoulder, L-Shoulder, R-Pelvis, L-Pelvis

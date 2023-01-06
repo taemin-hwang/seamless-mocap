@@ -8,6 +8,8 @@ class VisualManager:
         pass
 
     def show_keypoint(self, image, keypoint):
+        if image.all() == None or keypoint == None:
+            return
         annots = keypoint['annots']
 
         for person in annots:

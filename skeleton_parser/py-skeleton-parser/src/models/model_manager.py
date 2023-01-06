@@ -1,5 +1,6 @@
-from src.models import model_interface
+import sys, logging
 
+from src.models import model_interface
 from src.models import trt_manager
 
 class ModelManager(model_interface.ModelInterface):
@@ -7,6 +8,12 @@ class ModelManager(model_interface.ModelInterface):
         super().__init__()
         self.__args = args
         self.__model_implement = None
+
+        self.__supported_models = ["zed-fast", "zed-medium", "zed-accurate", "resnet", "resnet-trt", "densenet", "densenet-trt"]
+
+        if (self.__args.model in self.__supported_models) == False:
+            logging.error("[MODEL] {} is not supported \nsupported models: {}".format(self.__args.model, self.__supported_models))
+            sys.exit()
 
         if "zed" in self.__args.model:
             self.__model_implement = None

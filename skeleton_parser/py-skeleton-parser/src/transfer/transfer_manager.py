@@ -16,6 +16,8 @@ class TransferManager:
         self.__socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
     def send_result(self, keypoint, depth):
+        if keypoint == None or depth == None:
+            return
         data = self.get_data_from_result(keypoint, depth)
         logging.debug(data)
         json_data = json.dumps(data)
