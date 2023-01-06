@@ -21,6 +21,8 @@ class SkeletonParser:
             self.__model_manager.set_extern_keypoint_getter(extern_keypoint_getter)
 
     def initialize(self):
+        self.__model_manager.initialize()
+        self.__camera_manager.initialize()
         if self.__args.transfer:
             self.__transfer_manager.initialize()
 
@@ -28,10 +30,11 @@ class SkeletonParser:
         while True:
             image = self.__camera_manager.get_image()
             keypoint = self.__model_manager.get_keypoint(image)
+            depth_map = self.__camera_manager.get_depth_from_keypoint(keypoint)
             if self.__args.visual:
                 self.__visual_manager.show_keypoint(image, keypoint)
             if self.__args.transfer:
-                self.__transfer_manager.send_keypoint(keypoint)
+                self.__transfer_manager.send_result(keypoint, depth_map)
 
     def shutdown(self):
         pass

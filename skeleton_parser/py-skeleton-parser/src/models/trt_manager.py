@@ -94,6 +94,9 @@ class TrtManager(model_interface.ModelInterface):
 
         print("[INFO] MODEL PATH : {}".format(self.__model_path))
 
+    def initialize(self):
+        pass
+
     def get_model(self):
         return self.__model
 

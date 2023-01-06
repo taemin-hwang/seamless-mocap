@@ -6,6 +6,10 @@ class ModelInterface(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def initialize(self):
+        pass
+
+    @abstractmethod
     def get_keypoint(self, image):
         pass
 

@@ -30,8 +30,10 @@ class ZedManager(camera_interface.CameraInterface):
         self.__args = args
         self.__zed = sl.Camera()
         self.__image = sl.Mat()
+        self.__depth_map = sl.Mat()
         self.__bodies = sl.Objects()
 
+    def initialize(self):
         resolution = self.__args.resolution
         # Create a InitParameters object and set configuration parameters
         init_params = sl.InitParameters()
@@ -39,7 +41,6 @@ class ZedManager(camera_interface.CameraInterface):
             init_params.camera_resolution = sl.RESOLUTION.HD720
         elif resolution == "HD1080":
             init_params.camera_resolution = sl.RESOLUTION.HD1080
-
         init_params.coordinate_units = sl.UNIT.METER
         init_params.depth_mode = sl.DEPTH_MODE.ULTRA
         init_params.coordinate_system = sl.COORDINATE_SYSTEM.RIGHT_HANDED_Y_UP
@@ -76,6 +77,14 @@ class ZedManager(camera_interface.CameraInterface):
             self.__obj_runtime_param = sl.ObjectDetectionRuntimeParameters()
             self.__obj_runtime_param.detection_confidence_threshold = 40
 
+        left_calibration = self.__zed.get_camera_information().calibration_parameters.left_cam
+        self.__fx = left_calibration.fx
+        self.__fy = left_calibration.fy
+        self.__cx = left_calibration.cx
+        self.__cy = left_calibration.cy
+        self.__image_width = camera_info.camera_resolution.width
+        self.__image_height = camera_info.camera_resolution.height
+
     def get_image(self):
         logging.debug("[ZED] Get image")
         if self.__zed.grab() == sl.ERROR_CODE.SUCCESS:
@@ -84,6 +93,8 @@ class ZedManager(camera_interface.CameraInterface):
                 self.__zed.retrieve_objects(self.__bodies, self.__obj_runtime_param)
                 self.__keypoint = self.parse_keypoint_from_object(self.__bodies.object_list)
                 # print(self.__keypoint)
+            if "zed" == self.__args.camera:
+                self.__zed.retrieve_measure(self.__depth_map, sl.MEASURE.DEPTH, sl.MEM.CPU, self.__display_resolution)
         return self.__image.get_data()
 
     def get_keypoint(self):
@@ -112,7 +123,50 @@ class ZedManager(camera_interface.CameraInterface):
         return data
 
     def get_depth(self, x, y):
-        pass
+        return self.__depth_map.get_value(x, y)
+
+    def get_depth_from_keypoint(self, keypoint):
+        data = {}
+        data['annots'] = []
+        pos_idx = [0, 1, 2, 5, 8, 11] # Nose, Neck, R-Shoulder, L-Shoulder, R-Pelvis, L-Pelvis
+        bodies = keypoint['annots']
+
+        for body in bodies:
+            annot = {}
+            annot['personID'] = body['personID']
+            annot['position'] = []
+            for idx in pos_idx:
+                keypoints = body['keypoints'][idx]
+                x_pixel = keypoints[0]
+                y_pixel = keypoints[1]
+                depth_value = cnt = 0.0
+                for i in range(-2, 3):
+                    for j in range(-2, 3):
+                        if x_pixel + i > 0 and x_pixel + i < self.__image_width and y_pixel + j > 0 and y_pixel + j < self.__image_height:
+                            (result, depth) = self.get_depth(x_pixel + i, y_pixel + j) # (result, m)
+                            if result == sl.ERROR_CODE.SUCCESS:
+                                depth_value += depth
+                                cnt += 1
+                if cnt > 0:
+                    depth_value = depth_value/cnt
+                else:
+                    depth_value = 0.0
+
+                x = float(x_pixel - self.__cx) * float(depth_value) / self.__fx # meter
+                y = float(y_pixel - self.__cy) * float(depth_value) / self.__fy # meter
+                z = float(depth_value) # meter
+
+                if np.isnan(x) or np.isinf(x):
+                    x = 0.0
+                if np.isnan(y) or np.isinf(y):
+                    y = 0.0
+                if np.isnan(z) or np.isinf(z):
+                    z = 0.0
+
+                annot['position'].append(z)
+            data['annots'].append(annot)
+
+        return data
 
     def get_width(self):
         return self.__zed.get_camera_information().camera_resolution.width
