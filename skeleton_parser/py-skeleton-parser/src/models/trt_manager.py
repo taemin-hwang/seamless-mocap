@@ -117,6 +117,7 @@ class TrtManager(model_interface.ModelInterface):
         image_width = image.shape[1]
         image_height = image.shape[0]
 
+        t = time.time()
         image_resized = cv2.resize(image, dsize=(self.__width, self.__height), interpolation=cv2.INTER_AREA)
         X_compress = image_width / self.__width * 1.0
         Y_compress = image_height / self.__height * 1.0
@@ -151,7 +152,9 @@ class TrtManager(model_interface.ModelInterface):
 
             annot['bbox'] = [min_x, min_y, max_x, max_y, 1.0]
             ret['annots'].append(annot)
-        return ret
+
+            self.__fps = 1.0 / (time.time() - t)
+        return (ret, self.__fps)
 
     def convert_idx(self, idx):
         trt_keypoint = ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist", "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle", "neck"]

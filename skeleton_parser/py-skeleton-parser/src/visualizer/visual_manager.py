@@ -7,9 +7,11 @@ class VisualManager:
     def __init__(self):
         pass
 
-    def show_keypoint(self, image, keypoint):
+    def show_keypoint(self, image, keypoint, fps):
         if image.all() == None or keypoint == None:
             return
+
+        cv2.putText(image , "FPS: %f" % (fps), (20, 20),  cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1)
         annots = keypoint['annots']
 
         for person in annots:
@@ -17,11 +19,10 @@ class VisualManager:
             person_id = person['personID']
             color = generate_color_id_u(person_id)
 
-            print(image.shape)
-            print([bbox[0], bbox[1], bbox[2], bbox[3]])
+            # print(image.shape)
+            # print([bbox[0], bbox[1], bbox[2], bbox[3]])
 
             cv2.rectangle(image, [int(bbox[0]), int(bbox[1])], [int(bbox[2]), int(bbox[3])], color)
-
             keypoints = person['keypoints']
 
             if len(keypoints) == 34:

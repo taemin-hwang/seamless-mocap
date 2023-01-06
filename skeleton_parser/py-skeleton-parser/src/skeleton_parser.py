@@ -29,10 +29,12 @@ class SkeletonParser:
     def run(self):
         while True:
             image = self.__camera_manager.get_image()
-            keypoint = self.__model_manager.get_keypoint(image)
+            (keypoint, fps) = self.__model_manager.get_keypoint(image)
             depth_map = self.__camera_manager.get_depth_from_keypoint(keypoint)
             if self.__args.visual:
-                self.__visual_manager.show_keypoint(image, keypoint)
+                self.__visual_manager.show_keypoint(image, keypoint, fps)
+            else:
+                logging.info("[FPS] {}".format(fps))
             if self.__args.transfer:
                 self.__transfer_manager.send_result(keypoint, depth_map)
 

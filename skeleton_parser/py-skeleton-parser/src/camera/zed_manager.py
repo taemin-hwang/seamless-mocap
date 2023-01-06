@@ -5,6 +5,7 @@ import sys
 import pyzed.sl as sl
 import numpy as np
 import logging
+import time
 
 SKELETON_BONES = [  sl.BODY_PARTS.NOSE,
                     sl.BODY_PARTS.NECK,
@@ -32,6 +33,7 @@ class ZedManager(camera_interface.CameraInterface):
         self.__image = sl.Mat()
         self.__depth_map = sl.Mat()
         self.__bodies = sl.Objects()
+        self.__fps = 0.0
 
     def initialize(self):
         resolution = self.__args.resolution
@@ -89,17 +91,19 @@ class ZedManager(camera_interface.CameraInterface):
         logging.debug("[ZED] Get image")
         if self.__zed.grab() == sl.ERROR_CODE.SUCCESS:
             self.__zed.retrieve_image(self.__image, sl.VIEW.LEFT, sl.MEM.CPU, self.__display_resolution)
+            t = time.time()
             if "zed" in self.__args.model:
                 self.__zed.retrieve_objects(self.__bodies, self.__obj_runtime_param)
                 self.__keypoint = self.parse_keypoint_from_object(self.__bodies.object_list)
                 # print(self.__keypoint)
             if "zed" == self.__args.camera:
                 self.__zed.retrieve_measure(self.__depth_map, sl.MEASURE.DEPTH, sl.MEM.CPU, self.__display_resolution)
+            self.__fps = 1.0 / (time.time() - t)
         return self.__image.get_data()
 
     def get_keypoint(self):
         logging.debug("[ZED] Get keypoint")
-        return self.__keypoint
+        return (self.__keypoint, self.__fps)
 
     def parse_keypoint_from_object(self, bodies):
         data = {}
