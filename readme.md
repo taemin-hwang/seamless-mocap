@@ -1,6 +1,9 @@
 # seamless-mocap
 This project aims to provide a solution for 3D human-pose reconstruction in realtime.
 
+[See what we do: Traditonal Korean Performance captured through immersive digital content](https://ichngo.net/network_detail/?category=&id=188&subject=ICHGRAM)
+
+
 ## clone repository
 ```
 git clone --recursive https://github.com/taemin-hwang/seamless-mocap.git
