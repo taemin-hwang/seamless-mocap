@@ -87,8 +87,7 @@ class HigherHrNetManager(model_interface.ModelInterface):
                     annot['keypoints'][cvt_idx] = [0.0, 0.0, 0.0]
                 if kpt[0] < 0 or kpt[0] > image.shape[0]:
                     annot['keypoints'][cvt_idx] = [0.0, 0.0, 0.0]
-
-                print('[{}] {}, {}, {}(max: {}, {})'.format(j, kpt[1], kpt[0], kpt[2], image.shape[1], image.shape[0]))
+                # print('[{}] {}, {}, {}(max: {}, {})'.format(j, kpt[1], kpt[0], kpt[2], image.shape[1], image.shape[0]))
 
             if annot['keypoints'][5][2] > 0.3 and annot['keypoints'][2][2] > 0.3:
                 annot['keypoints'][1] = (annot['keypoints'][5] + annot['keypoints'][2])/2 # mid-shoudler
