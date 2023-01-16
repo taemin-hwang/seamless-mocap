@@ -142,8 +142,6 @@ class Viewer2d:
             person_id = person['personID']
             color = generate_color_id_u(person_id)
 
-            print(bbox)
-
             cv2.rectangle(display, [int(bbox[0]), int(bbox[1])], [int(bbox[2]), int(bbox[3])], color)
 
             keypoints = person['keypoints']
