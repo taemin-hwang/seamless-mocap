@@ -11,8 +11,8 @@ from reconstructor.utils import postprocessor as post
 class Viewer2d:
     def __init__(self, args):
         self.cam_id_list = []
-        self.height = 720
-        self.width = 1280
+        self.height = 1080
+        self.width = 1920
         self.display_num = 4
         self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
         self.frame_num = 0
@@ -142,7 +142,9 @@ class Viewer2d:
             person_id = person['personID']
             color = generate_color_id_u(person_id)
 
-            cv2.rectangle(display, [bbox[0], bbox[1]], [bbox[2], bbox[3]], color)
+            print(bbox)
+
+            cv2.rectangle(display, [int(bbox[0]), int(bbox[1])], [int(bbox[2]), int(bbox[3])], color)
 
             keypoints = person['keypoints']
 
