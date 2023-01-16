@@ -207,6 +207,7 @@ class Reconstructor:
             data = self.__skeleton_mq.get()
             data = json.loads(data)
             self.__skeleton_manager.update_skeleton_table(data)
+            self.__skeleton_manager.show_skeleton_keypoint(data)
 
         self.__skeleton_lk.release()
 

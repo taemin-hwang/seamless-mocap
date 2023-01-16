@@ -58,8 +58,12 @@ class SkeletonManager:
             if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
                 logging.debug('Invalid data : {}, {}'.format(cam_id, person_id))
                 continue
-            keypoints_34 = np.array(person_data['keypoints'])
-            keypoints_25 = utils.convert_25_from_34(keypoints_34)
+            if len(person_data['keypoints']) == 34:
+                keypoints_34 = np.array(person_data['keypoints'])
+                keypoints_25 = utils.convert_25_from_34(keypoints_34)
+            elif len(person_data['keypoints']) == 18:
+                keypoints_18 = np.array(person_data['keypoints'])
+                keypoints_25 = utils.convert_25_from_18(keypoints_18)
             self.__frame_buffer_keypoint[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_keypoint[cam_id][person_id], keypoints_25)
             self.__skeleton_table[cam_id][person_id]['is_valid'] = True
             self.__skeleton_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()

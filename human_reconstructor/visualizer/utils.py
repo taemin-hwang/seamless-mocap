@@ -240,6 +240,36 @@ def convert_25_from_34(parts_34):
     parts_25[BODY_PARTS_POSE_25.RIGHT_HEEL.value] = parts_34[BODY_PARTS_POSE_34.RIGHT_HEEL.value]
     return parts_25
 
+def convert_25_from_18(parts_18):
+    parts_25 = np.zeros((25, 3))
+    parts_25[BODY_PARTS_POSE_25.NOSE.value] = parts_18[BODY_PARTS.NOSE.value]
+    parts_25[BODY_PARTS_POSE_25.NECK.value] = parts_18[BODY_PARTS.NECK.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_SHOULDER.value] = parts_18[BODY_PARTS.RIGHT_SHOULDER.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_ELBOW.value] = parts_18[BODY_PARTS.RIGHT_ELBOW.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_WRIST.value] = parts_18[BODY_PARTS.RIGHT_WRIST.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_SHOULDER.value] = parts_18[BODY_PARTS.LEFT_SHOULDER.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_ELBOW.value] = parts_18[BODY_PARTS.LEFT_ELBOW.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_WRIST.value] = parts_18[BODY_PARTS.LEFT_WRIST.value]
+    parts_25[BODY_PARTS_POSE_25.MID_HIP.value] = (parts_18[BODY_PARTS.RIGHT_HIP.value] + parts_18[BODY_PARTS.LEFT_HIP.value])/2
+    parts_25[BODY_PARTS_POSE_25.RIGHT_HIP.value] = parts_18[BODY_PARTS.RIGHT_HIP.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_KNEE.value] = parts_18[BODY_PARTS.RIGHT_KNEE.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_ANKLE.value] = parts_18[BODY_PARTS.RIGHT_ANKLE.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_HIP.value] = parts_18[BODY_PARTS.LEFT_HIP.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_KNEE.value] = parts_18[BODY_PARTS.LEFT_KNEE.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_ANKLE.value] = parts_18[BODY_PARTS.LEFT_ANKLE.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_EYE.value] = parts_18[BODY_PARTS.RIGHT_EYE.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_EYE.value] = parts_18[BODY_PARTS.LEFT_EYE.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_EAR.value] = parts_18[BODY_PARTS.RIGHT_EAR.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_EAR.value] = parts_18[BODY_PARTS.LEFT_EAR.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_FOOT.value] = parts_18[BODY_PARTS.LEFT_ANKLE.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_TOE.value] = parts_18[BODY_PARTS.LEFT_ANKLE.value]
+    parts_25[BODY_PARTS_POSE_25.LEFT_HEEL.value] = parts_18[BODY_PARTS.LEFT_ANKLE.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_FOOT.value] = parts_18[BODY_PARTS.RIGHT_ANKLE.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_TOE.value] = parts_18[BODY_PARTS.RIGHT_ANKLE.value]
+    parts_25[BODY_PARTS_POSE_25.RIGHT_HEEL.value] = parts_18[BODY_PARTS.RIGHT_ANKLE.value]
+    return parts_25
+
+
 import cv2
 def draw_grid(img, line_color=(125, 125, 125), thickness=1, type_= cv2.LINE_AA, pxstep=50):
     '''(ndarray, 3-tuple, int, int) -> void
