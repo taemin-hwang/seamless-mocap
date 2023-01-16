@@ -1,6 +1,17 @@
 import json
 import logging
 import socket
+import numpy as np
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 class TransferManager:
     def __init__(self):
@@ -20,11 +31,12 @@ class TransferManager:
             return
         data = self.get_data_from_result(keypoint, depth)
         logging.debug(data)
-        json_data = json.dumps(data)
+        json_data = json.dumps(data, cls=NpEncoder)
         self.__socket.sendto(bytes(json_data, "utf-8"), (self.__addr, self.__port))
 
     def get_data_from_result(self, keypoint, depth):
         data = {}
+        data['id'] = self.__camid
         data['annots'] = []
 
         for kp in keypoint['annots']:
@@ -35,6 +47,7 @@ class TransferManager:
                 if kp_id == dp_id:
                     annots['personID'] = kp_id
                     annots['keypoints'] = kp['keypoints']
+                    annots['bbox'] = kp['bbox']
                     annots['position'] = dp['position']
                     break
             data['annots'].append(annots)

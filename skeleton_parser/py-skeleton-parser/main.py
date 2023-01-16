@@ -1,4 +1,4 @@
-from src import skeleton_parser
+from src.skeleton_parser import SkeletonParser
 import argparse
 
 parser = argparse.ArgumentParser(description="Estimate 2D pose in real-time from RGB-D camera")
@@ -16,7 +16,7 @@ print('[OPTION] resolution : {}'.format(args.resolution))
 print('[OPTION] visual     : {}'.format(args.visual))
 print('[OPTION] transfer   : {}'.format(args.transfer))
 
-skeleton_parser_ = skeleton_parser.SkeletonParser(args)
-skeleton_parser_.initialize()
-skeleton_parser_.run()
-skeleton_parser_.shutdown()
+skeleton_parser = SkeletonParser(args)
+skeleton_parser.initialize()
+skeleton_parser.run()
+skeleton_parser.shutdown()

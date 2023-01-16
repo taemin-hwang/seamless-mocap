@@ -170,7 +170,12 @@ class ZedManager(camera_interface.CameraInterface):
                 if np.isnan(z) or np.isinf(z):
                     z = 0.0
 
-                annot['position'].append(z)
+                if x > 0 and y > 0 and z > 0:
+                    c = 1.0
+                else:
+                    c = 0.0
+
+                annot['position'].append([-z, x, -y, c])
             data['annots'].append(annot)
 
         return data
