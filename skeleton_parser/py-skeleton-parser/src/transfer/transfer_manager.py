@@ -14,12 +14,13 @@ class NpEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 class TransferManager:
-    def __init__(self):
+    def __init__(self, args):
         with open('./etc/config.json', 'r') as f:
             config = json.load(f)
         self.__camid = config["camid"]
         self.__addr = config["addr"]
         self.__port = config["port"]
+        self.__args = args
 
         logging.info("[CONFIG] cam id: {}, addr: {}, port: {}".format(self.__camid, self.__addr, self.__port))
 
@@ -37,6 +38,8 @@ class TransferManager:
     def get_data_from_result(self, keypoint, depth):
         data = {}
         data['id'] = self.__camid
+        data['model'] = self.__args.model
+        data['resolution'] = self.__args.resolution
         data['annots'] = []
 
         for kp in keypoint['annots']:
