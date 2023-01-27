@@ -12,7 +12,7 @@ class SkeletonParser:
         self.__model_manager = model_manager.ModelManager(self.__args)
         self.__camera_manager = camera_manager.CameraManager(self.__args)
         self.__visual_manager = visual_manager.VisualManager()
-        self.__transfer_manager = transfer_manager.TransferManager()
+        self.__transfer_manager = transfer_manager.TransferManager(self.__args)
 
         if ("zed" in self.__args.model) and (self.__args.camera != "zed"):
             print("[ERROR] ZED MODEL is only supported for ZED camera")
