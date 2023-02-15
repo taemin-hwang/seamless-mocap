@@ -4,7 +4,7 @@ from src.camera import camera_manager
 from src.visualizer import visual_manager
 from src.transfer import transfer_manager
 
-logging.basicConfig(level=logging.IFNO)
+logging.basicConfig(level=logging.INFO)
 
 class SkeletonParser:
     def __init__(self, args):
