@@ -45,8 +45,8 @@ if __name__ == "__main__":
             else:
                 print('File open failed')
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            #if cv2.waitKey(1) & 0xFF == ord('q'):
+            #    break
 
     out.release()
     zed.close()
