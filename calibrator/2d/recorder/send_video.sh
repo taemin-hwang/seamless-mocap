@@ -1,1 +1,1 @@
-scp *.mp4 keti@192.168.0.2:/home/uni/
+scp *.mp4 uni@192.168.0.2:/home/uni/
