@@ -77,7 +77,7 @@ class ZedManager(camera_interface.CameraInterface):
             self.__zed.enable_object_detection(obj_param)
 
             self.__obj_runtime_param = sl.ObjectDetectionRuntimeParameters()
-            self.__obj_runtime_param.detection_confidence_threshold = 40
+            self.__obj_runtime_param.detection_confidence_threshold = 10
 
         left_calibration = self.__zed.get_camera_information().calibration_parameters.left_cam
         self.__fx = left_calibration.fx
