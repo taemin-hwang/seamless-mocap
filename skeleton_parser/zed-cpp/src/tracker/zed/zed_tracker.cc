@@ -78,6 +78,9 @@ void ZedTracker::Run() {
     sl::Mat image_zed(display_resolution, MAT_TYPE::U8_C4, image_ocv.data, image_ocv.step);
     sl::float2 image_scale(display_resolution.width / (float)camera_resolution.width, display_resolution.height / (float) camera_resolution.height);
 
+   std::cout << "DISPLAY RESOLUTION : " << display_resolution.width << ", " << display_resolution.height << std::endl;
+   std::cout << "CAMERA  RESOLUTION : " << camera_resolution.width << ", " << camera_resolution.height << std::endl;
+
     bool quit = false;
     char key = ' ';
     float current_fps = 0.0;
@@ -224,7 +227,7 @@ void ZedTracker::Shutdown() {
 int ZedTracker::OpenCamera() {
     logDebug << __func__;
     InitParameters init_parameters;
-    init_parameters.camera_resolution = RESOLUTION::HD720; //HD2K, HD1080, HD720, VGA
+    init_parameters.camera_resolution = RESOLUTION::HD1080; //HD2K, HD1080, HD720, VGA
     // On Jetson the object detection combined with an heavy depth mode could reduce the frame rate too much
     init_parameters.coordinate_units = UNIT::METER;
     init_parameters.depth_mode = DEPTH_MODE::PERFORMANCE;
@@ -254,7 +257,7 @@ int ZedTracker::EnableBodyTracking() {
     logDebug << __func__;
     // Set initialization parameters
     object_detection_parameters_.enable_tracking = true; // Objects will keep the same ID between frames
-    object_detection_parameters_.detection_model = DETECTION_MODEL::HUMAN_BODY_FAST;
+    object_detection_parameters_.detection_model = DETECTION_MODEL::HUMAN_BODY_ACCURATE;
     object_detection_parameters_.enable_body_fitting = true; // Fitting process is called, user have access to all available informations for a person processed by SDK
     object_detection_parameters_.body_format = BODY_FORMAT::POSE_34; // selects the 34 keypoints body model for SDK outputs
     // object_detection_parameters_.body_format = BODY_FORMAT::POSE_18; // selects the 34 keypoints body model for SDK outputs
