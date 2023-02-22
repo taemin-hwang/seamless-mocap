@@ -115,7 +115,7 @@ class ZedManager(camera_interface.CameraInterface):
             if len(body.keypoint_2d) > 0:
                 for part in SKELETON_BONES:
                     kp = body.keypoint_2d[part.value]
-                    kp_confidence = body.keypoint_confidence[part.value] / 100
+                    kp_confidence = body.keypoint_confidence[part.value] #/ 100
                     if np.isnan(kp_confidence):
                         kp_confidence = 0
                     annot['keypoints'].append([kp[0], kp[1], kp_confidence])
@@ -123,7 +123,7 @@ class ZedManager(camera_interface.CameraInterface):
             if len(body.bounding_box_2d) > 0:
                 bb_a = body.bounding_box_2d[0]
                 bb_b = body.bounding_box_2d[2]
-                bb_confidence = body.confidence / 100
+                bb_confidence = body.confidence #/ 100
                 annot['bbox'] = [bb_a[0], bb_a[1], bb_b[0], bb_b[1], bb_confidence]
             data['annots'].append(annot)
         return data
