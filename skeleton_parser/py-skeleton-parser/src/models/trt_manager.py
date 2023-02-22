@@ -145,12 +145,12 @@ class TrtManager(model_interface.ModelInterface):
                     if y > max_y: max_y = y
 
                     cvt_idx = self.convert_idx(j)
-                    annot['keypoints'][cvt_idx] = [x, y, 1.0]
+                    annot['keypoints'][cvt_idx] = [x, y, 100.0]
 
             # print(annot['keypoints'])
             annot['keypoints'] = annot['keypoints'].tolist()
 
-            annot['bbox'] = [min_x, min_y, max_x, max_y, 1.0]
+            annot['bbox'] = [min_x, min_y, max_x, max_y, 100.0]
             ret['annots'].append(annot)
 
             self.__fps = 1.0 / (time.time() - t)
