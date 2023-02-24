@@ -46,6 +46,7 @@ class RealsenseManager(camera_interface.CameraInterface):
         color_frame = frames.get_color_frame()
         # depth_image = np.asanyarray(depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
+        color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
         # self.__depth_map = depth_frame
         return color_image
 
