@@ -1,5 +1,5 @@
 from src.camera import camera_interface, camera_config
-from src.camera import zed_manager
+from src.camera import zed_manager, realsense_manager
 
 class CameraManager(camera_interface.CameraInterface):
     def __init__(self, args):
@@ -8,6 +8,12 @@ class CameraManager(camera_interface.CameraInterface):
 
         if self.__args.camera == "zed":
             self.__camera_manager = zed_manager.ZedManager(self.__args)
+        elif self.__args.camera == "realsense":
+            try:
+                import pyrealsense2 as rs
+                self.__camera_manager = realsense_manager.RealsenseManager(self.__args)
+            except ImportError:
+                print("Cannot import pyrealsense2")
 
     def initialize(self):
         self.__camera_manager.initialize()
