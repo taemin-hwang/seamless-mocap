@@ -29,7 +29,7 @@ if __name__ == "__main__":
     image_size = zed.get_camera_information().camera_resolution
 
     fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-    out = cv2.VideoWriter(filename, fourcc, 30.0, (int(image_size.width), int(image_size.height)))
+    out = cv2.VideoWriter(filename, fourcc, 10.0, (int(image_size.width), int(image_size.height)))
 
     print((image_size.width, image_size.height))
     image = sl.Mat()
