@@ -86,7 +86,8 @@ class Viewer2d:
                     if part is BODY_PARTS_POSE_25.LAST:
                         break
                     kp = keypoints[part.value]
-                    cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color, -1)
+                    if np.isnan(kp[0]) == False and np.isnan(kp[1]) == False:
+                        cv2.circle(display, (int(kp[0]), int(kp[1])), 10, color, -1)
 
         merged_display = self.merge_display()
 

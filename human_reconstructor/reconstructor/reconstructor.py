@@ -89,7 +89,7 @@ class Reconstructor:
                 if self.__frame_number >= self.__max_frame_number:
                     self.__frame_number = 0
                 # if self.__frame_number >= 1000:
-                # comm = input(str(self.__frame_number).zfill(6) + "> ")
+                #comm = input(str(self.__frame_number).zfill(6) + "> ")
                 self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
             else:
                 self.__update_skeleton_table()
@@ -207,7 +207,8 @@ class Reconstructor:
             data = self.__skeleton_mq.get()
             data = json.loads(data)
             self.__skeleton_manager.update_skeleton_table(data)
-            self.__skeleton_manager.show_skeleton_keypoint(data)
+            # self.__skeleton_manager.show_skeleton_keypoint(data) # TODO : REMOVE
+            # self.__skeleton_manager.show_skeleton_position()
 
         self.__skeleton_lk.release()
 

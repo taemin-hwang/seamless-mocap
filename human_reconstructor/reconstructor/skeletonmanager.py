@@ -93,7 +93,7 @@ class SkeletonManager:
 
     def show_skeleton_position(self):
         room_size = 10 # 10m x 10m
-        display = np.ones((600, 600, 3), np.uint8) * 255
+        display = np.ones((1200, 1200, 3), np.uint8) * 255
         draw_grid(display)
         for cam_id in range(1, self.__cam_num+1):
             for person_id in range(0, self.__person_num):
