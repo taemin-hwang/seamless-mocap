@@ -30,13 +30,17 @@ class SkeletonParser:
         while True:
             image = self.__camera_manager.get_image()
             (keypoint, fps) = self.__model_manager.get_keypoint(image)
-            depth_map = self.__camera_manager.get_depth_from_keypoint(keypoint)
-            if self.__args.visual:
-                self.__visual_manager.show_keypoint(image, keypoint, fps)
+            if keypoint != None:
+                depth_map = self.__camera_manager.get_depth_from_keypoint(keypoint)
+                color_map = self.__camera_manager.get_color_from_keypoint(image, keypoint)
+                if self.__args.visual:
+                    self.__visual_manager.show_keypoint(image, keypoint, fps)
+                else:
+                    logging.info("[FPS] {}".format(fps))
+                if self.__args.transfer:
+                    self.__transfer_manager.send_result(keypoint, depth_map, color_map)
             else:
-                logging.info("[FPS] {}".format(fps))
-            if self.__args.transfer:
-                self.__transfer_manager.send_result(keypoint, depth_map)
+                print("Skeleton not found")
 
     def shutdown(self):
         pass

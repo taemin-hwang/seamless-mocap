@@ -27,15 +27,16 @@ class TransferManager:
     def initialize(self):
         self.__socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
-    def send_result(self, keypoint, depth):
-        if keypoint == None or depth == None:
+    def send_result(self, keypoint, depth, color):
+        if keypoint == None:
             return
-        data = self.get_data_from_result(keypoint, depth)
+        data = self.get_data_from_result(keypoint, depth, color)
         logging.debug(data)
+        print(data)
         json_data = json.dumps(data, cls=NpEncoder)
         self.__socket.sendto(bytes(json_data, "utf-8"), (self.__addr, self.__port))
 
-    def get_data_from_result(self, keypoint, depth):
+    def get_data_from_result(self, keypoint, depth, color):
         data = {}
         data['id'] = self.__camid
         data['model'] = self.__args.model
@@ -44,15 +45,23 @@ class TransferManager:
 
         for kp in keypoint['annots']:
             annots = {}
-            kp_id = kp['personID']
-            for dp in depth['annots']:
-                dp_id = dp['personID']
-                if kp_id == dp_id:
-                    annots['personID'] = kp_id
-                    annots['keypoints'] = kp['keypoints']
-                    annots['bbox'] = kp['bbox']
-                    annots['position'] = dp['position']
-                    break
+            annots['personID'] = kp['personID']
+            annots['keypoints'] = kp['keypoints']
+            annots['bbox'] = kp['bbox']
+            kp_id = annots['personID']
+
+            if depth != None:
+                for dp in depth['annots']:
+                    dp_id = dp['personID']
+                    if kp_id == dp_id:
+                        annots['position'] = dp['position']
+                        break
+            if color != None:
+                for cp in color['annots']:
+                    cp_id = cp['personID']
+                    if kp_id == cp_id:
+                        annots['cloth'] = cp['cloth']
+                        break
             data['annots'].append(annots)
 
         return data
