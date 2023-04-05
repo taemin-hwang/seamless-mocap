@@ -89,7 +89,7 @@ class Reconstructor:
                 if self.__frame_number >= self.__max_frame_number:
                     self.__frame_number = 0
                 # if self.__frame_number >= 1000:
-                #comm = input(str(self.__frame_number).zfill(6) + "> ")
+                # comm = input(str(self.__frame_number).zfill(6) + "> ")
                 self.__skeleton_manager.read_skeleton_table(self.__frame_number, self.__args.log)
             else:
                 self.__update_skeleton_table()
@@ -97,8 +97,9 @@ class Reconstructor:
             self.__skeleton_manager.update_life_counter()
 
             # Make clusters
-            self.__cluster_manager.update_person_table(self.__skeleton_manager, self.__max_person_num)
+            # self.__cluster_manager.update_person_table_with_position(self.__skeleton_manager, self.__max_person_num)
             # self.__cluster_manager.update_person_table_with_hint(self.__tracking_manager.get_tracking_table(), self.__max_person_num)
+            self.__cluster_manager.update_person_table_with_cloth(self.__skeleton_manager, self.__max_person_num)
             self.__cluster_manager.show_cluster_result(self.__skeleton_manager, self.__frame_number)
 
             # Reconstruct 3D skeletons

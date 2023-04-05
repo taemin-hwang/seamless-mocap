@@ -4,6 +4,7 @@ import logging
 import cv2
 import copy
 
+from sklearn.cluster import AgglomerativeClustering
 from reconstructor.utils import postprocessor as post
 from visualizer import utils
 
@@ -40,7 +41,7 @@ class ClusterManager:
         self.__viewer.render_cluster_table(self.__person_num, self.__cluster_table, skeleton_manager)
 
         # Render Position
-        self.__viewer.render_position(self.__person_num, self.__cluster_table)
+        # self.__viewer.render_position(self.__person_num, self.__cluster_table)
 
     def is_cluster_valid(self, cluster_id):
         return self.__cluster_table[cluster_id]['is_valid']
@@ -64,17 +65,68 @@ class ClusterManager:
         if is_valid_cluster is True:
             logging.info(" ClusterManager: Save valid cluster table : {}".format(frame_number))
             self.__valid_cluster = copy.deepcopy(self.__cluster_table)
-            #print("Save valid cluster \n\n")
-            #print(self.__valid_cluster)
-            #print("\n\n")
 
-    def update_person_table(self, skeleton_manager, cluster_num):
+    def update_person_table_with_cloth(self, skeleton_manager, cluster_num):
         if self.__is_too_closed is True and self.__valid_cluster is not None:
             logging.info(" ClusterManager: Skip to update person table and reuse valid cluster table")
             self.reuse_valid_cluster(skeleton_manager)
             return
 
-        logging.info(" ClusterManager: Update person table")
+        logging.info(" ClusterManager: Update person table with cloth")
+        remove_cpid = []
+
+        cloth_idx = np.empty((0, 2))
+        cloth_arr = np.empty((0, 6))
+        for cid in range(1, self.__cam_num+1):
+            for pid in range(0, self.__person_num):
+                if skeleton_manager.is_skeleton_valid(cid, pid) == True:
+                    if (cid, pid) not in remove_cpid:
+                        cloth = skeleton_manager.get_cloth(cid, pid)
+                        cloth_arr = np.vstack((cloth_arr, np.hstack([cloth[0], cloth[1]]))) #upper, lower
+                        cloth_idx = np.vstack((cloth_idx, np.array([cid, pid])))
+
+        #print(cloth_arr)
+
+        if len(cloth_arr) > 0:
+            while True:
+                assign = self.__assign_cluster(cloth_idx, cloth_arr, self.__person_num)
+
+                if assign == None:
+                    break
+
+                val, num = np.unique(assign, return_counts=True)
+                std = np.std(num)
+
+                if std > 1:
+                    min_idx = np.argmin(num)
+                    remove_val = val[min_idx]
+                    remove_idx = np.where((assign == remove_val))
+                    for idx in remove_idx:
+                        remove_cid = cloth_idx[idx[0]][0]
+                        remove_pid = cloth_idx[idx[0]][1]
+                        remove_cpid.append((remove_cid, remove_pid))
+                else:
+                    for i, matched_id in enumerate(assign):
+                        logging.debug("[CLOTH] cam {}, person {} : {}".format(cloth_idx[i][0], cloth_idx[i][1], matched_id))
+                        self.__cluster_table[matched_id]['is_valid'] = True
+                        self.__cluster_table[matched_id]['cpid'].append(post.get_cpid(cloth_idx[i][0], cloth_idx[i][1])) # cam_id, person_id
+                    break
+
+    def __assign_cluster(self, cloth_idx, cloth_arr, person_num):
+        if len(cloth_arr) <= person_num:
+            return None
+        agg = AgglomerativeClustering(n_clusters=4)
+        assign = agg.fit_predict(cloth_arr)
+
+        return assign
+
+    def update_person_table_with_position(self, skeleton_manager, cluster_num):
+        if self.__is_too_closed is True and self.__valid_cluster is not None:
+            logging.info(" ClusterManager: Skip to update person table and reuse valid cluster table")
+            self.reuse_valid_cluster(skeleton_manager)
+            return
+
+        logging.info(" ClusterManager: Update person table with position")
         max_person_num = 0
         position_idx = np.empty((0, 2)) # cam_id, person_id
         position_arr = np.empty((0, 2)) # X, Y
@@ -183,7 +235,6 @@ class ClusterManager:
         return (avg_x, avg_y)
 
     def __get_cluster_arr(self, position_arr, position_idx, max_person_num):
-        from sklearn.cluster import AgglomerativeClustering
         num_of_modified = 0
         ret = []
 

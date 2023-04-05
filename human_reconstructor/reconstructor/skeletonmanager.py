@@ -22,6 +22,7 @@ class SkeletonManager:
             self.__skeleton_table = self.__get_initial_skeleton_table(calibration)
         self.__frame_buffer_keypoint = np.zeros((self.__cam_num+1, self.__person_num, self.__buffer_size, 25, 3))
         self.__frame_buffer_position = np.zeros((self.__cam_num+1, self.__person_num, self.__buffer_size, 6, 4))
+        self.__frame_buffer_cloth = np.zeros((self.__cam_num+1, self.__person_num, self.__buffer_size, 2, 3))
 
     def show_skeleton_keypoint(self, data):
         self.__viewer.render_2d(data)
@@ -37,6 +38,9 @@ class SkeletonManager:
 
     def get_position(self, cam_id, person_id):
         return self.__skeleton_table[cam_id][person_id]['position']
+
+    def get_cloth(self, cam_id, person_id):
+        return self.__skeleton_table[cam_id][person_id]['cloth']
 
     def reset_skeleton_table(self):
         for cam_id in range(1, self.__cam_num+1):
@@ -70,8 +74,13 @@ class SkeletonManager:
 
         for person_data in json_data['annots']:
             person_id = person_data['personID']
+
+            if 'position' not in person_data:
+                break
+
+            person_position = person_data['position']
             if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
-                logging.debug('Invalid data : {}, {}'.format(cam_id, person_id))
+                logging.warning('Invalid data : {}, {}'.format(cam_id, person_id))
                 continue
             is_overlapped = False
             for prev_bbox in bboxes:
@@ -82,8 +91,25 @@ class SkeletonManager:
                     logging.warning("Bounding boxes overlapped : {} and {} from camera {} ".format(prev_bbox, person_id, cam_id))
                     is_overlapped = True
             if is_overlapped is False:
-                self.__frame_buffer_position[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_position[cam_id][person_id], person_data['position'])
+                self.__frame_buffer_position[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_position[cam_id][person_id], person_position)
                 self.__skeleton_table[cam_id][person_id]['position'] = avg_position.tolist()
+
+        for person_data in json_data['annots']:
+            person_id = person_data['personID']
+
+            if 'cloth' not in person_data:
+                print("ERROR: CLOTH NOT FOUND")
+                break
+
+            person_cloth = person_data['cloth']
+            if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
+                logging.warning('Invalid data : {}, {}'.format(cam_id, person_id))
+                continue
+
+            self.__frame_buffer_cloth[cam_id][person_id], avg_cloth = pre.smooth_cloth(self.__frame_buffer_cloth[cam_id][person_id], person_cloth)
+            self.__skeleton_table[cam_id][person_id]['cloth'] = avg_cloth.tolist()
+
+            # print(self.__skeleton_table[cam_id][person_id]['cloth'])
 
     def read_skeleton_table(self, frame_number, log_dir):
         file_path = log_dir + str(frame_number).zfill(6) + ".json"
@@ -134,5 +160,6 @@ class SkeletonManager:
                 skeleton_table[cam_id][person_id]['is_valid'] = False
                 skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
                 skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
+                skeleton_table[cam_id][person_id]['cloth'] = np.zeros((2, 3)).tolist()
                 self.__life_counter[cam_id][person_id] = 0
         return skeleton_table

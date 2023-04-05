@@ -56,6 +56,27 @@ def smooth_position(frame_buffer_pos, position):
 
     return frame_buffer_pos, avg_position
 
+def smooth_cloth(frame_buffer_cloth, cloth):
+    cloth = np.array(cloth)
+    avg_cloth = np.zeros(cloth.shape)
+    # moving average
+    frame_buffer_cloth = np.roll(frame_buffer_cloth, -1, axis=0)
+    buffer_size = frame_buffer_cloth.shape[0]
+    frame_buffer_cloth[buffer_size-1] = cloth
+
+    for i in range(cloth.shape[0]):
+        parts = frame_buffer_cloth[:, i, :]
+        rdata = parts[:, 0]
+        gdata = parts[:, 1]
+        bdata = parts[:, 2]
+
+        r_avg = np.average(rdata)
+        g_avg = np.average(gdata)
+        b_avg = np.average(bdata)
+        avg_cloth[i] = [r_avg, g_avg, b_avg]
+
+    return frame_buffer_cloth, avg_cloth
+
 def is_bbox_overlapped(bbox1, bbox2):
     if bbox1[0] < bbox2[0] and bbox2[0] < bbox1[2] and bbox1[1] < bbox2[1] and bbox2[1] < bbox1[3]:
         return True
