@@ -85,13 +85,13 @@ class ClusterManager:
                         cloth_arr = np.vstack((cloth_arr, np.hstack([cloth[0], cloth[1]]))) #upper, lower
                         cloth_idx = np.vstack((cloth_idx, np.array([cid, pid])))
 
-        #print(cloth_arr)
+        #print(cloth_arr.shape)
 
         if len(cloth_arr) > 0:
             while True:
-                assign = self.__assign_cluster(cloth_idx, cloth_arr, self.__person_num)
+                assign = self.__assign_cluster(cloth_idx, cloth_arr, cluster_num)
 
-                if assign == None:
+                if assign is None:
                     break
 
                 val, num = np.unique(assign, return_counts=True)
@@ -107,15 +107,16 @@ class ClusterManager:
                         remove_cpid.append((remove_cid, remove_pid))
                 else:
                     for i, matched_id in enumerate(assign):
-                        logging.debug("[CLOTH] cam {}, person {} : {}".format(cloth_idx[i][0], cloth_idx[i][1], matched_id))
+                        logging.info("[CLOTH] cam {}, person {} : {}".format(int(cloth_idx[i][0]), int(cloth_idx[i][1]), int(matched_id)))
                         self.__cluster_table[matched_id]['is_valid'] = True
                         self.__cluster_table[matched_id]['cpid'].append(post.get_cpid(cloth_idx[i][0], cloth_idx[i][1])) # cam_id, person_id
                     break
 
     def __assign_cluster(self, cloth_idx, cloth_arr, person_num):
-        if len(cloth_arr) <= person_num:
+        if cloth_arr.shape[0] <= person_num:
+            logging.warning(" ClusterManager: Cannot make {} clusters with {} features".format(person_num, cloth_arr.shape[0]))
             return None
-        agg = AgglomerativeClustering(n_clusters=4)
+        agg = AgglomerativeClustering(n_clusters=person_num)
         assign = agg.fit_predict(cloth_arr)
 
         return assign
@@ -381,8 +382,9 @@ class ClusterManager:
                     avg_x += self.__cluster_table[cluster_id]['position'][j][0]
                     avg_y += self.__cluster_table[cluster_id]['position'][j][1]
                     cnt += 1
-                avg_x /= cnt
-                avg_y /= cnt
+                if cnt > 0:
+                    avg_x /= cnt
+                    avg_y /= cnt
                 self.__cluster_table[cluster_id]['prev_position']=(avg_x, avg_y)
             self.__cluster_table[cluster_id]['is_valid'] = False
             self.__cluster_table[cluster_id]['count'] = 0
