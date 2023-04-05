@@ -32,7 +32,7 @@ class TransferManager:
             return
         data = self.get_data_from_result(keypoint, depth, color)
         logging.debug(data)
-        print(data)
+        # print(data)
         json_data = json.dumps(data, cls=NpEncoder)
         self.__socket.sendto(bytes(json_data, "utf-8"), (self.__addr, self.__port))
 
