@@ -49,15 +49,14 @@ class CameraManager(camera_interface.CameraInterface):
         for body in bodies:
             annot = {}
             annot['personID'] = body['personID']
-            annot['cloth'] = []
             cloth_color = self.__get_color(image, body['keypoints'])
-            annot['cloth'].append([cloth_color[0], cloth_color[1]])
+            annot['cloth'] = [cloth_color[0], cloth_color[1]]
             data['annots'].append(annot)
 
         return data
 
     def __get_color(self, image, keypoint):
-        cloth_color = np.empty((2, 1, 3))
+        cloth_color = np.empty((2, 3))
         upper_rgb = self.__get_upper_rgb(image, keypoint, self.__num_sample)
         lower_rgb = self.__get_lower_rgb(image, keypoint, self.__num_sample)
 
@@ -105,7 +104,7 @@ class CameraManager(camera_interface.CameraInterface):
         return lower
 
     def __get_bone_rgb(self, image, part1, part2, num_sample):
-        print(image.shape)
+        # print(image.shape)
         rgb = np.zeros((num_sample, 3))
 
         x_diff = (part2[0]-part1[0])/num_sample
