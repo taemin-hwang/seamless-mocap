@@ -138,8 +138,8 @@ class SkeletonManager:
         ret = ret and (keypoint[BODY_PARTS_POSE_25.LEFT_HIP.value][2] > 0.2)
         ret = ret and (keypoint[BODY_PARTS_POSE_25.RIGHT_KNEE.value][2] > 0.2)
         ret = ret and (keypoint[BODY_PARTS_POSE_25.LEFT_KNEE.value][2] > 0.2)
-        ret = ret and (keypoint[BODY_PARTS_POSE_25.RIGHT_ANKLE.value][2] > 0.2)
-        ret = ret and (keypoint[BODY_PARTS_POSE_25.LEFT_ANKLE.value][2] > 0.2)
+        # ret = ret and (keypoint[BODY_PARTS_POSE_25.RIGHT_ANKLE.value][2] > 0.2)
+        # ret = ret and (keypoint[BODY_PARTS_POSE_25.LEFT_ANKLE.value][2] > 0.2)
         return ret
 
     def read_skeleton_table(self, frame_number, log_dir):
