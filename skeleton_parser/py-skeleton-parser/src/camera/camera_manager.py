@@ -101,11 +101,11 @@ class CameraManager(camera_interface.CameraInterface):
         right_ankle = person_keypoint[utils.BODY_PARTS.RIGHT_ANKLE.value]
 
         lower1 = self.__get_bone_rgb(image, left_hip, left_knee, num_sample)
-        lower2 = self.__get_bone_rgb(image, left_knee, left_ankle, num_sample)
+        #lower2 = self.__get_bone_rgb(image, left_knee, left_ankle, num_sample)
         lower3 = self.__get_bone_rgb(image, right_hip, right_knee, num_sample)
-        lower4 = self.__get_bone_rgb(image, right_knee, right_ankle, num_sample)
+        #lower4 = self.__get_bone_rgb(image, right_knee, right_ankle, num_sample)
 
-        lower = np.vstack((lower1, lower2, lower3, lower4))
+        lower = np.vstack((lower1, lower1, lower3, lower3))
         return lower
 
     def __get_bone_rgb(self, image, part1, part2, num_sample):
