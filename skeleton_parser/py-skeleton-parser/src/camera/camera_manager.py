@@ -63,6 +63,11 @@ class CameraManager(camera_interface.CameraInterface):
         upper_key_rgb, num_upper = self.__get_keyrgb(upper_rgb)
         lower_key_rgb, num_lower = self.__get_keyrgb(lower_rgb)
 
+        if np.array_equal(lower_key_rgb, np.array([255, 0, 0])):
+            lower_key_rgb = upper_key_rgb
+        elif np.array_equal(upper_key_rgb, np.array([255, 0, 0])):
+            upper_key_rgb = lower_key_rgb
+
         cloth_color[0] = upper_key_rgb
         cloth_color[1] = lower_key_rgb
 
