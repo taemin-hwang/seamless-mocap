@@ -53,6 +53,13 @@ class SkeletonManager:
 
     def update_skeleton_table(self, json_data):
         logging.info(" SkeletonManager: Update skeleton table")
+
+        bboxes = self.__update_keypoint(json_data)
+        self.__update_position(json_data, bboxes)
+        self.__update_cloth(json_data)
+        self.__update_validation(json_data)
+
+    def __update_keypoint(self, json_data):
         bboxes = {}
         cam_id = json_data['id']
         for person_data in json_data['annots']:
@@ -69,9 +76,12 @@ class SkeletonManager:
                 keypoints_18 = np.array(person_data['keypoints'])
                 keypoints_25 = utils.convert_25_from_18(keypoints_18)
             self.__frame_buffer_keypoint[cam_id][person_id], avg_keypoints_25 = pre.smooth_2d_pose(self.__frame_buffer_keypoint[cam_id][person_id], keypoints_25)
-            self.__skeleton_table[cam_id][person_id]['is_valid'] = True
+            # self.__skeleton_table[cam_id][person_id]['is_valid'] = True
             self.__skeleton_table[cam_id][person_id]['keypoint'] = avg_keypoints_25.tolist()
+        return bboxes
 
+    def __update_position(self, json_data, bboxes):
+        cam_id = json_data['id']
         for person_data in json_data['annots']:
             person_id = person_data['personID']
 
@@ -94,6 +104,8 @@ class SkeletonManager:
                 self.__frame_buffer_position[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_position[cam_id][person_id], person_position)
                 self.__skeleton_table[cam_id][person_id]['position'] = avg_position.tolist()
 
+    def __update_cloth(self, json_data):
+        cam_id = json_data['id']
         for person_data in json_data['annots']:
             person_id = person_data['personID']
 
@@ -109,7 +121,26 @@ class SkeletonManager:
             self.__frame_buffer_cloth[cam_id][person_id], avg_cloth = pre.smooth_cloth(self.__frame_buffer_cloth[cam_id][person_id], person_cloth)
             self.__skeleton_table[cam_id][person_id]['cloth'] = avg_cloth.tolist()
 
-            # print(self.__skeleton_table[cam_id][person_id]['cloth'])
+    def __update_validation(self, json_data):
+        cam_id = json_data['id']
+        for person_data in json_data['annots']:
+            person_id = person_data['personID']
+            keypoint = self.__skeleton_table[cam_id][person_id]['keypoint']
+
+            is_valid = self.__is_valid(keypoint)
+            self.__skeleton_table[cam_id][person_id]['is_valid'] = is_valid
+
+    def __is_valid(self, keypoint):
+        ret = True
+        ret = ret and (keypoint[BODY_PARTS_POSE_25.RIGHT_SHOULDER.value][2] > 0.2)
+        ret = ret and (keypoint[BODY_PARTS_POSE_25.LEFT_SHOULDER.value][2] > 0.2)
+        ret = ret and (keypoint[BODY_PARTS_POSE_25.RIGHT_HIP.value][2] > 0.2)
+        ret = ret and (keypoint[BODY_PARTS_POSE_25.LEFT_HIP.value][2] > 0.2)
+        ret = ret and (keypoint[BODY_PARTS_POSE_25.RIGHT_KNEE.value][2] > 0.2)
+        ret = ret and (keypoint[BODY_PARTS_POSE_25.LEFT_KNEE.value][2] > 0.2)
+        ret = ret and (keypoint[BODY_PARTS_POSE_25.RIGHT_ANKLE.value][2] > 0.2)
+        ret = ret and (keypoint[BODY_PARTS_POSE_25.LEFT_ANKLE.value][2] > 0.2)
+        return ret
 
     def read_skeleton_table(self, frame_number, log_dir):
         file_path = log_dir + str(frame_number).zfill(6) + ".json"
