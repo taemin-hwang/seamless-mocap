@@ -17,6 +17,12 @@ class Viewer2d:
         self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
         self.frame_num = 0
         self.__args = args
+        self.__markers = [
+            "cv2.MARKER_TILTED_CROSS",
+            "cv2.MARKER_SQUARE",
+            "cv2.MARKER_TRIANGLE_UP",
+            "cv2.MARKER_TRIANGLE_DOWN",
+        ]
 
     def initialize(self, cam_num):
         self.display_num = cam_num
@@ -47,12 +53,6 @@ class Viewer2d:
     def render_cluster_table(self, person_num, cluster_table, skeleton_manager):
         if self.__args.log:
             pass
-        # else:
-        #     if self.frame_num % 40 == 0:
-        #         self.frame_num = 1
-        #     else:
-        #         self.frame_num += 1
-        #         return
 
         self.display_list = np.zeros((self.display_num, self.height, self.width, 3), np.uint8)
         for idx in range(person_num):
@@ -115,6 +115,31 @@ class Viewer2d:
                 cv2.putText(display, "({}, {})".format(int(post.get_cam_id(cpid)), int(post.get_person_id(cpid))), (int(x), int(y)+10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2   )
 
         cv2.imshow("Position", display)
+        cv2.waitKey(1)
+
+    def render_cloth_color(self, person_num, cluster_table, skeleton_manager):
+        ratio = 2
+        display = np.ones((255 * ratio, 255 * ratio, 3), np.uint8) * 255
+        draw_grid(display)
+        for cluster_id in range(0, person_num):
+            if cluster_table[cluster_id]['is_valid'] is False:
+                continue
+
+            for i in range(cluster_table[cluster_id]['count']):
+                cpid = cluster_table[cluster_id]['cpid'][i]
+                cid = int(post.get_cam_id(cpid))
+                pid = int(post.get_person_id(cpid))
+
+                cloth_color = skeleton_manager.get_cloth(cid, pid)
+                upper_color = cloth_color[0]
+
+                x = int(upper_color[0]) * ratio
+                y = int(upper_color[1]) * ratio
+
+                cv2.drawMarker(display, (x, y), upper_color, eval(self.__markers[cluster_id % len(self.__markers)]), 10, 3)
+                cv2.putText(display, "({}, {})".format(int(cid), int(pid)), (x, y+10), cv2.FONT_HERSHEY_SIMPLEX, 1, upper_color, 2)
+
+        cv2.imshow("Color", display)
         cv2.waitKey(1)
 
     def render_2d(self, data):

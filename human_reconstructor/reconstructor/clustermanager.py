@@ -42,6 +42,8 @@ class ClusterManager:
 
         # Render Position
         # self.__viewer.render_position(self.__person_num, self.__cluster_table)
+        self.__viewer.render_cloth_color(self.__person_num, self.__cluster_table, skeleton_manager)
+
 
     def is_cluster_valid(self, cluster_id):
         return self.__cluster_table[cluster_id]['is_valid']
