@@ -78,12 +78,23 @@ def smooth_cloth(frame_buffer_cloth, cloth):
     return frame_buffer_cloth, avg_cloth
 
 def is_bbox_overlapped(bbox1, bbox2):
-    if bbox1[0] < bbox2[0] and bbox2[0] < bbox1[2] and bbox1[1] < bbox2[1] and bbox2[1] < bbox1[3]:
-        return True
-    elif bbox1[0] < bbox2[2] and bbox2[2] < bbox1[2] and bbox1[1] < bbox2[3] and bbox2[3] < bbox1[3]:
-        return True
-    else:
+    """
+    Check if two bounding boxes are overlapped or not
+    :param bbox1: list of [x1, y1, x2, y2], coordinates of the first bbox
+    :param bbox2: list of [x1, y1, x2, y2], coordinates of the second bbox
+    :return: True if two bounding boxes are overlapped, False otherwise
+    """
+    if bbox1[0] > bbox2[2] or bbox2[0] > bbox1[2]:
+        # If the left coordinate of bbox1 is greater than the right coordinate of bbox2 or
+        # the left coordinate of bbox2 is greater than the right coordinate of bbox1,
+        # then the two bounding boxes are not overlapped
         return False
+    if bbox1[1] > bbox2[3] or bbox2[1] > bbox1[3]:
+        # If the top coordinate of bbox1 is greater than the bottom coordinate of bbox2 or
+        # the top coordinate of bbox2 is greater than the bottom coordinate of bbox1,
+        # then the two bounding boxes are not overlapped
+        return False
+    return True
 
 def reverse_skeleton(keypoints3d):
     swap_skeleton(2, 5, keypoints3d)

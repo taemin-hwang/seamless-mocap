@@ -130,7 +130,11 @@ class ClusterManager:
             logging.warning(" ClusterManager: Cannot make {} clusters with {} features".format(person_num, cloth_arr.shape[0]))
             return None
         agg = AgglomerativeClustering(n_clusters=person_num)
-        assign = agg.fit_predict(cloth_arr)
+
+        if self.__args.cloth == 'upper':
+            assign = agg.fit_predict(cloth_arr[:, :3])
+        else:
+            assign = agg.fit_predict(cloth_arr)
 
         return assign
 

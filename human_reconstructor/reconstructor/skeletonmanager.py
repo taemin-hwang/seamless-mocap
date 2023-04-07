@@ -56,7 +56,7 @@ class SkeletonManager:
 
         bboxes = self.__update_keypoint(json_data)
         self.__update_position(json_data, bboxes)
-        self.__update_cloth(json_data)
+        self.__update_cloth(json_data, bboxes)
         self.__update_validation(json_data)
 
     def __update_keypoint(self, json_data):
@@ -65,7 +65,9 @@ class SkeletonManager:
         for person_data in json_data['annots']:
             person_id = person_data['personID']
             bbox = person_data['bbox']
+
             bboxes[person_id] = np.array(bbox)
+            self.__skeleton_table[cam_id][person_id]['keypoint'] = bbox
             if cam_id < 0 or cam_id > self.__cam_num or person_id < 0 or person_id >= self.__person_num:
                 logging.debug('Invalid data : {}, {}'.format(cam_id, person_id))
                 continue
@@ -97,14 +99,15 @@ class SkeletonManager:
                 if prev_bbox == person_id:
                     continue
                 if pre.is_bbox_overlapped(bboxes[prev_bbox], bboxes[person_id]):
-                    self.__skeleton_table[cam_id][person_id]['position'] = self.__frame_buffer_position[cam_id][person_id][self.__buffer_size-1].tolist()
                     logging.warning("Bounding boxes overlapped : {} and {} from camera {} ".format(prev_bbox, person_id, cam_id))
                     is_overlapped = True
             if is_overlapped is False:
                 self.__frame_buffer_position[cam_id][person_id], avg_position = pre.smooth_position(self.__frame_buffer_position[cam_id][person_id], person_position)
                 self.__skeleton_table[cam_id][person_id]['position'] = avg_position.tolist()
+            else:
+                self.__skeleton_table[cam_id][person_id]['position'] = self.__frame_buffer_position[cam_id][person_id][self.__buffer_size-1].tolist()
 
-    def __update_cloth(self, json_data):
+    def __update_cloth(self, json_data, bboxes):
         cam_id = json_data['id']
         for person_data in json_data['annots']:
             person_id = person_data['personID']
@@ -118,8 +121,17 @@ class SkeletonManager:
                 logging.warning('Invalid data : {}, {}'.format(cam_id, person_id))
                 continue
 
-            self.__frame_buffer_cloth[cam_id][person_id], avg_cloth = pre.smooth_cloth(self.__frame_buffer_cloth[cam_id][person_id], person_cloth)
-            self.__skeleton_table[cam_id][person_id]['cloth'] = avg_cloth.tolist()
+            is_overlapped = False
+            for prev_bbox in bboxes:
+                if prev_bbox == person_id:
+                    continue
+                if pre.is_bbox_overlapped(bboxes[prev_bbox], bboxes[person_id]):
+                    logging.warning("Bounding boxes overlapped : {} and {} from camera {} ".format(prev_bbox, person_id, cam_id))
+                    self.__skeleton_table[cam_id][person_id]['cloth'] = self.__frame_buffer_cloth[cam_id][person_id][self.__buffer_size-1].tolist()
+                    is_overlapped = True
+            if is_overlapped is False:
+                self.__frame_buffer_cloth[cam_id][person_id], avg_cloth = pre.smooth_cloth(self.__frame_buffer_cloth[cam_id][person_id], person_cloth)
+                self.__skeleton_table[cam_id][person_id]['cloth'] = avg_cloth.tolist()
 
     def __update_validation(self, json_data):
         cam_id = json_data['id']
@@ -189,6 +201,7 @@ class SkeletonManager:
             for person_id in range(0, self.__person_num):
                 skeleton_table[cam_id][person_id] = {}
                 skeleton_table[cam_id][person_id]['is_valid'] = False
+                skeleton_table[cam_id][person_id]['bbox'] = np.zeros((2, 2)).tolist()
                 skeleton_table[cam_id][person_id]['keypoint'] = np.zeros((25, 3)).tolist()
                 skeleton_table[cam_id][person_id]['position'] = np.zeros((6, 4)).tolist()
                 skeleton_table[cam_id][person_id]['cloth'] = np.zeros((2, 3)).tolist()
