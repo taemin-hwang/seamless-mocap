@@ -74,6 +74,11 @@ class ClusterManager:
             self.reuse_valid_cluster(skeleton_manager)
             return
 
+        self.__assign_cluster_with_cloth(skeleton_manager, cluster_num)
+        # for matched_id in range(cluster_num):
+        #     self.__check_consistency_of_cluster(skeleton_manager, matched_id)
+
+    def __assign_cluster_with_cloth(self, skeleton_manager, cluster_num):
         remove_cpid = []
         #print(cloth_arr.shape)
 
@@ -101,7 +106,7 @@ class ClusterManager:
                 break
 
             logging.info(" ClusterManager: Try to make {} clusters with {} clothes".format(cluster_num, cloth_arr.shape[0]))
-            assign = self.__assign_cluster(cloth_idx, cloth_arr, max_person_num)
+            assign = self.__apply_agglomerative_clustering(cloth_idx, cloth_arr, max_person_num)
 
             if assign is None:
                 break
@@ -125,7 +130,7 @@ class ClusterManager:
                     self.__cluster_table[matched_id]['cpid'].append(post.get_cpid(cloth_idx[i][0], cloth_idx[i][1])) # cam_id, person_id
                 break
 
-    def __assign_cluster(self, cloth_idx, cloth_arr, person_num):
+    def __apply_agglomerative_clustering(self, cloth_idx, cloth_arr, person_num):
         if cloth_arr.shape[0] <= person_num:
             logging.warning(" ClusterManager: Cannot make {} clusters with {} features".format(person_num, cloth_arr.shape[0]))
             return None
@@ -137,6 +142,118 @@ class ClusterManager:
             assign = agg.fit_predict(cloth_arr)
 
         return assign
+
+    def __check_consistency_of_cluster(self, skeleton_manager, matched_id):
+        if self.__cluster_table[matched_id]['is_valid'] is False:
+            return
+
+        max_cam = 0
+        max_person = 0
+        cpids = []
+        for i in range(self.__cluster_table[matched_id]['count']):
+            cpid = self.__cluster_table[matched_id]['cpid'][i]
+            cid = post.get_cam_id(cpid)
+            pid = post.get_person_id(cpid)
+
+            cpids.append(cpid)
+            if cid >= max_cam:
+                max_cam = cid
+            if pid >= max_person:
+                max_person = pid
+
+        color_map = {}
+        for cpid in cpids:
+            cid = post.get_cam_id(cpid)
+            pid = post.get_person_id(cpid)
+            color = skeleton_manager.get_cloth(cid, pid)
+            color_map[cpid] = color
+
+        cpids = np.array(cpids)
+        np.sort(cpids)
+        print("[PREV] ", cpids)
+
+        consistent_cluster, _, _ = self.__get_minimum_cluster(-1, -1, cpids, color_map, 0)
+        consistent_cluster = np.array(consistent_cluster)
+
+        print("CONSISTENT CLUSTER")
+        for i in range(consistent_cluster.shape[0]):
+            cpid = consistent_cluster[i]
+            cid = post.get_cam_id(cpid)
+            pid = post.get_person_id(cpid)
+            print("[{}] ({}, {})".format(matched_id, cid, pid))
+
+        for cpid in self.__cluster_table[matched_id]['cpid']:
+            if cpid not in consistent_cluster:
+                self.__cluster_table[matched_id]['cpid'].remove(cpid)
+                self.__cluster_table[matched_id]['count'] -= 1
+
+    def __get_minimum_cluster(self, start_cpid, prev_cpid, cpids, color_map, depth):
+        ret_cpid = []
+        tmp_cpid = []
+        max_depth = 0
+        tmp_depth = 0
+        min_dist = np.inf
+        tmp_dist = np.inf
+
+        #print("[{}] CALL MINIMUM CLUSTER ({}) and ({})".format(depth, start_cpid, prev_cpid))
+
+        if start_cpid == -1 and prev_cpid == -1:
+            for cpid in cpids:
+                tmp_cpid, tmp_depth, tmp_dist = self.__get_minimum_cluster(cpid, cpid, cpids, color_map, depth+1)
+                if max_depth < len(tmp_cpid):
+                    max_depth = len(tmp_cpid)
+                    ret_cpid = tmp_cpid
+                elif max_depth == len(tmp_cpid):
+                    if min_dist > tmp_dist:
+                        min_dist = tmp_dist
+                        ret_cpid = tmp_cpid
+        else:
+            start_cid = post.get_cam_id(start_cpid)
+            start_pid = post.get_person_id(start_cpid)
+
+            prev_cid = post.get_cam_id(prev_cpid)
+            prev_pid = post.get_person_id(prev_cpid)
+
+            if prev_cid == start_cid and prev_pid == start_pid and depth > 1:
+                # print("EXIT")
+                return [], depth, 0
+
+            for cpid in cpids:
+                cid = post.get_cam_id(cpid)
+                pid = post.get_person_id(cpid)
+
+                if prev_cpid == cpid:
+                    continue
+
+                # print("[{}] TRY TO MATCH ({}, {}) and ({}, {})".format(depth, prev_cid, prev_pid, cid ,pid))
+
+                if cid <= prev_cid:
+                    cpid = start_cpid
+                    tmp_cpid, tmp_depth, tmp_dist = self.__get_minimum_cluster(start_cpid, start_cpid, cpids, color_map, depth+1)
+                else:
+                    tmp_cpid, tmp_depth, tmp_dist = self.__get_minimum_cluster(start_cpid, cpid, cpids, color_map, depth+1)
+
+                tmp_cpid.append(cpid)
+                tmp_depth += 1
+                tmp_dist += self.__get_diff_between_color(color_map[prev_cpid], color_map[cpid])
+
+                # print("RET ", tmp_cpid)
+
+                if max_depth < len(tmp_cpid):
+                    max_depth = len(tmp_cpid)
+                    ret_cpid = tmp_cpid
+                elif max_depth == len(tmp_cpid):
+                    if min_dist > tmp_dist:
+                        min_dist = tmp_dist
+                        ret_cpid = tmp_cpid
+
+        # print("FIN RET : {} SIZE ({})".format(ret_cpid, len(ret_cpid)))
+        return ret_cpid, max_depth, min_dist
+
+    def __get_diff_between_color(self, color1, color2):
+        color1 = np.array(color1)
+        color2 = np.array(color2)
+        return np.linalg.norm(color1 - color2)
 
     def update_person_table_with_position(self, skeleton_manager, cluster_num):
         if self.__is_too_closed is True and self.__valid_cluster is not None:
