@@ -58,14 +58,14 @@ class ZedTracker {
     int OpenCamera();
     int EnablePositionalTracking();
     int EnableBodyTracking();
-    std::vector<std::vector<float>> GetDepthKeypoint(sl::ObjectData obj, sl::Mat depth_map, sl::Resolution display_resolution);
+    std::vector<std::vector<float>> GetDepthKeypoint(sl::BodyData obj, sl::Mat depth_map, sl::Resolution display_resolution);
     std::tuple<cv::Mat, sl::float2> GetImageConfiguration();
     void Print(std::string msg_prefix, sl::ERROR_CODE err_code, std::string msg_suffix);
     template<typename T>
     inline cv::Point2f cvt(T pt, sl::float2 scale) {
        return cv::Point2f(pt.x * scale.x, pt.y * scale.y);
     }
-    inline bool renderObject(const sl::ObjectData& i, const bool isTrackingON) {
+    inline bool renderObject(const sl::BodyData& i, const bool isTrackingON) {
         if (isTrackingON)
             return (i.tracking_state == sl::OBJECT_TRACKING_STATE::OK);
         else
@@ -95,7 +95,7 @@ class ZedTracker {
      }
 
     inline void SetLengthWithBodyFormat(seamless::PersonKeypoints& person_keypoints, seamless::PersonKeypointsWithConfidence& person_keypoints_with_confidence, sl::BODY_FORMAT body_format){
-       if(body_format == sl::BODY_FORMAT::POSE_18) {
+       if(body_format == sl::BODY_FORMAT::BODY_18) {
           person_keypoints.resize(18);
           person_keypoints_with_confidence.resize(18);
        } else {
@@ -172,8 +172,10 @@ class ZedTracker {
     sl::InitParameters init_parameters_;
     sl::RuntimeParameters runtime_parameters_;
     sl::PositionalTrackingParameters positional_tracking_parameters_;
-    sl::ObjectDetectionParameters object_detection_parameters_;
-    sl::ObjectDetectionRuntimeParameters object_detection_runtime_parameters_;
+    //sl::ObjectDetectionParameters object_detection_parameters_;
+    //sl::ObjectDetectionRuntimeParameters object_detection_runtime_parameters_;
+    sl::BodyTrackingParameters object_detection_parameters_;
+    sl::BodyTrackingRuntimeParameters object_detection_runtime_parameters_;
     bool is_playback_ = false;
     float fx_ = 0.0;
     float fy_ = 0.0;

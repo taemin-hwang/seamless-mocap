@@ -60,12 +60,15 @@ void ZedTracker::Initialize() {
 void ZedTracker::Run() {
     logDebug << __func__;
     // Create ZED Objects filled in the main loop
-    Objects bodies;
+    //Objects bodies;
+    Bodies bodies;
+
     // grab runtime parameters
     RuntimeParameters runtime_parameters;
     runtime_parameters.measure3D_reference_frame = sl::REFERENCE_FRAME::WORLD;
 
-    sl::CameraParameters left_calibration = zed_.getCameraInformation().calibration_parameters.left_cam;
+    //sl::CameraParameters left_calibration = zed_.getCameraInformation().calibration_parameters.left_cam;
+    sl::CameraParameters left_calibration = zed_.getCameraInformation().camera_configuration.calibration_parameters.left_cam;
     fx_ = left_calibration.fx;
     fy_ = left_calibration.fy;
     cx_ = left_calibration.cx;
@@ -105,16 +108,16 @@ void ZedTracker::Run() {
         if (zed_.grab() == ERROR_CODE::SUCCESS) {
             zed_.retrieveImage(image_zed, sl::VIEW::LEFT, sl::MEM::CPU, display_resolution);
             zed_.retrieveMeasure(depth_map, sl::MEASURE::DEPTH, sl::MEM::CPU, display_resolution);
-            zed_.retrieveObjects(bodies, object_detection_runtime_parameters_);
+            zed_.retrieveBodies(bodies, object_detection_runtime_parameters_);
             image_timestamp = zed_.getTimestamp(TIME_REFERENCE::IMAGE);
             timestamp_ms = image_timestamp.getMilliseconds();
 
             // Set vector size with number of people
-            SetLengthWithNumberOfPeople(people_keypoints, people_keypoints_with_confidence, people_bound_box, bodies.object_list.size());
+            SetLengthWithNumberOfPeople(people_keypoints, people_keypoints_with_confidence, people_bound_box, bodies.body_list.size());
 
             person_id = 0;
-            for (auto i = bodies.object_list.rbegin(); i != bodies.object_list.rend(); ++i) {
-                sl::ObjectData& obj = (*i);
+            for (auto i = bodies.body_list.rbegin(); i != bodies.body_list.rend(); ++i) {
+                sl::BodyData& obj = (*i);
                 if (renderObject(obj, is_tracking_on)) {
                     SetBoundingBox(person_bound_box, obj.bounding_box_2d, image_scale, obj.confidence);// set bounding box
                     SetKeypointPosition(person_keypoints, person_keypoints_with_confidence, obj.keypoint_2d, image_scale);// set skeleton joints
@@ -138,10 +141,10 @@ void ZedTracker::Run() {
 
         }
     }
-    bodies.object_list.clear();
+    bodies.body_list.clear();
 }
 
-std::vector<std::vector<float>> ZedTracker::GetDepthKeypoint(sl::ObjectData obj, sl::Mat depth_map, sl::Resolution display_resolution) {
+std::vector<std::vector<float>> ZedTracker::GetDepthKeypoint(sl::BodyData obj, sl::Mat depth_map, sl::Resolution display_resolution) {
     std::vector<std::vector<float>> ret;
     std::vector<int> idx = {0, 1, 2, 5, 8, 11}; //Nose, Neck, R-Shoulder, L-Shoulder, R-Pelvis, L-Pelvis
     ret.resize(idx.size());
@@ -257,15 +260,16 @@ int ZedTracker::EnableBodyTracking() {
     logDebug << __func__;
     // Set initialization parameters
     object_detection_parameters_.enable_tracking = true; // Objects will keep the same ID between frames
-    object_detection_parameters_.detection_model = DETECTION_MODEL::HUMAN_BODY_MEDIUM;
+    object_detection_parameters_.detection_model = BODY_TRACKING_MODEL::HUMAN_BODY_MEDIUM;
     object_detection_parameters_.enable_body_fitting = true; // Fitting process is called, user have access to all available informations for a person processed by SDK
-    object_detection_parameters_.body_format = BODY_FORMAT::POSE_34; // selects the 34 keypoints body model for SDK outputs
-    // object_detection_parameters_.body_format = BODY_FORMAT::POSE_18; // selects the 34 keypoints body model for SDK outputs
+    object_detection_parameters_.body_format = BODY_FORMAT::BODY_34; // selects the 34 keypoints body model for SDK outputs
+    // object_detection_parameters_.body_format = BODY_FORMAT::BODY_18; // selects the 34 keypoints body model for SDK outputs
 
     // Set runtime parameters
     object_detection_runtime_parameters_.detection_confidence_threshold = 10;
 
-    auto returned_state = zed_.enableObjectDetection(object_detection_parameters_);
+    //auto returned_state = zed_.enableObjectDetection(object_detection_parameters_);
+    auto returned_state = zed_.enableBodyTracking(object_detection_parameters_);
     if (returned_state != ERROR_CODE::SUCCESS) {
         Print("enable Object Detection", returned_state, "\nExit program.");
         zed_.close();
